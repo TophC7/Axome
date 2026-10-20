@@ -180,7 +180,7 @@ export function createSession(providerId: string, label: string): void {
     notify.error(`${label} unavailable`, `Connect the ${label} provider in Settings first.`)
     return
   }
-  startSession(folderPath, providerId, `${label} session`)
+  startSession(folderPath, providerId)
 }
 
 export function newTerminalSession(): void {

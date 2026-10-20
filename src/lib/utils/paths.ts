@@ -86,8 +86,3 @@ export function parentPath(path: string): string {
   const home = homePrefix(parent)
   return home ? '~' + parent.slice(home.length) : parent
 }
-
-/** Last three path components joined with › for the status-bar breadcrumb. */
-export function folderCrumbs(path: string): string {
-  return normalizeSlashes(path).split('/').filter(Boolean).slice(-3).join(' › ')
-}

@@ -1,8 +1,8 @@
 <!--
   @component
   TitleTabStrip — the single global tab list in the title bar. Tabs from
-  every folder sit side by side; the active one drives the sidebar and
-  status bar. Click to activate, middle-click to close, drag to reorder.
+  every folder sit side by side; the active one drives the sidebar.
+  Click to activate, middle-click to close, drag to reorder.
 -->
 
 <script lang="ts">

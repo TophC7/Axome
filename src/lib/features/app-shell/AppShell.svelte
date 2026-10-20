@@ -22,7 +22,6 @@
     getUiFontFamily
   } from '$lib/features/settings/state/typography.svelte'
   import { applyTerminalFont } from '$lib/features/sessions/terminal/xterm'
-  import StatusBar from '$lib/features/app-shell/status/StatusBar.svelte'
   import TitleBar from '$lib/features/app-shell/titlebar/TitleBar.svelte'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { initWindowControls } from '$lib/features/app-shell/window-controls/state.svelte'
@@ -31,12 +30,22 @@
   import { setupGlobalShortcuts } from '$lib/features/command-palette/shortcuts/keybindings.svelte'
   import { initProjectSchemas } from '$lib/features/project-config/bootstrap'
   import { confirmDiscardDirtyText } from '$lib/features/workbench/surfaces/text/service.svelte'
-  import { flushWorkbench, getActiveSessionTabId, requestFocusTab } from '$lib/features/workbench/state.svelte'
+  import {
+    flushWorkbench,
+    getActiveFolderPath,
+    getActiveSessionTabId,
+    requestFocusTab
+  } from '$lib/features/workbench/state.svelte'
+  import { notify } from '$lib/features/notifications/state.svelte'
+  import {
+    ensureSettingsDiagnosticsListener,
+    refreshSettingsDiagnostics
+  } from '$lib/features/settings/state/diagnostics.svelte'
   import { initTransferService } from '$lib/features/workbench/transferService.svelte'
   import type { Snippet } from 'svelte'
   import { initDeepLinks } from '$lib/features/remotes/deepLink.svelte'
 
-  let { children, connectionStatus }: { children: Snippet; connectionStatus?: Snippet } = $props()
+  let { children }: { children: Snippet } = $props()
 
   // Keep xterm's textarea focus aligned with the active session.
   //
@@ -79,6 +88,22 @@
   })
 
   $effect(() => void applyTerminalFont(getTerminalFontFamily(), getTerminalFontSize()))
+
+  // Settings diagnostics are app-global: the rail's Settings menu shows them
+  // with or without a folder open. Re-read whenever the active folder changes.
+  $effect(() => {
+    ensureSettingsDiagnosticsListener()
+    const requestedFolderPath = getActiveFolderPath()
+    let disposed = false
+    void refreshSettingsDiagnostics(requestedFolderPath ?? undefined).catch((error) => {
+      if (!disposed && requestedFolderPath === getActiveFolderPath()) {
+        notify.error('Failed to load settings diagnostics', getErrorMessage(error))
+      }
+    })
+    return () => {
+      disposed = true
+    }
+  })
 
   onMount(() => {
     const native = platform.native
@@ -161,8 +186,6 @@
     <main class="flex min-h-0 flex-1 flex-col overflow-hidden">
       {@render children()}
     </main>
-
-    <StatusBar {connectionStatus} />
   </div>
 
   <!-- Dialogs and overlays live under the same Tooltip.Provider as the

@@ -2,7 +2,8 @@ import { backend } from '$lib/api/backend'
 import { notify } from '$lib/features/notifications/state.svelte'
 import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
 import type { TerminalSessionManager } from '$lib/features/sessions/terminal/TerminalSessionManager'
-import type { SessionTab, TabId } from '$lib/features/workbench/model'
+import { providerById } from '$lib/features/sessions/providers/catalog'
+import { isProcessLive, type SessionTab, type TabId } from '$lib/features/workbench/model'
 import {
   addSessionTab,
   clearSessionTabResumeToken,
@@ -17,8 +18,16 @@ import {
  * SessionSurface spawns the process; nothing is persisted beyond the
  * tab itself.
  */
-export function startSession(folderPath: string, providerId: string, title: string): TabId {
+export function startSession(folderPath: string, providerId: string): TabId {
+  const title = providerId === 'terminal' ? 'Terminal' : `${providerById[providerId]?.label ?? providerId} session`
   return addSessionTab(folderPath, { providerId, title, resumeToken: null })
+}
+
+/** Live agent sessions (terminals excluded) in `folderPath`; above one, they share its working tree. */
+export function countLiveAgents(folderPath: string): number {
+  return getTabs().filter(
+    (t) => t.kind === 'session' && t.folderPath === folderPath && t.providerId !== 'terminal' && isProcessLive(t.status)
+  ).length
 }
 
 /**

@@ -57,7 +57,7 @@ Four steps, darkest to lightest. Every element sits on exactly one.
 | Token     | Hex       | Where it lives                                                                                           |
 | --------- | --------- | -------------------------------------------------------------------------------------------------------- |
 | `ground`  | `#131313` | App background, terminal pane, editor canvas, active project tab fuses with this.                        |
-| `surface` | `#201c1a` | Title bar, status bar, sidebars, panel headers, inputs, default buttons, Home project cards.             |
+| `surface` | `#201c1a` | Title bar, sidebars, panel headers, inputs, default buttons, Home project cards.                         |
 | `raised`  | `#2f2926` | Active sidebar tabs, command palette body, cards inside a panel, tooltip/dropdown body.                   |
 | `overlay` | `#3c3532` | Menus, context menus, tooltips when they need extra lift above a `raised` surface.                       |
 
@@ -137,7 +137,7 @@ All sizes ship as Tailwind utilities (`text-2xs` … `text-5xl`). Use the named 
 
 | Utility     | Size             | Line height | Weight default | Use                                               |
 | ----------- | ---------------- | ----------- | -------------- | ------------------------------------------------- |
-| `text-2xs`  | 10.4px · 0.65rem | 1.2         | 500            | Status bar micro-labels, badges, kbd.             |
+| `text-2xs`  | 10.4px · 0.65rem | 1.2         | 500            | Micro-labels, badges, kbd.                        |
 | `text-xs`   | 10.9px · 0.68rem | 1.25        | 500            | Section labels (UPPERCASE), button-xs, subtitles. |
 | `text-sm`   | 11.5px · 0.72rem | 1.3         | 400            | Small buttons, dense list rows, tooltips, tabs.   |
 | `text-base` | 13.1px · 0.82rem | 1.4         | 400            | **Default UI body.** Buttons, inputs, labels.     |
@@ -166,7 +166,7 @@ All sizes ship as Tailwind utilities (`text-2xs` … `text-5xl`). Use the named 
 - All UI icons come from `@lucide/svelte`, re-exported via `src/lib/icons/lucideExports.ts`.
 - Default stroke width 2.
 - Sizes by context:
-  - **9–11px** — status bar, badges.
+  - **9–11px** — badges, status glyphs.
   - **12px** — inline with `text-sm` chrome (kbd hints, command palette icons).
   - **14–16px** — buttons, menu items, panel header actions.
   - **18px** — titlebar logo.
@@ -201,15 +201,15 @@ Sworm is flat by default. Rounding exists only where a surface visibly _floats_ 
 
 | Utility        | Size   | Use                                                                                                             |
 | -------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
-| `rounded-none` | 0      | Title bar chrome, tabs, status bar, activity bar icons, window controls, panel headers. The default for chrome. |
+| `rounded-none` | 0      | Title bar chrome, tabs, activity bar icons, window controls, panel headers. The default for chrome.             |
 | `rounded-sm`   | 2px    | Tiny chips, kbd shadows at low resolution.                                                                      |
 | `rounded`      | 4px    | Inputs, small buttons. The lightest rounding that reads as "this element is a control."                       |
-| `rounded-md`   | 6px    | Kbd chips, code blocks, secondary buttons, the titlebar palette trigger.                                       |
+| `rounded-md`   | 6px    | Kbd chips, code blocks, secondary buttons.                                                                      |
 | `rounded-lg`   | 8px    | Default buttons, primary CTAs, dialog content, dropdown content, context menu content. Floating surfaces.       |
 | `rounded-xl`   | 12px   | Command palette, markdown-rendered `kbd`. The largest used anywhere in chrome.                                  |
-| `rounded-full` | 9999px | Status dots, avatars, and status-bar chips (§11.15). Never on other buttons or pills.                          |
+| `rounded-full` | 9999px | Status dots, avatars.                                                                                           |
 
-**Rule.** Chrome (title bar, sidebars, tabs, status bar) is square. Only things that _detach from_ the chrome — buttons, dialogs, menus, tooltips, the command palette, the titlebar palette trigger — carry rounding. The palette trigger is inline markup owned by `TitleBar.svelte`, not a shared UI primitive. Status dots are circles because they are dots.
+**Rule.** Chrome (title bar, sidebars, tabs) is square. Only things that _detach from_ the chrome — buttons, dialogs, menus, tooltips, the command palette — carry rounding. Status dots are circles because they are dots.
 
 ---
 
@@ -305,11 +305,9 @@ Sworm is dense but not cramped. Stay on the Tailwind 4px scale. Common rhythms:
 Fixed chrome dimensions (these are load-bearing):
 
 - Title bar: **36px** min height.
-- Activity bar: **36px** wide (matches the titlebar logo column for vertical alignment).
-- Status bar: **24px** tall.
+- Sidebar rail: **36px** wide (`RAIL_WIDTH_CLASS`, `w-9`), matches the title bar's logo column.
 - Kbd chip: **24px** tall (`h-6`).
 - Status dot: **8px** circle.
-- Titlebar palette trigger: **26px** tall.
 
 If you catch yourself writing `p-[11px]` or `h-[33px]`, step back to one of the above.
 
@@ -469,7 +467,7 @@ Badges carry **information**, not state. Session state lives on status dots.
 
 ### 11.7 Status dot
 
-`inline-block h-2 w-2 rounded-full shrink-0`. Size `sm` = `h-1.5 w-1.5`, `lg` = `h-2.5 w-2.5`.
+`ui/status-dot`: `StatusDot` with `tone`, `size` (`sm` = `size-1.5`, `md` = `size-2` default, `lg` = `size-2.5`) and `corner` (pinned bottom-right of an icon, cut out with a `border-ground` border since `ring-*` is banned). Pass `label` when the dot is the only carrier of its state. `statusToneText` maps a tone to its text colour; `ToneStatus { tone, text }` is the shared state shape for anything that shows a dot plus a description.
 
 | Status    | Fill         | Animation      |
 | --------- | ------------ | -------------- |
@@ -549,13 +547,16 @@ Variants: `info` (use `accent`), `success`, `warning`, `danger`. Leading icon us
 
 `layout`: `card` (default, `rounded-lg px-3 py-2.5 text-sm`) | `banner` (`rounded-none border-x-0 border-t-0 px-2.5 py-1.5 text-xs`). Use `banner` for edge-to-edge Git notices instead of overriding card classes.
 
-### 11.15 StatusChip
+### 11.15 Rail and applets
 
-Every status-bar control is a `StatusChip` (`ui/status-chip`): `h-5 rounded-full border bg-raised text-xs`, spaced `gap-1` on both sides of the bar. No bare-text items. Bits UI triggers take `statusChipVariants(…)` as their class.
+Everything at the sidebar rail is a `RailButton` (`app-shell/sidebar/RailButton.svelte`): an `IconButton size="md"` with a right-side tooltip, `active` pinning the hover look, and a bottom-right `StatusDot corner` unless the status is idle. Bits triggers wrap it through their `child` snippet.
 
-`shape`: `pill` (`gap-1 px-2`, labelled — folder, branch, nix, remote) | `circle` (`w-5`, icon-only — app info, notifications).
-`tone`: `default` (`border-edge text-muted`, hover `border-accent/50 text-fg`) | `success` | `warning` (tinted `/10` fill, `/40` border).
-`active`: pinned open state — `border-accent/50 text-bright`.
+An **applet** is any item docked at the rail foot. Foot order: Nix, then Remotes (desktop) or Server (web), then Notifications, then Settings (`AppMenu`, a dropdown menu). Panel applets (Nix, Remotes, Server) wrap the button in `RailApplet`: a popover with a header (icon tile, label, status line), a body and an action row. Every applet:
+
+- renders nothing when it has nothing to offer;
+- exposes its state as one `ToneStatus { tone, text }`; the corner dot, the tooltip `"<label> · <text>"`, the aria name and the panel status line all derive from it, so state is never shown by colour alone;
+- stays cheap while closed: work it owns runs only while open; per-folder activation belongs to `WorkbenchView`;
+- styles panel rows with `appletRowClass` (menu-item highlight to `bg-surface`, no hover transition) and section labels with `appletHeadingClass`.
 
 ---
 

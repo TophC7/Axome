@@ -1,12 +1,11 @@
 <!--
   @component
-  StatusBarAppInfo — circular app badge with a fastfetch-style runtime summary.
+  AppInfo — the Sworm mark in the title bar's corner; opens a fastfetch-style runtime summary.
 -->
 
 <script lang="ts">
   import * as Popover from '$lib/components/ui/popover'
-  import { IconButton } from '$lib/components/ui/button'
-  import { statusChipVariants } from '$lib/components/ui/status-chip'
+  import { IconButton, iconButtonVariants } from '$lib/components/ui/button'
   import { backend } from '$lib/api/backend'
   import githubIconUrl from '$lib/assets/github.svg?url'
   import appIconUrl from '$lib/assets/sworm.svg?url'
@@ -95,8 +94,8 @@
 </script>
 
 <Popover.Root bind:open>
-  <Popover.Trigger aria-label="App information" class={statusChipVariants({ shape: 'circle', active: open })}>
-    <img src={appIconUrl} alt="" class="size-4" />
+  <Popover.Trigger aria-label="App information" class={iconButtonVariants({ size: 'md', active: open })}>
+    <img src={appIconUrl} alt="" class="size-4.5" />
   </Popover.Trigger>
 
   <Popover.Content class="w-80 overflow-hidden p-0" align="start" sideOffset={8}>

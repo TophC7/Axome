@@ -8,12 +8,14 @@
     children,
     sideOffset = 8,
     align,
+    side,
     ...rest
   }: {
     class?: string
     children?: Snippet
     sideOffset?: number
     align?: 'start' | 'center' | 'end'
+    side?: 'top' | 'right' | 'bottom' | 'left'
   } = $props()
 </script>
 
@@ -21,6 +23,7 @@
   <Popover.Content
     {sideOffset}
     {align}
+    {side}
     class={cn('z-50 rounded-lg border border-edge bg-raised text-base shadow-popover', className)}
     {...rest}
   >

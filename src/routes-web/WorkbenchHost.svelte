@@ -3,9 +3,6 @@
   import AppShell from '$lib/features/app-shell/AppShell.svelte'
   import WorkbenchPage from '$lib/features/app-shell/WorkbenchPage.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { statusChipVariants } from '$lib/components/ui/status-chip'
-  import * as Tooltip from '$lib/components/ui/tooltip'
-  import { cn } from '$lib/utils/cn'
   import { backend } from '$lib/api/backend'
   import { flushWorkbench } from '$lib/features/workbench/state.svelte'
   import { stopWorkbenchPersistence } from '$lib/features/workbench/persistence'
@@ -16,12 +13,8 @@
   import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
   import * as taskRegistry from '$lib/features/tasks/taskRegistry'
   import { registerHostTransport } from '$lib/api/transport'
-  import {
-    createWebHostTransport,
-    type WebConnectionState,
-    type WebHandshakeError,
-    type WebHostTransport
-  } from '$lib/api/transport.web'
+  import { createWebHostTransport, type WebHandshakeError, type WebHostTransport } from '$lib/api/transport.web'
+  import { getHostConnection, setHostConnection } from '$lib/api/hostConnection.svelte'
   import { installPlatform } from '$lib/platform'
   import { createWebPlatform } from '$lib/platform/web'
   import { createWebRecovery } from './recovery'
@@ -39,7 +32,7 @@
   const workbenchId = untrack(() => props.workbenchId)
 
   let surface = $state<Surface>('connecting')
-  let connectionState = $state<WebConnectionState>('connecting')
+  setHostConnection('connecting')
   let errorMessage = $state<string | null>(null)
   let actions = $state<HTMLDivElement>()
   let tornDown = false
@@ -88,7 +81,7 @@
           closeRequested = false
           recovery.onDisconnected()
         }
-        connectionState = state
+        setHostConnection(state)
       },
       onReconnected() {
         if (!isCurrent()) return
@@ -131,7 +124,7 @@
     closeRequested = false
     // The transport already rejects every call; stop this page's writers before unmounting the workbench.
     if (surface === 'workbench') teardown()
-    connectionState = state
+    setHostConnection(state)
     if (state !== 'error') {
       surface = state === 'closed' ? 'closed' : 'elsewhere'
       return
@@ -160,7 +153,7 @@
 
   async function closeCurrent(): Promise<void> {
     // Never queue a destructive request while reconnecting or after this page lost control.
-    if (surface !== 'workbench' || connectionState !== 'connected' || closeRequested || leaving) {
+    if (surface !== 'workbench' || getHostConnection() !== 'connected' || closeRequested || leaving) {
       throw new Error('Workbench is not connected')
     }
     closeRequested = true
@@ -196,7 +189,7 @@
     }
     transport.dispose()
     surface = 'connecting'
-    connectionState = 'connecting'
+    setHostConnection('connecting')
     transport = connect(true)
   }
 
@@ -232,7 +225,7 @@
       if (
         document.visibilityState !== 'hidden' ||
         surface !== 'workbench' ||
-        connectionState !== 'connected' ||
+        getHostConnection() !== 'connected' ||
         tornDown ||
         closeRequested ||
         leaving
@@ -267,25 +260,6 @@
 
 {#if surface === 'workbench'}
   <AppShell>
-    {#snippet connectionStatus()}
-      {@const connected = connectionState === 'connected'}
-      <span role="status" aria-live="polite" class="inline-flex">
-        <Tooltip.Root>
-          <Tooltip.Trigger
-            class={statusChipVariants({ tone: connected ? 'default' : 'warning', class: 'cursor-default' })}
-          >
-            <span class={cn('size-1.5 shrink-0 rounded-full', connected ? 'bg-success' : 'bg-warning')}></span>
-            {connected ? 'Connected' : 'Reconnecting…'}
-          </Tooltip.Trigger>
-          <Tooltip.Content class="max-w-md">
-            {connected
-              ? 'Control connection to server is connected.'
-              : 'Disconnected from server. Reconnecting automatically.'}
-            Terminal, LSP, and file streams have independent state.
-          </Tooltip.Content>
-        </Tooltip.Root>
-      </span>
-    {/snippet}
     <WorkbenchPage />
   </AppShell>
 {:else if surface === 'connecting'}

@@ -9,8 +9,6 @@ export interface OperationDisplay {
   headline: string
   /** Replayed commit detail, if any. */
   detail: string | null
-  /** Short status-bar chip suffix. */
-  chipSuffix: string
   /** Merge has no commit to skip. */
   canSkip: boolean
 }
@@ -24,7 +22,6 @@ export function describeOperation(operation: GitOperation): OperationDisplay {
         title: 'Merge',
         headline: operation.target ? `Merging ${operation.target}` : 'Merging in progress',
         detail: null,
-        chipSuffix: '(Merging)',
         canSkip: false
       }
     case 'rebase': {
@@ -34,7 +31,6 @@ export function describeOperation(operation: GitOperation): OperationDisplay {
         title: 'Rebase',
         headline: `Rebasing ${operation.headName ?? 'HEAD'} onto ${operation.target ?? 'upstream'}${stepSuffix}`,
         detail,
-        chipSuffix: '(Rebasing)',
         canSkip: true
       }
     }
@@ -44,7 +40,6 @@ export function describeOperation(operation: GitOperation): OperationDisplay {
         title: 'Cherry-pick',
         headline: 'Cherry-pick in progress',
         detail,
-        chipSuffix: '(Cherry-picking)',
         canSkip: true
       }
     case 'revert':
@@ -53,7 +48,6 @@ export function describeOperation(operation: GitOperation): OperationDisplay {
         title: 'Revert',
         headline: 'Revert in progress',
         detail,
-        chipSuffix: '(Reverting)',
         canSkip: true
       }
   }

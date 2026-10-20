@@ -7,7 +7,8 @@
   import { getErrorMessage } from '$lib/utils/client-error'
   import RemotePairForm from '$lib/features/remotes/RemotePairForm.svelte'
   import { pairForm } from '$lib/features/remotes/state.svelte'
-  import { remoteDotClass } from '$lib/features/remotes/remoteDot'
+  import { remoteTone } from '$lib/features/remotes/remoteTone'
+  import { StatusDot } from '$lib/components/ui/status-dot'
   import { getRemoteStatus, refreshRemoteStatus, watchRemoteStatuses } from '$lib/features/remotes/status.svelte'
   import type { RemoteSettings } from '$lib/types/backend'
 
@@ -129,7 +130,7 @@
       <div class="flex items-center justify-between gap-3">
         <h4 class="text-md text-bright">{server}</h4>
         <span class="flex items-center gap-1.5 text-sm text-muted">
-          <span class="h-2 w-2 rounded-full {remoteDotClass(status?.state ?? 'disconnected')}"></span>
+          <StatusDot tone={remoteTone(status?.state ?? 'disconnected')} />
           {status?.state ?? 'disconnected'}
         </span>
       </div>

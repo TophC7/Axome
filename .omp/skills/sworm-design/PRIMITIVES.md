@@ -6,7 +6,7 @@ Scope: primitives only. Feature code migrations (SettingsDialog raw inputs, sess
 
 ## Status (2026-04-19)
 
-Phases 1–6 and 7a/7b/7c/7d **landed**:
+Phases 1–6 and 7a/7c/7d **landed**:
 - Literal `text-[…]` → named scale across all primitives.
 - Hand-rolled popover `shadow-[…]` → `shadow-popover`; kbd → `shadow-kbd-inset`.
 - `focus-visible:shadow-focus-ring` rolled out to Button, Tabs.Trigger, DropdownMenu.Item, ContextMenu.Item, TabButton, Checkbox, and the titlebar palette trigger.
@@ -58,7 +58,6 @@ Identified from feature-code gaps:
 - **`radio/`** — no feature code uses radios yet but they're implied by settings expansion. Add when first consumer appears.
 - **`switch/`** — same as radio. Toggles in settings.
 - **`select/`** — provider picker and settings dropdowns would benefit. Currently a raw `<select>`.
-- **`titlebar-icon-button/`** — the flat-chrome square icon button pattern is hand-rolled in three places (`TitleBar.svelte` Settings button, `TitleBarMenu.svelte` trigger, `WindowControls.svelte` trigger base). Extract via either a new primitive or a `shape: 'flat'` variant on existing `IconButton`.
 
 ---
 
@@ -131,60 +130,6 @@ Input / Textarea stay on border-swap — that's the spec (§8.1).
 
 ## Phase 4 — Missing wrappers
 
-### 4b · `TitlebarIconButton`
-
-Three-way duplication in `TitleBar.svelte`, `TitleBarMenu.svelte`, `WindowControls.svelte`. Options:
-
-**Option A — New primitive** at `src/lib/components/ui/button/TitlebarIconButton.svelte`:
-
-```svelte
-<script lang="ts">
-  import { cn } from '$lib/utils/cn'
-  import { TooltipRoot, TooltipTrigger, TooltipContent } from '$lib/components/ui/tooltip'
-  import type { Snippet } from 'svelte'
-
-  let {
-    tooltip,
-    tooltipSide = 'bottom',
-    danger = false,
-    class: className,
-    children,
-    onclick,
-    ...rest
-  }: {
-    tooltip?: string
-    tooltipSide?: 'top' | 'right' | 'bottom' | 'left'
-    danger?: boolean
-    class?: string
-    children?: Snippet
-    onclick?: (e: MouseEvent) => void
-  } = $props()
-
-  const base =
-    'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-none border-none bg-transparent text-muted transition-colors focus-visible:shadow-focus-ring focus-visible:outline-none'
-  const hover = danger
-    ? 'hover:bg-danger/15 hover:text-danger-bright'
-    : 'hover:bg-raised hover:text-bright'
-</script>
-
-{#if tooltip}
-  <TooltipRoot>
-    <TooltipTrigger class={cn(base, hover, className)} aria-label={tooltip} {onclick} {...rest}>
-      {#if children}{@render children()}{/if}
-    </TooltipTrigger>
-    <TooltipContent side={tooltipSide}>{tooltip}</TooltipContent>
-  </TooltipRoot>
-{:else}
-  <button type="button" class={cn(base, hover, className)} {onclick} {...rest}>
-    {#if children}{@render children()}{/if}
-  </button>
-{/if}
-```
-
-**Option B — Variant on existing `IconButton`** — add `shape: 'rounded' | 'flat'` (default `rounded`) and `danger: boolean`. Cleaner namespace (one button primitive, many shapes).
-
-Recommend **Option B**. After it lands, refactor `TitleBar.svelte`, `TitleBarMenu.svelte`, and `WindowControls.svelte` to consume it. Drop local `buttonBase` / `triggerBase` consts.
-
 ### 4c · `Checkbox`
 
 Add `src/lib/components/ui/checkbox/Checkbox.svelte` using `bits-ui` `Checkbox.Root`. Wrap with the spec-correct focus ring, accent-color swatch, and label snippet. Target consumer: `SettingsDialog.svelte` — 6 raw native checkboxes there.
@@ -197,9 +142,7 @@ Defer until a concrete consumer exists. Not blocking.
 
 ## Phase 5 — Titlebar palette trigger
 
-`TitleBar.svelte` owns its palette button markup and `data-slot="command-pill"`. It retains the 26px height, raised surface, rounded-md corners, focus ring, and `Kbd`/`KbdGroup` hint. No shared primitive is needed for this single consumer.
-
-Palette hints use `getCommandShortcut('toggle-command-palette')` from `shortcuts/registry.svelte` + `splitShortcut()` from `shortcuts/spec`; the browser button uses `getCommandShortcut('open-folder')`. Both update after a user rebinds.
+The title bar's Commands button is an `IconButton size="md"` with `getCommandShortcut('toggle-command-palette')`.
 
 ---
 
@@ -224,12 +167,6 @@ Once primitives above land, the remaining refactor is feature-side:
 - Swap 6 native `<input type="checkbox">` for the new `<Checkbox>` primitive.
 - Remove `updateProviderDraft` spread pattern; direct mutation on `$state` is idiomatic Svelte 5.
 - Replace `$effect` draft-hydration with an explicit `hydrateDraft()` function called after `loadSettings()`.
-
-### 7b · `TitleBar.svelte`, `TitleBarMenu.svelte`, `WindowControls.svelte`
-
-- Delete local `buttonBase` / `triggerBase` consts.
-- Adopt `<IconButton shape="flat">` (or `<TitlebarIconButton>`).
-- Add tooltips to Settings and Menu triggers (currently missing).
 
 ### 7c · Utility class retirement
 

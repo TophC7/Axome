@@ -1,7 +1,7 @@
 // Workbench state — the single global tab list.
 //
 // Every tab carries its own `folderPath`; the active tab decides which
-// folder the sidebar, status bar, and folder-scoped commands operate on.
+// folder the sidebar and folder-scoped commands operate on.
 // There is no project lifecycle: opening a folder either focuses one of
 // its tabs or seeds a new tab page for it.
 
@@ -58,7 +58,8 @@ let workbench = $state<Workbench>({ tabs: [], activeTabId: null })
 let activationSeq = $state(0)
 
 // LIFO stack of recently closed tabs for Ctrl+Shift+T. In-memory only: a
-// fresh launch has nothing to reopen beyond what restore hydrates.
+// fresh launch has nothing to reopen beyond what restore hydrates. The cap
+// applies per kind group: sessions and everything else.
 const MAX_CLOSED_TABS = 20
 let closedTabs = $state<PersistedTab[]>([])
 
@@ -239,7 +240,13 @@ function updateTab(tabId: TabId, update: (tab: Tab) => Tab): void {
 }
 
 function pushClosedTab(snapshot: PersistedTab): void {
-  closedTabs = [snapshot, ...closedTabs].slice(0, MAX_CLOSED_TABS)
+  // Separate caps: editor and diff churn must not evict a conversation's
+  // resume token from the Sessions view.
+  let sessions = 0
+  let others = 0
+  closedTabs = [snapshot, ...closedTabs].filter((tab) =>
+    tab.kind === 'session' ? ++sessions <= MAX_CLOSED_TABS : ++others <= MAX_CLOSED_TABS
+  )
 }
 
 // READS //
@@ -292,6 +299,13 @@ export function getActiveSessionTabId(): TabId | null {
 
 export function hasClosedTabs(): boolean {
   return closedTabs.length > 0
+}
+
+export type ClosedSession = Extract<PersistedTab, { kind: 'session' }>
+
+/** Closed session snapshots for `folderPath`, newest first (this launch only). */
+export function getClosedSessions(folderPath: string): ClosedSession[] {
+  return closedTabs.filter((tab): tab is ClosedSession => tab.kind === 'session' && tab.folderPath === folderPath)
 }
 
 /** Find an existing live task tab by its source task id (singleton rerun). */
@@ -1040,81 +1054,102 @@ export function forgetClosedWorktreeTabs(rootPath: string): void {
 }
 
 /**
+ * Re-add one closed snapshot through its kind's add* function. On failure it
+ * goes back to its slot in history and the error propagates.
+ */
+export async function reopenClosedTab(snapshot: PersistedTab): Promise<TabId | null> {
+  const index = closedTabs.indexOf(snapshot)
+  if (index === -1) return null
+  closedTabs = closedTabs.filter((tab) => tab !== snapshot)
+
+  try {
+    switch (snapshot.kind) {
+      // Closing killed this run. Reopen resumes provider history under a fresh PTY id.
+      case 'session':
+        return addSessionTab(snapshot.folderPath, {
+          providerId: snapshot.providerId,
+          title: snapshot.title,
+          resumeToken: snapshot.resumeToken
+        })
+      case 'task':
+        // Task snapshots never enter closedTabs; keep the persisted union exhaustive.
+        return null
+      case 'text':
+        return snapshot.gitRef
+          ? addReadonlyTextTab(
+              snapshot.folderPath,
+              snapshot.filePath,
+              snapshot.gitRef,
+              snapshot.refLabel ?? snapshot.gitRef,
+              false
+            )
+          : await openTextFile(snapshot.folderPath, snapshot.filePath, { temporary: false })
+      case 'diff':
+        switch (snapshot.source.kind) {
+          case 'working':
+            return addChangesTab(
+              snapshot.folderPath,
+              snapshot.source.staged,
+              snapshot.source.scopePath ?? null,
+              snapshot.initialFile,
+              false
+            )
+          case 'commit':
+            return addCommitTab(
+              snapshot.folderPath,
+              snapshot.source.commitHash,
+              snapshot.source.shortHash,
+              snapshot.source.message,
+              snapshot.initialFile,
+              false
+            )
+          case 'stash':
+            return addStashTab(
+              snapshot.folderPath,
+              snapshot.source.stashIndex,
+              snapshot.source.message,
+              snapshot.initialFile,
+              false
+            )
+          case 'range':
+            return addRangeTab(
+              snapshot.folderPath,
+              snapshot.source.base,
+              snapshot.source.baseLabel,
+              snapshot.source.target,
+              snapshot.source.targetLabel,
+              false
+            )
+          case 'compare':
+            return addCompareTab(snapshot.folderPath, snapshot.source.left, snapshot.source.right)
+          default: {
+            const _exhaustive: never = snapshot.source
+            return _exhaustive
+          }
+        }
+      case 'new-tab':
+        return openNewTab(snapshot.folderPath)
+      case 'issue':
+        return addIssueTab(snapshot.folderPath, snapshot.issueId, snapshot.title, false)
+      case 'epic':
+        return addEpicTab(snapshot.folderPath, snapshot.epicId, snapshot.title, false)
+      default: {
+        const _exhaustive: never = snapshot
+        return _exhaustive
+      }
+    }
+  } catch (e) {
+    closedTabs = [...closedTabs.slice(0, index), snapshot, ...closedTabs.slice(index)]
+    throw e
+  }
+}
+
+/**
  * Pop the most recently closed tab and re-add it via the normal add*
  * function for that kind. Returns the new tab id, or null when the stack
  * is empty. Mirrors VSCode's Ctrl+Shift+T.
  */
 export async function reopenLastClosedTab(): Promise<TabId | null> {
   const head = closedTabs[0]
-  if (!head) return null
-  closedTabs = closedTabs.slice(1)
-
-  try {
-    switch (head.kind) {
-      // Closing killed this run. Reopen resumes provider history under a fresh PTY id.
-      case 'session':
-        return addSessionTab(head.folderPath, {
-          providerId: head.providerId,
-          title: head.title,
-          resumeToken: head.resumeToken
-        })
-      case 'task':
-        // Task snapshots never enter closedTabs; keep the persisted union exhaustive.
-        return null
-      case 'text':
-        return head.gitRef
-          ? addReadonlyTextTab(head.folderPath, head.filePath, head.gitRef, head.refLabel ?? head.gitRef, false)
-          : await openTextFile(head.folderPath, head.filePath, { temporary: false })
-      case 'diff':
-        switch (head.source.kind) {
-          case 'working':
-            return addChangesTab(
-              head.folderPath,
-              head.source.staged,
-              head.source.scopePath ?? null,
-              head.initialFile,
-              false
-            )
-          case 'commit':
-            return addCommitTab(
-              head.folderPath,
-              head.source.commitHash,
-              head.source.shortHash,
-              head.source.message,
-              head.initialFile,
-              false
-            )
-          case 'stash':
-            return addStashTab(head.folderPath, head.source.stashIndex, head.source.message, head.initialFile, false)
-          case 'range':
-            return addRangeTab(
-              head.folderPath,
-              head.source.base,
-              head.source.baseLabel,
-              head.source.target,
-              head.source.targetLabel,
-              false
-            )
-          case 'compare':
-            return addCompareTab(head.folderPath, head.source.left, head.source.right)
-          default: {
-            const _exhaustive: never = head.source
-            return _exhaustive
-          }
-        }
-      case 'new-tab':
-        return openNewTab(head.folderPath)
-      case 'issue':
-        return addIssueTab(head.folderPath, head.issueId, head.title, false)
-      case 'epic':
-        return addEpicTab(head.folderPath, head.epicId, head.title, false)
-      default: {
-        const _exhaustive: never = head
-        return _exhaustive
-      }
-    }
-  } catch (e) {
-    closedTabs = [head, ...closedTabs]
-    throw e
-  }
+  return head ? reopenClosedTab(head) : null
 }

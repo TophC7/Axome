@@ -1,4 +1,4 @@
-// App-menu model for the titlebar hamburger (TitleBarMenu). Reads
+// App-menu model for the rail's Settings menu (AppMenu). Reads
 // reactive getters; call it from a `$derived` so the structure stays live.
 
 import { getAppCommandDefinitions } from '$lib/features/command-palette/commands/registry.svelte'

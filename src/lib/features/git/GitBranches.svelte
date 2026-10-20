@@ -44,7 +44,6 @@
   import { localNameForRemoteRef } from '$lib/features/git/gitRefs'
   import GitCommitRow from '$lib/features/git/GitCommitRow.svelte'
   import { GRAPH_COLORS } from '$lib/features/git/graph'
-  import { getGitBranchesFocusRequest } from '$lib/features/app-shell/sidebar/state.svelte'
   import { openGitDialog } from './dialogs/host.svelte'
   import {
     ArrowDown01Icon,
@@ -89,7 +88,6 @@
   let prefs = $derived(entry?.prefs)
 
   let search = $state('')
-  let searchInputEl = $state<HTMLInputElement | null>(null)
 
   type BranchHistoryEntry = {
     commits: GraphCommit[]
@@ -234,14 +232,6 @@
     if (!existing) void loadBranchHistory(branch, BRANCH_HISTORY_PAGE_SIZE)
   }
 
-  let lastFocusRequest = $state(0)
-  $effect(() => {
-    const req = getGitBranchesFocusRequest(folderPath)
-    if (req <= lastFocusRequest) return
-    lastFocusRequest = req
-    queueMicrotask(() => searchInputEl?.focus())
-  })
-
   // Currently checked-out branch. Used for merge / rebase target
   // labels and as the default base for "+New branch".
   let currentName = $derived(entry?.list.find((b) => b.isCurrent)?.name ?? '')
@@ -321,7 +311,6 @@
     <div class="min-w-0 flex-1">
       <SearchInput
         bind:value={search}
-        bind:ref={searchInputEl}
         placeholder="Filter branches…"
         aria-label="Filter branches"
         class="h-7 py-1 text-sm"

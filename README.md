@@ -98,7 +98,7 @@ The home dashboard reads local Claude Code, Codex, and OMP histories to show pro
 Browse files, edit code, and review changes before committing:
 
 - **Side-by-side or unified Git diffs** with hunk actions, commit and working-tree comparisons, and file or clipboard compare.
-- **Full Source Control workflow** with staged and working changes, commit variants (**Commit & Push**, **Commit & Sync**, **Amend**, **Commit All**, **Sign Off**, **Skip Hooks**, **Undo Last Commit**), and status-bar branch sync.
+- **Full Source Control workflow** with staged and working changes, commit variants (**Commit & Push**, **Commit & Sync**, **Amend**, **Commit All**, **Sign Off**, **Skip Hooks**, **Undo Last Commit**), and branch sync.
 - **Merge, rebase, cherry-pick, and conflict resolution** with paused-operation controls (**Continue**, **Skip**, **Abort**), whole-file or per-block resolution in Monaco (**Accept Current**, **Accept Incoming**, **Accept Both**), and conflict navigation.
 - **Interactive Git graph and ref management** across **Branches**, **Tags**, **Stashes**, and **Worktrees** tabs—check out, cherry-pick, revert, reset, manage remotes, or **Stash & Checkout** when switching with uncommitted edits.
 - **Monaco code editing** with built-in language server (LSP) support (Rust, TypeScript/JavaScript, Svelte, Python, Nix, Fish, HTML, CSS, Tailwind, Biome) and Shiki highlighting.
@@ -158,9 +158,9 @@ Tasks in `.sworm/tasks.jsonc` can also run automatically when a worktree is crea
 
 ### Use your project's Nix environment
 
-Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the status bar; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers. Without a ready Nix environment, sessions use the host environment.
+Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers. Without a ready Nix environment, sessions use the host environment.
 
-The status bar shows the current folder, Git branch, Nix environment status, and live session count.
+The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the sidebar footer shows the current folder.
 
 <details>
 <summary>📷 See a terminal session</summary>

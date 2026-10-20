@@ -14,7 +14,8 @@
   import { openFolderPicker } from '$lib/features/app-actions/actions.svelte'
   import { getRecentFolders } from '$lib/features/folders/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
-  import { remoteDotClass } from '$lib/features/remotes/remoteDot'
+  import { remoteTone } from '$lib/features/remotes/remoteTone'
+  import { StatusDot } from '$lib/components/ui/status-dot'
   import { openRemoteManager } from '$lib/features/remotes/state.svelte'
   import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
@@ -707,7 +708,7 @@
             {@render locationIcon(row)}
             <span class="min-w-0 truncate">{row.label}</span>
             {#if row.kind === 'server' && row.server}
-              <span class="size-2 shrink-0 rounded-full {remoteDotClass(row.state)}" aria-label={row.state}></span>
+              <StatusDot tone={remoteTone(row.state)} label={row.state} />
             {/if}
             {#if !path && row.detail}<span class="ml-auto min-w-0 truncate text-xs text-subtle" title={row.detail}
                 >{row.detail}</span

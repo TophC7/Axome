@@ -1,11 +1,39 @@
-export type SidebarView = 'files' | 'git' | 'issues'
+import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
+
+export type SidebarView = 'sessions' | 'files' | 'git' | 'issues'
 export type GitSidebarTab = 'graph' | 'stashes' | 'branches' | 'tags' | 'worktrees'
+
+/** Rail column width; the title bar's logo cell matches it so the borders line up. */
+export const RAIL_WIDTH_CLASS = 'w-9'
 
 let sidebarWidth = $state(280)
 let sidebarCollapsed = $state(false)
 let sidebarView = $state<SidebarView>('files')
 let gitSidebarTab = $state<GitSidebarTab>('graph')
-let gitBranchesFocusRequests = $state<Map<string, number>>(new Map())
+let sidebarHeaderSlot = $state.raw<HTMLElement | null>(null)
+
+/** Folder whose sidebar panel is on screen; null while collapsed or with no folder open. */
+export function getShownSidebarFolder(): string | null {
+  return sidebarCollapsed ? null : getActiveFolderPath()
+}
+
+/** Panel width plus its 1px ResizeDivider (`w-px`): the sidebar column the title-bar header cell spans. */
+export function getSidebarColumnWidth(): number {
+  return sidebarWidth + 1
+}
+
+/** Title bar's header cell, where SidebarPanel portals its header. */
+export function getSidebarHeaderSlot(): HTMLElement | null {
+  return sidebarHeaderSlot
+}
+
+/** Attachment for that cell; clears only if no newer cell replaced it. */
+export function attachSidebarHeaderSlot(node: HTMLElement): () => void {
+  sidebarHeaderSlot = node
+  return () => {
+    if (sidebarHeaderSlot === node) sidebarHeaderSlot = null
+  }
+}
 
 export function getSidebarWidth(): number {
   return sidebarWidth
@@ -46,17 +74,4 @@ export function setGitSidebarTab(tab: GitSidebarTab) {
 export function revealGitChanges() {
   sidebarCollapsed = false
   sidebarView = 'git'
-}
-
-export function revealGitBranches(folderPath: string) {
-  sidebarCollapsed = false
-  sidebarView = 'git'
-  gitSidebarTab = 'branches'
-  const next = new Map(gitBranchesFocusRequests)
-  next.set(folderPath, (next.get(folderPath) ?? 0) + 1)
-  gitBranchesFocusRequests = next
-}
-
-export function getGitBranchesFocusRequest(folderPath: string): number {
-  return gitBranchesFocusRequests.get(folderPath) ?? 0
 }

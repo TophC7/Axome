@@ -12,6 +12,7 @@
   import { getErrorMessage } from '$lib/utils/client-error'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getNixStatus } from '$lib/features/settings/state/nix.svelte'
+  import { StatusDot, statusToneText } from '$lib/components/ui/status-dot'
   import { allProviders, directOptions, type ProviderMeta } from '$lib/features/sessions/providers/catalog'
   import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
   import { getConnectedProviders, getProvidersLoading } from '$lib/features/sessions/providers/state.svelte'
@@ -64,7 +65,7 @@
   let openShortcut = $derived(splitShortcut(getCommandShortcut('open-folder')))
 
   function handleSelect(provider: ProviderMeta) {
-    startSession(folderPath, provider.id, provider.id === 'terminal' ? 'Terminal' : `${provider.label} session`)
+    startSession(folderPath, provider.id)
   }
 
   function runTask(task: TaskDefinition) {
@@ -170,13 +171,13 @@
               >{/if}
           </span>
           <span class="inline-flex items-center gap-1.5">
-            <span class="size-1.5 shrink-0 rounded-full {changedCount ? 'bg-warning' : 'bg-success'}"></span>
+            <StatusDot tone={changedCount ? 'waiting' : 'success'} size="sm" />
             {changedCount ? `${changedCount} Changed` : 'Clean'}
           </span>
         {/if}
         {#if nix}
           <span class="inline-flex items-center gap-1.5">
-            <MaskIcon src={nixosUrl} width={12} label="Nix" class={nix.tone} />{nix.label}
+            <MaskIcon src={nixosUrl} width={12} label="Nix" class={statusToneText[nix.tone]} />{nix.text}
           </span>
         {/if}
       </div>

@@ -1,7 +1,8 @@
 // Places — where the user can go besides the current tab: paired servers
 // with their connection state, and durable workbenches per host. Recent
-// folders stay in `features/folders`. Live only while a watcher is mounted,
-// because listing workbenches reaches every paired server.
+// folders stay in `features/folders`. `watchServers` keeps server names and
+// states live; workbench listing reaches every paired server, so it runs
+// only while a `watchPlaces` caller is mounted.
 
 import { backend } from '$lib/api/backend'
 import { platform } from '$lib/platform'
@@ -27,6 +28,7 @@ export interface WorkbenchSection {
 let serverNames = $state<string[]>([])
 let sections = $state<WorkbenchSection[]>([])
 let watchers = 0
+let workbenchWatchers = 0
 let teardown: (() => void) | null = null
 let refreshing: Promise<void> | null = null
 let queued = false
@@ -76,6 +78,10 @@ async function load(current: number): Promise<void> {
     const names = Object.keys((await backend.settings.getEffective()).settings.remotes)
     if (current !== generation) return
     serverNames = names
+    if (workbenchWatchers === 0) {
+      await Promise.all(names.map(refreshRemoteStatus))
+      return
+    }
     const [nextSections] = await Promise.all([
       Promise.all(
         names.map(async (server) => {
@@ -90,7 +96,7 @@ async function load(current: number): Promise<void> {
       Promise.all(names.map(refreshRemoteStatus))
     ])
     if (current === generation) sections = nextSections
-  } else if (platform.workbench.takeOver) {
+  } else if (platform.workbench.takeOver && workbenchWatchers > 0) {
     const workbenches = (await backend.workbenches.list()).filter(listable)
     if (current === generation) sections = [{ workbenches }]
   }
@@ -116,20 +122,32 @@ export function refreshPlaces(): Promise<void> {
   return refreshing
 }
 
-/**
- * Keep places live while the caller is mounted; returns the disposer.
- * Use from `onMount` or an `$effect` so the subscription follows the view.
- */
-export function watchPlaces(): () => void {
+function watch(withWorkbenches: boolean): () => void {
   watchers++
+  if (withWorkbenches) workbenchWatchers++
   if (watchers === 1) teardown = subscribe()
+  else if (withWorkbenches && workbenchWatchers === 1) void refreshPlaces()
   return () => {
     watchers--
+    if (withWorkbenches) workbenchWatchers--
     if (watchers > 0) return
     teardown?.()
     teardown = null
     generation++
   }
+}
+
+/** Keep paired server names and their states live; cheap, no workbench listing. */
+export function watchServers(): () => void {
+  return watch(false)
+}
+
+/**
+ * Keep places live while the caller is mounted; returns the disposer.
+ * Use from `onMount` or an `$effect` so the subscription follows the view.
+ */
+export function watchPlaces(): () => void {
+  return watch(true)
 }
 
 function subscribe(): () => void {
@@ -138,9 +156,13 @@ function subscribe(): () => void {
   const refresh = () => {
     if (!disposed) void refreshPlaces()
   }
+  // Workbench events and refocus only matter while something lists workbenches.
+  const refreshWorkbenches = () => {
+    if (workbenchWatchers > 0) refresh()
+  }
   const native = platform.native
   const listeners = [
-    backend.workbenches.onChanged(refresh),
+    backend.workbenches.onChanged(refreshWorkbenches),
     ...(native
       ? [
           backend.settings.onChanged(({ layer }) => {
@@ -149,13 +171,13 @@ function subscribe(): () => void {
         ]
       : [])
   ]
-  window.addEventListener('focus', refresh)
+  window.addEventListener('focus', refreshWorkbenches)
   // Fetch after subscribing so no transition lands between the two.
   void Promise.allSettled(listeners).then(refresh)
   return () => {
     disposed = true
     stopStatuses()
-    window.removeEventListener('focus', refresh)
+    window.removeEventListener('focus', refreshWorkbenches)
     for (const listener of listeners) void listener.then((stop) => stop()).catch(() => {})
   }
 }

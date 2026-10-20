@@ -1,7 +1,7 @@
 // Folder-keyed git state module using Svelte 5 runes.
 //
-// One entry per open folder holds everything the git sidebar and status bar
-// read: the working-tree summary, the commit graph, and the stash count/list.
+// One entry per open folder holds everything the git sidebar and rail read:
+// the working-tree summary, the commit graph, and the stash count/list.
 // Freshness comes from backend events, in-app mutation refreshes, window-focus
 // refreshes, and a cheap active-folder reconciliation poll. All summary reads
 // funnel through the same coalescing queue so slow `git status` calls never

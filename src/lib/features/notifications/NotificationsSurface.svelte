@@ -81,7 +81,7 @@
 {#if hasVisibleSurface}
   <div
     id="notifications-surface"
-    class={cn('pointer-events-none fixed right-2 bottom-8 z-40', NOTIFICATION_PANEL_WIDTH_CLASS)}
+    class={cn('pointer-events-none fixed bottom-2 left-11 z-40', NOTIFICATION_PANEL_WIDTH_CLASS)}
     aria-live="polite"
     aria-atomic="false"
   >

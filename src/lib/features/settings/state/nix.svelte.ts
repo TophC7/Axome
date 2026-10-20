@@ -8,6 +8,7 @@ import { loadProvidersForFolder } from '$lib/features/sessions/providers/state.s
 import { notify, dismissNotification } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import type { NixDetection } from '$lib/types/backend'
+import type { ToneStatus } from '$lib/components/ui/status-dot'
 
 const detections = createFolderKeyedStore<NixDetection>()
 const evaluating = new SvelteSet<string>()
@@ -21,30 +22,24 @@ export function isNixEvaluating(folderPath: string): boolean {
   return evaluating.has(folderPath)
 }
 
-export interface NixStatus {
-  label: string
-  /** Text-color utility for the status tone. */
-  tone: string
-}
-
 /** What the folder's Nix environment reads as at a glance; null when it has no Nix files. */
-export function getNixStatus(folderPath: string): NixStatus | null {
+export function getNixStatus(folderPath: string): ToneStatus | null {
   const detection = getNixDetection(folderPath)
   if (!detection?.detected_files.length) return null
-  if (isNixEvaluating(folderPath)) return { label: 'Evaluating...', tone: 'text-warning' }
   const selected = detection.selected
-  if (!selected) return { label: 'Nix available', tone: 'text-subtle' }
+  if (isNixEvaluating(folderPath) || selected?.status === 'evaluating') {
+    return { tone: 'working', text: `Evaluating ${selected?.nix_file ?? 'Nix'}…` }
+  }
+  if (!selected) return { tone: 'idle', text: 'Nix available' }
   switch (selected.status) {
     case 'ready':
-      return { label: selected.nix_file, tone: 'text-success' }
-    case 'evaluating':
-      return { label: 'Evaluating...', tone: 'text-muted' }
+      return { tone: 'success', text: `Active · ${selected.nix_file}` }
     case 'error':
-      return { label: 'Error', tone: 'text-danger' }
+      return { tone: 'danger', text: 'Evaluation failed' }
     case 'timeout':
-      return { label: 'Timeout', tone: 'text-danger' }
+      return { tone: 'danger', text: 'Evaluation timed out' }
     default:
-      return { label: selected.nix_file, tone: 'text-muted' }
+      return { tone: 'idle', text: `${selected.nix_file} not evaluated` }
   }
 }
 
@@ -101,10 +96,13 @@ export async function evaluateNix(folderPath: string): Promise<void> {
     await loadProvidersForFolder(folderPath, current)
     if (!current()) return
     notify.update(notificationId, {
-      title: record.status === 'ready'
-        ? 'Nix environment ready'
-        : record.status === 'timeout' ? 'Nix evaluation timed out' : 'Nix evaluation failed',
-      description: record.status === 'ready' ? record.nix_file : record.error_message ?? record.nix_file,
+      title:
+        record.status === 'ready'
+          ? 'Nix environment ready'
+          : record.status === 'timeout'
+            ? 'Nix evaluation timed out'
+            : 'Nix evaluation failed',
+      description: record.status === 'ready' ? record.nix_file : (record.error_message ?? record.nix_file),
       tone: record.status === 'ready' ? 'success' : 'error',
       loading: false
     })

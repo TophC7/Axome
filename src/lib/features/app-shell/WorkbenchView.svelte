@@ -6,23 +6,26 @@
 -->
 
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
+  import { activateNixFolder } from '$lib/features/settings/state/nix.svelte'
   import { disposeOsDrop, initOsDrop } from '$lib/features/dnd/os-drop'
   import { platform } from '$lib/platform'
   import { dragObserver } from '$lib/features/dnd/observer.svelte'
   import { DND_MIME } from '$lib/features/dnd/payload'
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
-  import { activateGitFolder, getGitSummary } from '$lib/features/git/state.svelte'
+  import { activateGitFolder } from '$lib/features/git/state.svelte'
   import SidebarRail from '$lib/features/app-shell/sidebar/SidebarRail.svelte'
   import WorkbenchHome from '$lib/features/home/WorkbenchHome.svelte'
   import GitSidebar from '$lib/features/git/GitSidebar.svelte'
   import FilesSidebar from '$lib/features/files/FilesSidebar.svelte'
   import IssuesSidebar from '$lib/features/issues/IssuesSidebar.svelte'
+  import SessionsSidebar from '$lib/features/sessions/SessionsSidebar.svelte'
+  import SidebarFooter from '$lib/features/app-shell/sidebar/SidebarFooter.svelte'
   import { ResizeDivider } from '$lib/components/ui/resize-divider'
   import {
+    getShownSidebarFolder,
     getSidebarWidth,
     setSidebarWidth,
-    isSidebarCollapsed,
     getSidebarView
   } from '$lib/features/app-shell/sidebar/state.svelte'
   import SurfaceHost from '$lib/features/workbench/SurfaceHost.svelte'
@@ -32,11 +35,7 @@
   let activeTab = $derived(getActiveTab())
   let folderPath = $derived(activeTab?.folderPath ?? null)
 
-  let gitSummary = $derived(folderPath ? getGitSummary(folderPath) : null)
-  // Unique changed-path count for the sidebar rail badge. `changes` lists a
-  // file twice when it has both staged and unstaged edits, so count by path.
-  let gitChangeCount = $derived(gitSummary ? new Set(gitSummary.changes.map((c) => c.path)).size : 0)
-  let sidebarCollapsed = $derived(isSidebarCollapsed())
+  let sidebarFolder = $derived(getShownSidebarFolder())
   let sidebarWidth = $derived(getSidebarWidth())
   let sidebarView = $derived(getSidebarView())
   let sidebarPanelEl = $state<HTMLDivElement | null>(null)
@@ -65,6 +64,11 @@
     return activateGitFolder(path)
   })
 
+  $effect(() => {
+    const path = folderPath
+    if (path) untrack(() => void activateNixFolder(path))
+  })
+
   onMount(() => {
     const native = platform.native
     if (!native) return
@@ -74,20 +78,23 @@
 </script>
 
 <div class="flex min-h-0 flex-1 overflow-hidden">
-  {#if folderPath}
-    <SidebarRail {gitChangeCount} />
-  {/if}
+  <SidebarRail {folderPath} />
 
-  {#if !sidebarCollapsed && folderPath}
-    {#key folderPath}
-      <div class="shrink-0 overflow-hidden" style="width: {sidebarWidth}px;" bind:this={sidebarPanelEl}>
-        {#if sidebarView === 'git'}
-          <GitSidebar {folderPath} />
-        {:else if sidebarView === 'issues'}
-          <IssuesSidebar {folderPath} />
-        {:else if sidebarView === 'files'}
-          <FilesSidebar {folderPath} />
-        {/if}
+  {#if sidebarFolder}
+    {#key sidebarFolder}
+      <div class="flex shrink-0 flex-col overflow-hidden" style="width: {sidebarWidth}px;" bind:this={sidebarPanelEl}>
+        <div class="min-h-0 flex-1 overflow-hidden">
+          {#if sidebarView === 'sessions'}
+            <SessionsSidebar folderPath={sidebarFolder} />
+          {:else if sidebarView === 'git'}
+            <GitSidebar folderPath={sidebarFolder} />
+          {:else if sidebarView === 'issues'}
+            <IssuesSidebar folderPath={sidebarFolder} />
+          {:else if sidebarView === 'files'}
+            <FilesSidebar folderPath={sidebarFolder} />
+          {/if}
+        </div>
+        <SidebarFooter folderPath={sidebarFolder} />
       </div>
     {/key}
 
