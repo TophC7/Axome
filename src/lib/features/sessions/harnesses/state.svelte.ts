@@ -46,13 +46,18 @@ export async function loadHarnessesForFolder(folderPath: string, isActive: () =>
   }
 }
 
+/** Refresh global detection and every loaded folder's listing. */
+export async function reloadHarnessListings(): Promise<void> {
+  await Promise.all([
+    loadHarnesses(),
+    ...Array.from(folderHarnesses.keys(), (folderPath) => loadHarnessesForFolder(folderPath))
+  ])
+}
+
 /** Global settings feed every loaded folder's effective harness configuration. */
 export function refreshHarnessListings(event: SettingsChangedEvent): void {
   if (event.layer === 'global') {
-    void loadHarnesses().catch(() => {})
-    for (const folderPath of folderHarnesses.keys()) {
-      void loadHarnessesForFolder(folderPath).catch(() => {})
-    }
+    void reloadHarnessListings().catch(() => {})
   } else if (event.folder_path && folderHarnesses.has(event.folder_path)) {
     void loadHarnessesForFolder(event.folder_path).catch(() => {})
   }

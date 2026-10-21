@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use std::process::{Command, Stdio};
 use sworm_core::errors::ApiError;
+#[cfg(target_os = "linux")]
+use sworm_core::services::env::EnvironmentService;
 use sworm_core::services::folders::resolve_folder;
 use tauri::Manager;
 
@@ -155,6 +157,8 @@ fn spawn_terminal(cwd: &Path) -> Result<(), ApiError> {
     let mut last_err: Option<String> = None;
     for (prog, args) in candidates {
         match Command::new(&prog)
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(&args)
             .current_dir(cwd)
             .stdin(Stdio::null())

@@ -1934,16 +1934,20 @@ mod tests {
                     .unwrap()
                     .success());
                 let entered = fixture.scratch.path().join("entered");
-                std::env::set_var(
-                    "SWORM_TEST_REAL_GIT",
-                    std::str::from_utf8(&real_git.stdout).unwrap().trim(),
-                );
-                std::env::set_var("SWORM_TEST_GIT_FIFO", &fifo);
-                std::env::set_var("SWORM_TEST_GIT_ENTERED", &entered);
-                std::env::set_var(
-                    "PATH",
-                    format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()),
-                );
+                let real_git = std::str::from_utf8(&real_git.stdout)
+                    .unwrap()
+                    .trim()
+                    .to_owned();
+                sworm_core::services::env::EnvironmentService::update_base_for_tests(|env| {
+                    env.insert("SWORM_TEST_REAL_GIT".into(), real_git);
+                    env.insert("SWORM_TEST_GIT_FIFO".into(), fifo.display().to_string());
+                    env.insert(
+                        "SWORM_TEST_GIT_ENTERED".into(),
+                        entered.display().to_string(),
+                    );
+                    let path = format!("{}:{}", bin.display(), env["PATH"]);
+                    env.insert("PATH".into(), path);
+                });
                 let mut resume = ResumeGit {
                     fifo: Some(fifo),
                     entered: entered.clone(),

@@ -303,9 +303,6 @@ fn resolve_var(
                 if let Some(val) = base_env.get(name) {
                     return Some(val.clone());
                 }
-                if let Ok(val) = std::env::var(name) {
-                    return Some(val);
-                }
                 // Missing env var: expand to empty rather than leave
                 // the literal, matching typical shell behavior.
                 return Some(String::new());

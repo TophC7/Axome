@@ -211,6 +211,8 @@ macro_rules! sworm_rpc_ops {
             #[route(server)]
             ExtensionsReload => extensions_reload() -> ();
             #[route(server)]
+            EnvironmentReload => environment_reload() -> ();
+            #[route(server)]
             ConfigSchemasList => config_schemas_list() -> Vec<$crate::config_schemas::ConfigSchemaEntry>;
             #[route(none)]
             OmpResolveUri => omp_resolve_uri(uri: String, cwd: Option<String>) -> $crate::omp::OmpResolvedTarget;

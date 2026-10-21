@@ -16,6 +16,7 @@ impl FormattingService {
         let mut child = Command::new(program)
             .args(args)
             .current_dir(cwd)
+            .env_clear()
             .envs(env)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -80,7 +81,11 @@ mod tests {
     #[test]
     fn formats_go_content_with_gofmt() {
         let unformatted = "package main\n\nfunc main(){\nprintln( \"hello\" )\n}\n";
-        let formatted = FormattingService::run("gofmt", &[], "/tmp", unformatted, &HashMap::new())
+        let env = HashMap::from([(
+            "PATH".to_string(),
+            std::env::var("PATH").unwrap_or_default(),
+        )]);
+        let formatted = FormattingService::run("gofmt", &[], "/tmp", unformatted, &env)
             .expect("gofmt formats valid Go code");
         assert_eq!(
             formatted,

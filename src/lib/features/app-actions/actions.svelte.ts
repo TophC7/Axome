@@ -9,7 +9,11 @@ import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import { runNotifiedTask } from '$lib/features/notifications/runNotifiedTask'
-import { getLaunchOptions, resolveDefaultLaunch } from '$lib/features/sessions/harnesses/state.svelte'
+import {
+  getLaunchOptions,
+  reloadHarnessListings,
+  resolveDefaultLaunch
+} from '$lib/features/sessions/harnesses/state.svelte'
 import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { startSession } from '$lib/features/sessions/service.svelte'
 import { setSettingsOpen } from '$lib/features/settings/dialog/state.svelte'
@@ -54,6 +58,16 @@ export async function reloadExtensions(): Promise<void> {
     return
   }
   await reloadView()
+}
+
+/** Re-probe the active folder's host environment, then refresh harness detection. */
+export async function reloadEnvironment(): Promise<void> {
+  try {
+    await backend.environment.reload(getActiveFolderPath())
+    await reloadHarnessListings()
+  } catch (error) {
+    notify.error('Reload environment failed', getErrorMessage(error))
+  }
 }
 
 export function confirmCloseWorkbench(folders: string[]): Promise<boolean> {

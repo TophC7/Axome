@@ -1782,7 +1782,10 @@ mod tests {
                 &[],
                 "/",
                 "abc",
-                &std::collections::HashMap::new(),
+                &std::collections::HashMap::from([(
+                    "PATH".to_string(),
+                    std::env::var("PATH").unwrap_or_default(),
+                )]),
             ),
             Ok("ABC".to_string())
         );

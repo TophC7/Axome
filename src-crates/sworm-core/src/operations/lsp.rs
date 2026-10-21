@@ -1,6 +1,7 @@
 use crate::errors::ApiError;
 use crate::events::EventSink;
 use crate::host::Host;
+use crate::services::env::EnvironmentService;
 use crate::services::extensions::ExtensionService;
 use crate::services::folders::resolve_folder;
 use crate::services::lsp::{resolve_launch, resolve_server_status};
@@ -23,7 +24,7 @@ impl Host {
             let env = self.folder_env(&folder);
             (Some(folder), env)
         } else {
-            (None, self.env.with_nix(None))
+            (None, EnvironmentService::current().with_nix(None))
         };
 
         let effective = resolve_effective_settings_for_folder_path(project_path.as_deref())

@@ -1,5 +1,6 @@
 use crate::errors::ApiError;
 use crate::host::Host;
+use crate::services::env::EnvironmentService;
 use crate::services::extensions::{missing_requirement, ExtensionService};
 use crate::services::folders::resolve_folder;
 use crate::services::harness_scanners::Scanner;
@@ -130,8 +131,9 @@ impl Host {
                     "A shell session cannot use a preset".into(),
                 ));
             }
+            let environment = EnvironmentService::current();
             let cmd = binary_override(settings.shell.binary_path_override.as_deref())
-                .unwrap_or(&self.env.detected_shell);
+                .unwrap_or(&environment.detected_shell);
             let args: Vec<&str> = settings
                 .shell
                 .extra_args

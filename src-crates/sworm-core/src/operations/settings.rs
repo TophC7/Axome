@@ -1,6 +1,7 @@
 use crate::{
     errors::ApiError,
     services::{
+        env::EnvironmentService,
         extensions::ExtensionService,
         harnesses,
         settings::SettingsService,
@@ -27,7 +28,7 @@ impl Host {
         let harnesses = harnesses::detect_all(
             &ExtensionService::current(),
             &resolved.settings,
-            self.env.path(),
+            &EnvironmentService::current().base,
         )
         .into_iter()
         .map(|harness| {

@@ -35,7 +35,6 @@ pub struct Host {
     pub(crate) issues: Arc<IssueService>,
     pub(crate) issue_bridge: IssueBridgeService,
     pub(crate) files: FileService,
-    pub(crate) env: EnvironmentService,
     pub(crate) lsp: LspService,
     pub tasks: TaskService,
     pub(crate) settings_watchers: SettingsWatcherService,
@@ -54,6 +53,7 @@ impl Host {
         let db = Arc::new(DatabaseService::new(db_path)?);
         let issues = Arc::new(IssueService::new());
         let git = Arc::new(GitService::new());
+        EnvironmentService::current();
         Ok(Self {
             admission: Arc::new(tokio::sync::RwLock::new(())),
             db,
@@ -63,7 +63,6 @@ impl Host {
             issues: Arc::clone(&issues),
             issue_bridge: IssueBridgeService::new(issues, Arc::clone(&events)),
             files: FileService::new(),
-            env: EnvironmentService::new(),
             lsp: LspService::new(),
             tasks: TaskService::new(),
             settings_watchers: SettingsWatcherService::new(Arc::clone(&events)),

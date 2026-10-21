@@ -1,6 +1,7 @@
 use crate::{
     errors::ApiError,
     services::{
+        env::EnvironmentService,
         extensions::{missing_requirement, resolve_contribution_command, ExtensionService},
         folders::resolve_folder,
         formatting::{relative_stdin_file_path, FormattingService},
@@ -52,7 +53,7 @@ impl Host {
             let folder = resolve_folder(folder_path)?;
             self.folder_env(&folder)
         } else {
-            self.env.with_nix(None)
+            EnvironmentService::current().with_nix(None)
         };
         let path = env.get("PATH").map(String::as_str).unwrap_or("");
         let extensions = ExtensionService::current();

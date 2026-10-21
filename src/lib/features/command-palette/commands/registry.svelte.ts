@@ -36,6 +36,7 @@ import {
   openFolderSettingsFile,
   openGlobalSettingsFile,
   openSettings,
+  reloadEnvironment,
   reloadExtensions,
   reloadView,
   reopenTab,
@@ -318,6 +319,15 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       keywords: ['extensions', 'reload', 'languages', 'grammars', 'formatters', 'lsp'],
       terminalPolicy: 'skip-shell',
       run: reloadExtensions
+    }),
+    appCommand({
+      id: 'reload-environment',
+      label: 'Reload Environment',
+      group: 'General',
+      icon: RefreshCwIcon,
+      keywords: ['environment', 'env', 'reload', 'path', 'variables', 'home-manager'],
+      terminalPolicy: 'skip-shell',
+      run: reloadEnvironment
     }),
     appCommand({
       id: 'reveal-in-file-manager',

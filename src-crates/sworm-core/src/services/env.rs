@@ -1,118 +1,97 @@
+use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 use tracing::{info, warn};
 
-/// Allowlisted environment variables that are safe to pass to child processes.
-const ENV_ALLOWLIST: &[&str] = &[
-    "PATH",
+/// Session identity seeds the login probe and stays host-authoritative over Nix.
+pub(crate) const SESSION_VARS: &[&str] = &[
     "HOME",
     "USER",
+    "LOGNAME",
     "SHELL",
     "LANG",
     "LC_ALL",
     "LC_CTYPE",
-    "TERM",
-    "COLORTERM",
-    "SSH_AUTH_SOCK",
-    "GDK_BACKEND",
-    "XDG_RUNTIME_DIR",
     "DISPLAY",
     "WAYLAND_DISPLAY",
+    "XDG_RUNTIME_DIR",
     "DBUS_SESSION_BUS_ADDRESS",
     "XDG_CURRENT_DESKTOP",
     "XDG_SESSION_TYPE",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
-    "OPENAI_API_KEY",
-    "OPENAI_BASE_URL",
-    "ANTHROPIC_API_KEY",
+    "SSH_AUTH_SOCK",
 ];
 
-/// Environment bootstrap service.
-///
-/// Captures a sanitized base environment at startup and probes the
-/// user's login shell for PATH so provider CLIs installed under
-/// user-managed toolchains are discoverable even when the app is
-/// launched from a desktop entry.
+static CURRENT: LazyLock<RwLock<Arc<EnvironmentService>>> =
+    LazyLock::new(|| RwLock::new(Arc::new(EnvironmentService::new())));
+
 pub struct EnvironmentService {
-    /// The user's login shell (from $SHELL)
     pub detected_shell: String,
-    /// Merged environment for child processes
-    pub child_env: HashMap<String, String>,
+    /// Login environment plus terminal defaults, without Sworm's process variables.
+    pub base: HashMap<String, String>,
 }
 
 impl EnvironmentService {
-    /// Bootstrap the environment service.
-    ///
-    /// 1. Capture the base environment
-    /// 2. Detect the user shell
-    /// 3. Probe the login shell for PATH
-    /// 4. Build a merged child environment
-    pub fn new() -> Self {
+    fn new() -> Self {
         let detected_shell = detect_login_shell();
-        let base_path = std::env::var("PATH").unwrap_or_default();
+        let seed = SESSION_VARS
+            .iter()
+            .copied()
+            .chain(["PATH"])
+            .filter_map(|key| {
+                std::env::var(key)
+                    .ok()
+                    .map(|value| (key.to_string(), value))
+            })
+            .collect();
+        let mut base = probe_login_env(&detected_shell, &seed).unwrap_or_else(|| {
+            warn!("Login environment probe failed; children get session variables only");
+            seed
+        });
 
-        info!(
-            "Environment bootstrap: shell={}, base PATH length={}",
-            detected_shell,
-            base_path.len()
-        );
-
-        // Probe the login shell for its PATH
-        let (shell_path, probe_succeeded) = probe_shell_path(&detected_shell);
-
-        let merged_path = if let Some(ref sp) = shell_path {
-            merge_paths(sp, &base_path)
-        } else {
-            base_path.clone()
-        };
-
-        info!(
-            "Environment bootstrap: probe_succeeded={}, merged PATH length={}",
-            probe_succeeded,
-            merged_path.len()
-        );
-
-        // Build the allowlisted child environment
-        let mut child_env = HashMap::new();
-        for &key in ENV_ALLOWLIST {
-            if key != "PATH" {
-                if let Ok(val) = std::env::var(key) {
-                    child_env.insert(key.to_string(), val);
-                }
+        // Parent terminal capabilities take precedence, including desktop-launch defaults.
+        for (key, default) in [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")] {
+            if let Ok(value) = std::env::var(key) {
+                base.insert(key.to_string(), value);
+            } else {
+                base.entry(key.to_string())
+                    .or_insert_with(|| default.to_string());
             }
         }
-        child_env.insert("PATH".to_string(), merged_path);
-
-        // Ensure TERM is set
-        child_env
-            .entry("TERM".to_string())
-            .or_insert_with(|| "xterm-256color".to_string());
-
-        // Guarantee 24-bit color support to child CLIs. Without this,
-        // some agent CLIs render monochrome because their capability
-        // probe checks COLORTERM before trusting the bare
-        // TERM value. We only set the default when the parent didn't
-        // provide one, so launches from a colour-aware terminal (e.g.
-        // Ghostty setting `truecolor`) win over the default.
-        child_env
-            .entry("COLORTERM".to_string())
-            .or_insert_with(|| "truecolor".to_string());
 
         Self {
             detected_shell,
-            child_env,
+            base,
         }
     }
 
-    /// Login-shell PATH preferred, falling back to the host process PATH.
-    pub fn path(&self) -> &str {
-        &self.child_env["PATH"]
+    pub fn current() -> Arc<EnvironmentService> {
+        CURRENT.read().clone()
     }
 
-    /// Overlay Nix tools while preserving host session integration and credentials.
+    pub fn reload() {
+        let environment = Arc::new(Self::new());
+        *CURRENT.write() = environment;
+    }
+
+    /// Children never see Sworm's process env, so tests inject fake tools through this instead.
+    #[doc(hidden)]
+    pub fn update_base_for_tests(edit: impl FnOnce(&mut HashMap<String, String>)) {
+        let mut current = CURRENT.write();
+        let mut base = current.base.clone();
+        edit(&mut base);
+        *current = Arc::new(Self {
+            detected_shell: current.detected_shell.clone(),
+            base,
+        });
+    }
+
+    pub fn path(&self) -> &str {
+        self.base.get("PATH").map(String::as_str).unwrap_or("")
+    }
+
+    /// Overlay Nix tools while preserving host session integration.
     pub fn with_nix(&self, nix: Option<&HashMap<String, String>>) -> HashMap<String, String> {
-        let mut merged = self.child_env.clone();
+        let mut merged = self.base.clone();
         let Some(nix) = nix else {
             return merged;
         };
@@ -120,7 +99,7 @@ impl EnvironmentService {
         for (key, value) in nix {
             if key == "PATH" {
                 merged.insert(key.clone(), merge_paths(value, self.path()));
-            } else if !ENV_ALLOWLIST.contains(&key.as_str()) {
+            } else if !SESSION_VARS.contains(&key.as_str()) {
                 merged.insert(key.clone(), value.clone());
             }
         }
@@ -145,6 +124,8 @@ fn detect_login_shell() -> String {
     if let Ok(user) = std::env::var("USER") {
         if let Ok(output) = std::process::Command::new("getent")
             .args(["passwd", &user])
+            .env_clear()
+            .envs(std::env::var("PATH").ok().map(|path| ("PATH", path)))
             .output()
         {
             if output.status.success() {
@@ -165,38 +146,67 @@ fn detect_login_shell() -> String {
     shell
 }
 
-/// Probe the user's login shell for its PATH.
-///
-/// Runs: `$SHELL -lc 'printf "%s" "$PATH"'`
-fn probe_shell_path(shell: &str) -> (Option<String>, bool) {
-    let result = std::process::Command::new(shell)
-        .args(["-lc", r#"printf "%s" "$PATH""#])
-        .output();
-
-    match result {
+fn probe_login_env(shell: &str, seed: &HashMap<String, String>) -> Option<HashMap<String, String>> {
+    let marker = format!("__SWORM_ENV_{}__", uuid::Uuid::new_v4().simple());
+    let script = format!("printf '%s' {marker}; /usr/bin/env -0; printf '%s' {marker}");
+    match std::process::Command::new(shell)
+        .args(["-lc", &script])
+        .env_clear()
+        .envs(seed)
+        .output()
+    {
         Ok(output) if output.status.success() => {
-            let path = String::from_utf8_lossy(&output.stdout).to_string();
-            if path.is_empty() {
-                warn!("Shell probe returned empty PATH");
-                (None, false)
-            } else {
-                info!(
-                    "Shell probe succeeded, PATH has {} entries",
-                    path.split(':').count()
-                );
-                (Some(path), true)
+            let env = parse_probe_output(&output.stdout, marker.as_bytes());
+            if env.is_none() {
+                warn!("Login environment probe returned missing markers or an empty environment");
             }
+            env
         }
         Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            warn!("Shell probe exited with {}: {}", output.status, stderr);
-            (None, false)
+            warn!("Login environment probe exited with {}", output.status);
+            None
         }
-        Err(e) => {
-            warn!("Shell probe failed to execute: {}", e);
-            (None, false)
+        Err(error) => {
+            warn!("Login environment probe failed to execute: {error}");
+            None
         }
     }
+}
+
+fn parse_probe_output(output: &[u8], marker: &[u8]) -> Option<HashMap<String, String>> {
+    let start = output
+        .windows(marker.len())
+        .position(|bytes| bytes == marker)?
+        + marker.len();
+    let end = output
+        .windows(marker.len())
+        .rposition(|bytes| bytes == marker)?;
+    let body = output.get(start..end)?;
+    let mut env = HashMap::new();
+    for entry in body.split(|&byte| byte == 0) {
+        let Some(separator) = entry.iter().position(|&byte| byte == b'=') else {
+            continue;
+        };
+        let key = &entry[..separator];
+        if !key
+            .first()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || *byte == b'_')
+            || !key
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            continue;
+        }
+        let key = std::str::from_utf8(key).ok()?;
+        if matches!(key, "SHLVL" | "PWD" | "OLDPWD" | "_") {
+            continue;
+        }
+        env.insert(
+            key.to_string(),
+            String::from_utf8_lossy(&entry[separator + 1..]).into_owned(),
+        );
+    }
+    (!env.is_empty()).then_some(env)
 }
 
 /// Merge two PATH strings, preferring entries from `primary` but
@@ -219,73 +229,69 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_merge_env_host_authoritative_preserved() {
-        let mut child_env = HashMap::new();
-        let mut nix = HashMap::new();
-        for &key in ENV_ALLOWLIST {
-            if key != "PATH" {
-                child_env.insert(key.to_string(), format!("host-{key}"));
-                nix.insert(key.to_string(), format!("nix-{key}"));
+    fn probe_output_parses_between_markers() {
+        let output = b"login noise\n__MARK__KEY=a=b\0GOOD_2=yes\0bad-key=no\0SHLVL=1\0PWD=/\0OLDPWD=/tmp\0_=env\0__MARK__logout noise";
+        assert_eq!(
+            parse_probe_output(output, b"__MARK__").unwrap(),
+            HashMap::from([
+                ("KEY".to_string(), "a=b".to_string()),
+                ("GOOD_2".to_string(), "yes".to_string()),
+            ])
+        );
+        assert!(parse_probe_output(b"noise", b"__MARK__").is_none());
+        assert!(parse_probe_output(b"__MARK____MARK__", b"__MARK__").is_none());
+    }
+
+    #[test]
+    fn session_vars_stay_host_authoritative() {
+        let mut base = HashMap::from([("PATH".to_string(), "/usr/bin".to_string())]);
+        let mut nix = HashMap::from([
+            ("PATH".to_string(), "/nix/bin:/usr/bin".to_string()),
+            ("NEW_VAR".to_string(), "from-nix".to_string()),
+        ]);
+        for (index, &key) in SESSION_VARS.iter().enumerate() {
+            if index % 2 == 0 {
+                base.insert(key.to_string(), format!("host-{key}"));
             }
+            nix.insert(key.to_string(), format!("nix-{key}"));
         }
-        child_env.insert("PATH".to_string(), "/usr/bin".to_string());
-        child_env.insert("CC".to_string(), "gcc".to_string());
-        nix.insert("CC".to_string(), "/nix/store/cc".to_string());
-        nix.insert("NEW_VAR".to_string(), "from-nix".to_string());
         let env = EnvironmentService {
             detected_shell: "/bin/sh".to_string(),
-            child_env,
+            base,
         };
-
         let merged = env.with_nix(Some(&nix));
-        for &key in ENV_ALLOWLIST {
-            if key != "PATH" {
-                assert_eq!(merged.get(key), env.child_env.get(key), "{key}");
-            }
+        for &key in SESSION_VARS {
+            assert_eq!(merged.get(key), env.base.get(key), "{key}");
         }
-        assert_eq!(merged["PATH"], "/usr/bin");
-        assert_eq!(merged["CC"], "/nix/store/cc");
+        assert_eq!(merged["PATH"], "/nix/bin:/usr/bin");
         assert_eq!(merged["NEW_VAR"], "from-nix");
         assert_eq!(merged["__NIXOS_SET_ENVIRONMENT_DONE"], "1");
+        assert_eq!(env.with_nix(None), env.base);
     }
 
     #[test]
-    fn test_merge_env_path_prepended() {
-        let env = EnvironmentService {
-            detected_shell: "/bin/sh".to_string(),
-            child_env: HashMap::from([("PATH".to_string(), "/usr/bin:/usr/local/bin".to_string())]),
+    fn login_probe_sees_login_files() {
+        let path = std::env::var("PATH").unwrap_or_default();
+        let Ok(bash) = which::which_in("bash", Some(&path), ".") else {
+            eprintln!("Skipping login probe test: bash is not on PATH");
+            return;
         };
-        let nix = HashMap::from([(
-            "PATH".to_string(),
-            "/nix/store/a:/nix/store/b:/usr/bin".to_string(),
-        )]);
-
-        let merged = env.with_nix(Some(&nix));
-        assert_eq!(
-            merged["PATH"],
-            "/nix/store/a:/nix/store/b:/usr/bin:/usr/local/bin"
-        );
-        assert_eq!(env.path(), "/usr/bin:/usr/local/bin");
-    }
-
-    #[test]
-    fn nix_cannot_supply_missing_host_authoritative_vars() {
-        let env = EnvironmentService {
-            detected_shell: "/bin/sh".to_string(),
-            child_env: HashMap::from([("PATH".to_string(), "/usr/bin".to_string())]),
-        };
-        let nix = ENV_ALLOWLIST
-            .iter()
-            .filter(|&&key| key != "PATH")
-            .map(|&key| (key.to_string(), "from-nix".to_string()))
-            .collect();
-        let merged = env.with_nix(Some(&nix));
-        for &key in ENV_ALLOWLIST {
-            if key != "PATH" {
-                assert!(!merged.contains_key(key), "{key}");
-            }
-        }
-        assert_eq!(env.with_nix(None), env.child_env);
+        let home = std::env::temp_dir().join(format!("sworm-env-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(
+            home.join(".bash_profile"),
+            "echo login-noise\nexport SWORM_PROBE_TEST=1\n",
+        )
+        .unwrap();
+        let seed = HashMap::from([
+            ("HOME".to_string(), home.to_string_lossy().into_owned()),
+            ("PATH".to_string(), path),
+        ]);
+        let result = probe_login_env(bash.to_str().unwrap(), &seed);
+        std::fs::remove_dir_all(&home).unwrap();
+        let env = result.unwrap();
+        assert_eq!(env["SWORM_PROBE_TEST"], "1");
+        assert!(!env.keys().any(|key| key.contains("login-noise")));
     }
 
     #[test]

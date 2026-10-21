@@ -2,7 +2,7 @@ use crate::{
     errors::ApiError,
     events::HostEvent,
     services::{
-        folders::resolve_folder, nix::NixService,
+        env::EnvironmentService, folders::resolve_folder, nix::NixService,
         settings_resolution::resolve_effective_settings_for_folder_path,
     },
     Host,
@@ -30,13 +30,13 @@ impl Host {
             NixService::load_env_vars(db.conn(), &folder.to_string_lossy())
         };
         match nix {
-            Ok(nix) => self.env.with_nix(nix.as_ref()),
+            Ok(nix) => EnvironmentService::current().with_nix(nix.as_ref()),
             Err(error) => {
                 tracing::warn!(
                     "Failed to load Nix env for folder {}: {error}; using host environment",
                     folder.display()
                 );
-                self.env.with_nix(None)
+                EnvironmentService::current().with_nix(None)
             }
         }
     }

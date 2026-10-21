@@ -1,6 +1,7 @@
 use crate::services::extensions::{
     missing_requirement, resolve_contribution_command, LoadedExtensionCatalog, LoadedHarness,
 };
+use std::collections::HashMap;
 use sworm_protocol::extensions::{HarnessTerminal, VersionStream, SESSION_ID_VARIABLE};
 use sworm_protocol::harness::{HarnessConnectionStatus, HarnessStatus};
 use sworm_protocol::settings::{EffectiveSettings, HarnessSettings};
@@ -62,7 +63,7 @@ pub(crate) fn terminal_args(
 pub fn detect_all(
     catalog: &LoadedExtensionCatalog,
     settings: &EffectiveSettings,
-    merged_path: &str,
+    env: &HashMap<String, String>,
 ) -> Vec<HarnessStatus> {
     std::thread::scope(|scope| {
         let handles = catalog
@@ -74,7 +75,7 @@ pub fn detect_all(
                     .get(&harness.definition.id)
                     .cloned()
                     .unwrap_or_default();
-                let handle = scope.spawn(move || detect_harness(harness, merged_path, &config));
+                let handle = scope.spawn(move || detect_harness(harness, env, &config));
                 (harness, handle)
             })
             .collect::<Vec<_>>();
@@ -113,9 +114,10 @@ fn harness_status(harness: &LoadedHarness, config: &HarnessSettings) -> HarnessS
 
 fn detect_harness(
     harness: &LoadedHarness,
-    merged_path: &str,
+    env: &HashMap<String, String>,
     config: &HarnessSettings,
 ) -> HarnessStatus {
+    let merged_path = env.get("PATH").map(String::as_str).unwrap_or("");
     let mut status = harness_status(harness, config);
     if let Some(message) = missing_requirement(&harness.requires, merged_path) {
         status.message = Some(message);
@@ -128,6 +130,8 @@ fn detect_harness(
     };
     let definition = &harness.definition;
     match std::process::Command::new(&path)
+        .env_clear()
+        .envs(env)
         .args(&definition.detect.version_args)
         .output()
     {
@@ -183,13 +187,14 @@ mod tests {
         let binary = folder.join("claude");
         std::os::unix::fs::symlink(which::which("bash").unwrap(), &binary).unwrap();
         let path = folder.to_str().unwrap();
+        let env = HashMap::from([("PATH".to_string(), path.to_string())]);
         let catalog = load_catalog(None);
         let harness = catalog.find_harness("claude_code").unwrap();
         let config = HarnessSettings {
             binary_path_override: Some(" \t ".into()),
             ..Default::default()
         };
-        let detected = detect_harness(harness, path, &config);
+        let detected = detect_harness(harness, &env, &config);
         let resolved =
             resolve_harness_command(harness, path, config.binary_path_override.as_deref());
         std::fs::remove_dir_all(&folder).unwrap();

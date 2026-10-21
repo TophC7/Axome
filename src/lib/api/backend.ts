@@ -545,6 +545,12 @@ export const backend = {
     }
   },
 
+  environment: {
+    reload(folderPath?: string | null): Promise<void> {
+      return invoke<void>('environment_reload', { folderPath: folderPath ?? null })
+    }
+  },
+
   configSchemas: {
     list(folderPath?: string | null): Promise<ConfigSchemaEntry[]> {
       return invoke<ConfigSchemaEntry[]>('config_schemas_list', { folderPath: folderPath ?? null })

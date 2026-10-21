@@ -1,3 +1,4 @@
+use crate::services::env::EnvironmentService;
 use rusqlite::{Connection, OptionalExtension};
 use std::collections::HashMap;
 use std::path::Path;
@@ -218,6 +219,7 @@ impl NixService {
 
         let mut cmd = if is_flake {
             let mut c = std::process::Command::new("nix");
+            c.env_clear().envs(&EnvironmentService::current().base);
             c.args([
                 "develop",
                 folder_path,
@@ -230,6 +232,7 @@ impl NixService {
         } else {
             let file_path = Path::new(folder_path).join(nix_file);
             let mut c = std::process::Command::new("nix-shell");
+            c.env_clear().envs(&EnvironmentService::current().base);
             c.args([file_path.to_str().unwrap_or(nix_file), "--run", "env -0"]);
             c
         };
@@ -340,6 +343,8 @@ impl NixService {
     ///   error: <message>, at /path/to/file.nix:<line>:<col>
     pub fn lint_nix(file_path: &str) -> Result<Vec<NixDiagnostic>, String> {
         let output = std::process::Command::new("nix-instantiate")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["--parse", file_path])
             .output()
             .map_err(|e| format!("nix-instantiate not found: {e}"))?;

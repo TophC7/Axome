@@ -1,4 +1,5 @@
 use crate::errors::ApiError;
+use crate::services::env::EnvironmentService;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
@@ -2371,6 +2372,8 @@ pub(crate) fn git_line(path: &Path, args: &[&str]) -> Option<String> {
 fn git_command(path: &Path) -> Command {
     let mut command = Command::new("git");
     command
+        .env_clear()
+        .envs(&EnvironmentService::current().base)
         .current_dir(path)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_EDITOR", "true")
@@ -2961,6 +2964,8 @@ mod tests {
     }
     fn git(repo: &Path, args: &[&str]) {
         let out = Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(args)
             .current_dir(repo)
             .output()
@@ -3132,6 +3137,8 @@ mod tests {
 
         assert_eq!(service.undo_last_commit(&repo).unwrap(), "init");
         let head = Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["rev-parse", "--verify", "--quiet", "HEAD"])
             .current_dir(&repo)
             .output()
@@ -3251,6 +3258,8 @@ mod tests {
         git(&repo, &["add", "a.txt"]);
         git(&repo, &["commit", "-q", "-m", "main"]);
         let merge = Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["merge", "feature"])
             .current_dir(&repo)
             .output()
@@ -3321,6 +3330,8 @@ mod tests {
         std::fs::write(repo.join("a.txt"), "main\n").unwrap();
         git(&repo, &["commit", "-q", "-am", "main"]);
         let merge = Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["merge", "feature"])
             .current_dir(&repo)
             .output()
@@ -3617,6 +3628,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&remote);
         std::fs::create_dir_all(&remote).unwrap();
         Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["init", "-q", "--bare"])
             .current_dir(&remote)
             .output()
@@ -3632,6 +3645,8 @@ mod tests {
         let work2 = dir.with_extension("work2");
         let _ = std::fs::remove_dir_all(&work2);
         Command::new("git")
+            .env_clear()
+            .envs(&EnvironmentService::current().base)
             .args(["clone", "-q", &remote_url, work2.to_str().unwrap()])
             .output()
             .unwrap();

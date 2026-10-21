@@ -1,5 +1,6 @@
 use crate::errors::ApiError;
 use crate::host::Host;
+use crate::services::env::EnvironmentService;
 use crate::services::folders::resolve_folder;
 use crate::services::pty::{CompletedRunSink, PtySubscriber};
 use crate::services::runs::RunKind;
@@ -102,7 +103,7 @@ impl Host {
 
         // Always shell-wrap so pipes, globs, `&&`, and quoted args work
         // exactly as a user would type them in their own terminal.
-        let shell = self.env.detected_shell.clone();
+        let shell = EnvironmentService::current().detected_shell.clone();
         let shell_args = ["-c", resolved.command.as_str()];
         let cwd = resolved.cwd.to_string_lossy().into_owned();
 

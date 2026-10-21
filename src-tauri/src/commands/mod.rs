@@ -124,6 +124,8 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         extensions_get_catalog,
         extensions_get_grammars,
         extensions_reload,
+        // Environment commands
+        environment_reload,
         // Config schema commands (drives Monaco autocomplete for .sworm/*.json)
         config_schemas_list,
         // Drag and drop commands

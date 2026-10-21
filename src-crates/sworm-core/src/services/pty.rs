@@ -1,5 +1,6 @@
 use crate::events::EventSink;
 use crate::services::completed_runs::CompletedRun;
+use crate::services::env::EnvironmentService;
 use parking_lot::{Condvar, Mutex};
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::{HashMap, HashSet};
@@ -1132,6 +1133,7 @@ impl PtyService {
             .map_err(|error| format!("Failed to clone PTY reader: {error}"))?;
 
         let mut cmd_builder = CommandBuilder::new(cmd);
+        cmd_builder.env_clear();
         for arg in args {
             cmd_builder.arg(arg);
         }
@@ -1140,6 +1142,10 @@ impl PtyService {
         }
         if let Some(env_map) = env {
             for (key, value) in env_map {
+                cmd_builder.env(key, value);
+            }
+        } else {
+            for (key, value) in &EnvironmentService::current().base {
                 cmd_builder.env(key, value);
             }
         }

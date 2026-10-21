@@ -6,6 +6,7 @@
 //! reads this layout to validate and discover resume ids.
 
 use crate::errors::ApiError;
+use crate::services::env::EnvironmentService;
 use crate::services::folders::home_dir;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::path::{Path, PathBuf};
@@ -151,6 +152,8 @@ fn fallback_omp_read(uri: &str, home: &Path, slug: &str) -> Result<OmpResolvedTa
         });
     }
     let output = std::process::Command::new("omp")
+        .env_clear()
+        .envs(&EnvironmentService::current().base)
         .args(["read", uri])
         .output()
         .map_err(|e| ApiError::Io(format!("Failed to run omp read: {e}")))?;

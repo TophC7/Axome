@@ -1,7 +1,7 @@
 use crate::{
     errors::ApiError,
     services::{
-        extensions::ExtensionService, folders::resolve_folder, harnesses,
+        env::EnvironmentService, extensions::ExtensionService, folders::resolve_folder, harnesses,
         settings_resolution::resolve_effective_settings_for_folder_path,
     },
     Host,
@@ -17,7 +17,7 @@ impl Host {
             harnesses: harnesses::detect_all(
                 &ExtensionService::current(),
                 &effective.settings,
-                self.env.path(),
+                &EnvironmentService::current().base,
             ),
             default_preset: effective.settings.sessions.default_preset.clone(),
         })
@@ -32,7 +32,7 @@ impl Host {
             harnesses: harnesses::detect_all(
                 &ExtensionService::current(),
                 &effective.settings,
-                &env["PATH"],
+                &env,
             ),
             default_preset: effective.settings.sessions.default_preset.clone(),
         })
