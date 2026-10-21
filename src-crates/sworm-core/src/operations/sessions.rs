@@ -141,15 +141,13 @@ impl Host {
                     ApiError::InvalidArgument(format!("Unknown preset {id}/{name}"))
                 })?,
             };
-        if let Some(message) = missing_requirement(&harness.requires, &child_env["PATH"]) {
+        let path = child_env.get("PATH").map(String::as_str).unwrap_or("");
+        if let Some(message) = missing_requirement(&harness.requires, path) {
             return Err(ApiError::InvalidArgument(message));
         }
-        let cli_cmd = resolve_harness_command(
-            harness,
-            &child_env["PATH"],
-            config.binary_path_override.as_deref(),
-        )
-        .map_err(ApiError::InvalidArgument)?;
+        let cli_cmd =
+            resolve_harness_command(harness, path, config.binary_path_override.as_deref())
+                .map_err(ApiError::InvalidArgument)?;
         let terminal = &harness.definition.terminal;
         let scanner = Scanner::for_harness(&id);
         let session_id = if terminal.resume_args.is_empty() {

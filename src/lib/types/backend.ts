@@ -253,7 +253,7 @@ export type SessionView = 'chat' | 'terminal'
 export interface PresetSettings {
   args: string[]
   env: Record<string, string>
-  /** Default view for new tabs of this preset. Unused until Phase 3. */
+  /** Default view for new tabs of this preset; accepted but not yet applied. */
   view: SessionView | null
 }
 

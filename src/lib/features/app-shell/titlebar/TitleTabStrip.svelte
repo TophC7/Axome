@@ -353,7 +353,7 @@
         </ContextMenu.Item>
       {/if}
       {#if tab.kind === 'task'}
-        {@const taskRunning = tab.status === 'running' || tab.status === 'starting'}
+        {@const taskRunning = isProcessLive(tab.status)}
         <ContextMenu.Item onSelect={() => void (taskRunning ? handleTaskStop(tab) : handleTaskRestart(tab))}>
           {taskRunning ? 'Stop' : 'Restart'}
         </ContextMenu.Item>

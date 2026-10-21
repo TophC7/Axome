@@ -14,6 +14,7 @@ use tauri::Manager;
 use windows::{focus_window, WindowCoordinatorService};
 
 pub fn run() {
+    sworm_core::services::env::capture_launch_env();
     let nvidia_gl_quirk = gdk_env::configure();
 
     tracing_subscriber::fmt()

@@ -78,6 +78,19 @@ craneLib.buildPackage (
       install -Dm644 ${desktopFile} $out/share/applications/sworm.desktop
     '';
 
+    dontWrapGApps = true;
+    # Record each variable's pre-wrapper value first so Sworm can undo the
+    # wrapper for the processes it launches (see services/env.rs).
+    postFixup = ''
+      recordOriginals=()
+      for name in $(printf '%s\n' "''${gappsWrapperArgs[@]}" \
+          | awk 'take { print; take = 0 } /^--(prefix|suffix|set|set-default|unset|prefix-each|suffix-each|prefix-contents|suffix-contents)$/ { take = 1 }' \
+          | sort -u); do
+        recordOriginals+=(--run "export SWORM_ORIG_$name=\"\''${$name-__SWORM_UNSET__}\"")
+      done
+      wrapProgram $out/bin/sworm "''${recordOriginals[@]}" "''${gappsWrapperArgs[@]}"
+    '';
+
     meta = {
       description = "Sworm - Linux-first desktop app for coding-agent CLIs";
       license = lib.licenses.agpl3Plus;

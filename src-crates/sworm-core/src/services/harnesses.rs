@@ -65,17 +65,20 @@ pub fn detect_all(
     settings: &EffectiveSettings,
     env: &HashMap<String, String>,
 ) -> Vec<HarnessStatus> {
+    let fallback = HarnessSettings::default();
+    let config_for = |harness: &LoadedHarness| {
+        settings
+            .harnesses
+            .get(&harness.definition.id)
+            .unwrap_or(&fallback)
+    };
     std::thread::scope(|scope| {
         let handles = catalog
             .harnesses
             .iter()
             .map(|harness| {
-                let config = settings
-                    .harnesses
-                    .get(&harness.definition.id)
-                    .cloned()
-                    .unwrap_or_default();
-                let handle = scope.spawn(move || detect_harness(harness, env, &config));
+                let config = config_for(harness);
+                let handle = scope.spawn(move || detect_harness(harness, env, config));
                 (harness, handle)
             })
             .collect::<Vec<_>>();
@@ -83,12 +86,7 @@ pub fn detect_all(
             .into_iter()
             .map(|(harness, handle)| {
                 handle.join().unwrap_or_else(|_| {
-                    let config = settings
-                        .harnesses
-                        .get(&harness.definition.id)
-                        .cloned()
-                        .unwrap_or_default();
-                    let mut status = harness_status(harness, &config);
+                    let mut status = harness_status(harness, config_for(harness));
                     status.status = HarnessConnectionStatus::Error;
                     status.message = Some("Harness detection panicked".to_string());
                     status

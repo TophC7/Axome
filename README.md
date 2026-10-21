@@ -160,7 +160,7 @@ Tasks in `.sworm/tasks.jsonc` can also run automatically when a worktree is crea
 
 Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers.
 
-Everything Sworm launches starts from your login shell's environment (what `$SHELL -l` exports, including home-manager session variables) with the folder's Nix environment layered on top. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Sworm.
+Everything Sworm launches starts from the environment Sworm itself was launched with, minus Sworm's own packaging edits (the GTK wrapper and devshell record each variable's prior value as `SWORM_ORIG_<NAME>`, and Sworm restores it). That environment is resolved through your login shell (`$SHELL -l`, including home-manager session variables), and the folder's Nix environment is layered on top; session values such as `DISPLAY`, `WAYLAND_DISPLAY`, or `SSH_AUTH_SOCK` always come from the host. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Sworm.
 
 The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the sidebar footer shows the current folder.
 

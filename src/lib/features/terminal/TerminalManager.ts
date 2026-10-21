@@ -349,7 +349,12 @@ export class TerminalManager {
   async exportTransferState(): Promise<TerminalTransferState> {
     const transfers = requireNative().transfers
     const folderPath = this.getFolderPath()
-    const runId = this.runId ?? (folderPath && !splitRemotePath(folderPath) ? this.streamRunId : null)
+    // Without an attached stream nothing advances the render barrier; the target
+    // window reattaches from the tab's persisted runId on its own start.
+    const runId =
+      this.streamRunId === null
+        ? null
+        : (this.runId ?? (folderPath && !splitRemotePath(folderPath) ? this.streamRunId : null))
 
     await this.ensureTerminal()
     const terminal = this.terminal

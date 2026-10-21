@@ -66,7 +66,7 @@ async function rebindTaskTab(tab: TaskTab, task: TaskDefinition, activeFilePath:
     notify.error('Stop task failed', getErrorMessage(error))
     throw error
   }
-  terminals.rebind(tab.id)
+  terminals.dispose(tab.id)
   resetTaskTabForRestart(tab.id, crypto.randomUUID(), {
     activeFilePath,
     label: task.label,

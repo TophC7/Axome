@@ -115,7 +115,7 @@ pub struct HarnessContribution {
     /// Terminal launch and presentation configuration.
     #[serde(default)]
     pub terminal: HarnessTerminal,
-    /// ACP agent for the Chat view. Unused until Phase 3.
+    /// ACP agent for the Chat view; parsed and validated, not yet launched.
     #[serde(default)]
     pub chat: Option<HarnessChat>,
 }
@@ -202,7 +202,7 @@ pub enum ShiftEncoding {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HarnessChat {
-    /// ACP agent command. Unused until Phase 3.
+    /// ACP agent command.
     pub command: String,
     /// ACP agent arguments; variables are not allowed.
     #[serde(default)]

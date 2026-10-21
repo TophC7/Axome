@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use tracing::{info, warn};
 
-/// Session identity seeds the login probe and stays host-authoritative over Nix.
-pub(crate) const SESSION_VARS: &[&str] = &[
+/// Host values a folder's Nix shell must never override; its capture can hold stale session values.
+const HOST_AUTHORITATIVE_VARS: &[&str] = &[
     "HOME",
     "USER",
     "LOGNAME",
@@ -24,37 +24,72 @@ pub(crate) const SESSION_VARS: &[&str] = &[
 static CURRENT: LazyLock<RwLock<Arc<EnvironmentService>>> =
     LazyLock::new(|| RwLock::new(Arc::new(EnvironmentService::new())));
 
+/// Launchers Sworm owns record a variable's pre-edit value under this prefix.
+const ORIGINAL_PREFIX: &str = "SWORM_ORIG_";
+/// Recorded value for a variable that was unset before the launcher set it.
+const UNSET_ORIGINAL: &str = "__SWORM_UNSET__";
+
+static LAUNCH_ENV: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
+    restore_originals(
+        std::env::vars_os()
+            .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?))),
+    )
+});
+
+/// Snapshot the launch environment. Call first in `main`, before this process edits its own
+/// environment; hosts that never edit it may rely on the lazy capture in `EnvironmentService::new`.
+pub fn capture_launch_env() {
+    LazyLock::force(&LAUNCH_ENV);
+}
+
+/// Undo launcher edits recorded as `SWORM_ORIG_<NAME>` and drop the records.
+fn restore_originals(vars: impl IntoIterator<Item = (String, String)>) -> HashMap<String, String> {
+    let mut env: HashMap<String, String> = vars.into_iter().collect();
+    let originals: Vec<(String, String)> = env
+        .iter()
+        .filter_map(|(key, value)| {
+            Some((
+                key.strip_prefix(ORIGINAL_PREFIX)?.to_string(),
+                value.clone(),
+            ))
+        })
+        .collect();
+    for (name, original) in originals {
+        env.remove(&format!("{ORIGINAL_PREFIX}{name}"));
+        if original == UNSET_ORIGINAL {
+            env.remove(&name);
+        } else {
+            env.insert(name, original);
+        }
+    }
+    env
+}
+
 pub struct EnvironmentService {
     pub detected_shell: String,
-    /// Login environment plus terminal defaults, without Sworm's process variables.
+    /// Launch environment (launcher edits undone), resolved through the login shell, plus terminal defaults.
     pub base: HashMap<String, String>,
 }
 
 impl EnvironmentService {
     fn new() -> Self {
         let detected_shell = detect_login_shell();
-        let seed = SESSION_VARS
-            .iter()
-            .copied()
-            .chain(["PATH"])
-            .filter_map(|key| {
-                std::env::var(key)
-                    .ok()
-                    .map(|value| (key.to_string(), value))
-            })
-            .collect();
-        let mut base = probe_login_env(&detected_shell, &seed).unwrap_or_else(|| {
-            warn!("Login environment probe failed; children get session variables only");
-            seed
+        let launch = &*LAUNCH_ENV;
+        let mut base = probe_login_env(&detected_shell, launch).unwrap_or_else(|| {
+            warn!("Login environment probe failed; children get the launch environment");
+            launch.clone()
         });
 
-        // Parent terminal capabilities take precedence, including desktop-launch defaults.
+        // The launching terminal's capabilities win; the probe ran without a terminal.
         for (key, default) in [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")] {
-            if let Ok(value) = std::env::var(key) {
-                base.insert(key.to_string(), value);
-            } else {
-                base.entry(key.to_string())
-                    .or_insert_with(|| default.to_string());
+            match launch.get(key) {
+                Some(value) => {
+                    base.insert(key.to_string(), value.clone());
+                }
+                None => {
+                    base.entry(key.to_string())
+                        .or_insert_with(|| default.to_string());
+                }
             }
         }
 
@@ -73,7 +108,7 @@ impl EnvironmentService {
         *CURRENT.write() = environment;
     }
 
-    /// Children never see Sworm's process env, so tests inject fake tools through this instead.
+    /// Tests inject fake tools here instead of through the launch snapshot.
     #[doc(hidden)]
     pub fn update_base_for_tests(edit: impl FnOnce(&mut HashMap<String, String>)) {
         let mut current = CURRENT.write();
@@ -99,7 +134,7 @@ impl EnvironmentService {
         for (key, value) in nix {
             if key == "PATH" {
                 merged.insert(key.clone(), merge_paths(value, self.path()));
-            } else if !SESSION_VARS.contains(&key.as_str()) {
+            } else if !HOST_AUTHORITATIVE_VARS.contains(&key.as_str()) {
                 merged.insert(key.clone(), value.clone());
             }
         }
@@ -146,13 +181,16 @@ fn detect_login_shell() -> String {
     shell
 }
 
-fn probe_login_env(shell: &str, seed: &HashMap<String, String>) -> Option<HashMap<String, String>> {
+fn probe_login_env(
+    shell: &str,
+    launch: &HashMap<String, String>,
+) -> Option<HashMap<String, String>> {
     let marker = format!("__SWORM_ENV_{}__", uuid::Uuid::new_v4().simple());
     let script = format!("printf '%s' {marker}; /usr/bin/env -0; printf '%s' {marker}");
     match std::process::Command::new(shell)
         .args(["-lc", &script])
         .env_clear()
-        .envs(seed)
+        .envs(launch)
         .output()
     {
         Ok(output) if output.status.success() => {
@@ -244,13 +282,13 @@ mod tests {
     }
 
     #[test]
-    fn session_vars_stay_host_authoritative() {
+    fn host_vars_stay_authoritative_over_nix() {
         let mut base = HashMap::from([("PATH".to_string(), "/usr/bin".to_string())]);
         let mut nix = HashMap::from([
             ("PATH".to_string(), "/nix/bin:/usr/bin".to_string()),
             ("NEW_VAR".to_string(), "from-nix".to_string()),
         ]);
-        for (index, &key) in SESSION_VARS.iter().enumerate() {
+        for (index, &key) in HOST_AUTHORITATIVE_VARS.iter().enumerate() {
             if index % 2 == 0 {
                 base.insert(key.to_string(), format!("host-{key}"));
             }
@@ -261,13 +299,40 @@ mod tests {
             base,
         };
         let merged = env.with_nix(Some(&nix));
-        for &key in SESSION_VARS {
+        for &key in HOST_AUTHORITATIVE_VARS {
             assert_eq!(merged.get(key), env.base.get(key), "{key}");
         }
         assert_eq!(merged["PATH"], "/nix/bin:/usr/bin");
         assert_eq!(merged["NEW_VAR"], "from-nix");
         assert_eq!(merged["__NIXOS_SET_ENVIRONMENT_DONE"], "1");
         assert_eq!(env.with_nix(None), env.base);
+    }
+
+    #[test]
+    fn launch_env_undoes_recorded_launcher_edits() {
+        let env = restore_originals([
+            (
+                "XDG_DATA_DIRS".to_string(),
+                "/wrapper/share:/usr/share".to_string(),
+            ),
+            (
+                "SWORM_ORIG_XDG_DATA_DIRS".to_string(),
+                "/usr/share".to_string(),
+            ),
+            ("GIO_EXTRA_MODULES".to_string(), "/wrapper/gio".to_string()),
+            (
+                "SWORM_ORIG_GIO_EXTRA_MODULES".to_string(),
+                UNSET_ORIGINAL.to_string(),
+            ),
+            ("XAUTHORITY".to_string(), "/run/user/1000/xauth".to_string()),
+        ]);
+        assert_eq!(
+            env,
+            HashMap::from([
+                ("XDG_DATA_DIRS".to_string(), "/usr/share".to_string()),
+                ("XAUTHORITY".to_string(), "/run/user/1000/xauth".to_string()),
+            ])
+        );
     }
 
     #[test]

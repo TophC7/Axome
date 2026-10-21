@@ -237,7 +237,7 @@ impl Default for HarnessSettings {
 pub struct PresetSettings {
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
-    /// Default view for new tabs of this preset. Unused until Phase 3.
+    /// Default view for new tabs of this preset; accepted but not yet applied.
     pub view: Option<SessionView>,
 }
 

@@ -1,4 +1,4 @@
-//! Interim session-store scanners keyed by bundled harness id. Phase 4 deletes this module with resume_discovery.rs, codex_state.rs and the scanners in activity_map.rs.
+//! Session-store scanners keyed by bundled harness id.
 
 use crate::services::folders::home_dir;
 use crate::services::{codex_state::CodexStateReader, omp};

@@ -217,9 +217,10 @@ impl NixService {
             nix_file, folder_path, timeout_secs
         );
 
+        let environment = EnvironmentService::current();
         let mut cmd = if is_flake {
             let mut c = std::process::Command::new("nix");
-            c.env_clear().envs(&EnvironmentService::current().base);
+            c.env_clear().envs(&environment.base);
             c.args([
                 "develop",
                 folder_path,
@@ -232,7 +233,7 @@ impl NixService {
         } else {
             let file_path = Path::new(folder_path).join(nix_file);
             let mut c = std::process::Command::new("nix-shell");
-            c.env_clear().envs(&EnvironmentService::current().base);
+            c.env_clear().envs(&environment.base);
             c.args([file_path.to_str().unwrap_or(nix_file), "--run", "env -0"]);
             c
         };
@@ -289,7 +290,11 @@ impl NixService {
                         });
                     }
 
-                    return parse_env_output(&stdout_bytes);
+                    // Store only the shell's own changes; unchanged host values come from the live base at launch.
+                    return parse_env_output(&stdout_bytes).map(|mut env| {
+                        env.retain(|key, value| environment.base.get(key) != Some(value));
+                        env
+                    });
                 }
                 Ok(None) => {
                     if start.elapsed() >= timeout {

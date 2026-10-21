@@ -18,7 +18,3 @@ export const {
   (tab) => tab.id,
   (tab) => new TerminalManager(tab.id, behaviorFor(tab))
 )
-
-export function rebind(tabId: string): void {
-  dispose(tabId)
-}
