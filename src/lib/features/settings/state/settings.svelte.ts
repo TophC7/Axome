@@ -8,7 +8,7 @@ import type {
   NixSettings,
   HarnessConfig,
   SettingsPayload,
-  ShellSettings,
+  ShellConfig,
   TypographySettings,
   WindowSettings
 } from '$lib/types/backend'
@@ -141,11 +141,11 @@ export async function saveHarnessConfig(nextConfig: HarnessConfig, host: string 
   )
 }
 
-export async function saveShellSettings(nextSettings: ShellSettings, host: string | null) {
+export async function saveShellConfig(config: ShellConfig, host: string | null) {
   return saveHostSection(
     host,
-    (folder) => backend.settings.setShell(nextSettings, folder),
-    (current, saved) => ({ ...current, shell: saved })
+    (folder) => backend.settings.setShellConfig(config, folder),
+    (current, saved) => ({ ...current, shell: { ...current.shell, ...saved } })
   )
 }
 

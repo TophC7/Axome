@@ -5,10 +5,9 @@
 // this the single source of truth — divergence between the two call sites
 // is how tabs end up closed while their PTY is still alive.
 
-import { stopTaskProcess } from '$lib/features/tasks/service.svelte'
+import { stopTerminalProcess } from '$lib/features/terminal/lifecycle'
 import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
-import { stopSessionProcess } from '$lib/features/sessions/service.svelte'
 import { isProcessLive, type TabId } from '$lib/features/workbench/model'
 import { closeTab, getActiveTab, getTabs, releaseClosedWorktreeFolders } from '$lib/features/workbench/state.svelte'
 import {
@@ -25,7 +24,7 @@ import { textModelRevision, type TextModelRevision } from '$lib/features/editor/
 /**
  * Close a specific tab with full safety checks:
  *  - prompt on unsaved editor buffers
- *  - stop the PTY for live session tabs (aborts close if stop fails —
+ *  - stop the PTY for live session/shell tabs (aborts close if stop fails —
  *    leaking a running PTY while the tab vanishes would leave the
  *    process hidden until app quit)
  *
@@ -75,11 +74,11 @@ export async function closeTabWithChecks(
   )
     return false
 
-  if (tab.kind === 'session' && (tab.runId !== null || isProcessLive(tab.status))) {
+  if ((tab.kind === 'session' || tab.kind === 'shell') && (tab.runId !== null || isProcessLive(tab.status))) {
     try {
-      await stopSessionProcess(tab.id)
+      await stopTerminalProcess(tab)
     } catch (err) {
-      notify.error('Stop session failed', getErrorMessage(err))
+      notify.error(tab.kind === 'shell' ? 'Stop terminal failed' : 'Stop session failed', getErrorMessage(err))
       return false
     }
   }
@@ -88,7 +87,7 @@ export async function closeTabWithChecks(
     // Stop even a detached or completed run to release its retained state.
     // Ordinary close reports stop errors; destructive worktree closure must abort.
     try {
-      await stopTaskProcess(tab)
+      await stopTerminalProcess(tab)
     } catch (err) {
       notify.error('Stop task failed', getErrorMessage(err))
       if (options.strict) return false
@@ -112,7 +111,7 @@ export async function closeTabWithChecks(
     }
   }
 
-  // `closeTab` disposes the session/task manager for the tab.
+  // `closeTab` disposes the terminal manager for the tab.
   closeTab(tabId)
   if (tab.kind === 'text') clearTextSurfaceDirty(tab.id)
   return !getTabs().some((current) => current.id === tabId)

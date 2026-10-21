@@ -1,39 +1,19 @@
 import { backend } from '$lib/api/backend'
 import type { StreamHandle } from '$lib/api/transport'
-import { resolveTerminalKey, stripTitlePrefixes } from '$lib/features/sessions/terminal/terminalKeymap'
-import { getHarness } from '$lib/features/sessions/harnesses/catalog'
-import { TerminalTitleParser } from '$lib/features/sessions/terminal/terminalTitle'
-import { RenderBarrier } from '$lib/features/sessions/terminal/renderBarrier'
-import {
-  focusTerminal,
-  followTerminalFont,
-  loadTerminalFont,
-  terminalOptions,
-  writeAndWait
-} from '$lib/features/sessions/terminal/xterm'
+import { resolveTerminalKey } from './terminalKeymap'
+import type { TerminalBehavior } from './behaviors'
+import { TerminalTitleParser } from './terminalTitle'
+import { RenderBarrier } from './renderBarrier'
+import { focusTerminal, followTerminalFont, loadTerminalFont, terminalOptions, writeAndWait } from './xterm'
 import type { TabId } from '$lib/features/workbench/model'
-import {
-  getActiveFolderPath,
-  getTabs,
-  persistSessionTabRunId,
-  setSessionTabSessionId,
-  setSessionTabRunId,
-  setSessionTabStatus,
-  setSessionTabTitle
-} from '$lib/features/workbench/state.svelte'
-import type {
-  HarnessDescriptor,
-  PtyEvent,
-  SessionSpec,
-  SessionStartInfo,
-  TerminalTransferState
-} from '$lib/types/backend'
+import { getActiveFolderPath, getTabs } from '$lib/features/workbench/state.svelte'
+import type { PtyEvent, TerminalTransferState } from '$lib/types/backend'
 import { platform, requireNative } from '$lib/platform'
 import { FitAddon } from '@xterm/addon-fit'
 import { ImageAddon } from '@xterm/addon-image'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { openLink } from '$lib/features/workbench/links/openLink'
-import { TerminalLinkProvider } from '$lib/features/sessions/terminal/TerminalLinkProvider'
+import { TerminalLinkProvider } from './TerminalLinkProvider'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Terminal, type IDisposable } from '@xterm/xterm'
 import { splitRemotePath } from '$lib/utils/paths'
@@ -43,7 +23,7 @@ const textEncoder = new TextEncoder()
 type ErrorListener = (message: string | null) => void
 type DeferredOutput = { bytes: Uint8Array; sequence: number }
 
-export class TerminalSessionManager {
+export class TerminalManager {
   readonly tabId: TabId
   // PTY identity mirrors the persisted tab while the run may still be live.
   private runId: string | null = null
@@ -65,18 +45,18 @@ export class TerminalSessionManager {
   private resizeObserver: ResizeObserver | null = null
   private inputDisposable: IDisposable | null = null
   private oscDisposable: IDisposable | null = null
-  private stream: StreamHandle<SessionStartInfo | number> | null = null
+  private stream: StreamHandle<unknown> | null = null
   private ptyActive = false
   private inputEnabled = true
   private disposed = false
   private viewportPosition = 0
   private lastError: string | null = null
-  private harnessId: string | null = null
   private readonly barrier = new RenderBarrier()
   private transferBarrierActive = false
   // Single-flight PTY spawn: concurrent callers (mount debounce, Restart)
   // await the same promise instead of spawning twice.
-  private startPromise: Promise<SessionStartInfo> | null = null
+  private startPromise: Promise<void> | null = null
+  private clearBeforeStart = false
   private stopPromise: Promise<void> | null = null
   // Terminal creation yields while the font loads. Every entry path
   // shares this promise so concurrent attach/load/start calls cannot
@@ -97,9 +77,14 @@ export class TerminalSessionManager {
   private deferredOutput: DeferredOutput[] = []
   private deferredByteCount = 0
 
-  constructor(tabId: TabId) {
+  constructor(
+    tabId: TabId,
+    readonly behavior: TerminalBehavior
+  ) {
     this.tabId = tabId
-    const folderPath = getTabs().find((tab) => tab.id === tabId)?.folderPath
+    const tab = getTabs().find((tab) => tab.id === tabId)
+    this.runId = tab && 'runId' in tab ? tab.runId : null
+    const folderPath = tab?.folderPath
     if (folderPath && splitRemotePath(folderPath) && platform.native) {
       this.remoteStatusReady = platform.native.remotes
         .onRunStatus((event) => {
@@ -124,11 +109,6 @@ export class TerminalSessionManager {
 
   private getFolderPath(): string | null {
     return getTabs().find((t) => t.id === this.tabId)?.folderPath ?? getActiveFolderPath() ?? null
-  }
-
-  private harness(): HarnessDescriptor | null {
-    const folder = this.getFolderPath()
-    return this.harnessId && folder ? getHarness(folder, this.harnessId) : null
   }
 
   setInputEnabled(enabled: boolean): void {
@@ -234,57 +214,66 @@ export class TerminalSessionManager {
     this.container = null
   }
 
-  async startPty(spec: Omit<SessionSpec, 'runId'>): Promise<SessionStartInfo> {
-    if (this.disposed || this.ptyActive) {
-      return { resumed: false, sessionId: null }
-    }
-    if (this.startPromise) {
-      return this.startPromise
-    }
-
-    const promise = this.spawnPty(spec)
+  async start(clearBeforeStart = false): Promise<void> {
+    if (this.disposed || this.ptyActive) return
+    if (this.startPromise) return this.startPromise
+    this.clearBeforeStart = clearBeforeStart
+    const promise = (async () => {
+      if (this.streamRunId) await this.stopPty(false)
+      await this.behavior.start(this)
+    })()
     this.startPromise = promise
     try {
-      return await promise
+      await promise
+    } catch (error) {
+      if (!this.disposed && !this.stopPromise) {
+        this.ptyActive = false
+        this.runId = null
+        if (this.behavior.renderErrors && this.lastError === null) {
+          this.writeTerminal(`\r\n\x1b[31m${String(error)}\x1b[0m\r\n`)
+        }
+        this.lastError = String(error)
+        this.emitError(this.lastError)
+        this.behavior.onEvent({ type: 'error', run_id: this.startingRunId ?? '', message: this.lastError })
+      }
+      throw error
     } finally {
       if (this.startPromise === promise) this.startPromise = null
     }
   }
 
-  private async spawnPty(spec: Omit<SessionSpec, 'runId'>): Promise<SessionStartInfo> {
+  async openRun<T>(
+    runId: string,
+    open: (
+      cols: number,
+      rows: number,
+      sinks: {
+        onOutput(data: Uint8Array): void
+        onEvent(event: PtyEvent): void
+      }
+    ) => StreamHandle<T>,
+    clearBeforeStart = false
+  ): Promise<T> {
     this.textDecoder = new TextDecoder()
     this.titleParser.reset()
     await this.ensureTerminal()
     await this.remoteStatusReady
-    if (this.streamRunId) {
-      await this.stopPty(false)
-    } else {
-      this.releaseStream()
-    }
-
+    this.releaseStream()
     const terminal = this.terminal
-    if (!terminal) {
-      return { resumed: false, sessionId: null }
-    }
-
+    if (!terminal || this.disposed) throw new Error('Terminal is unavailable')
+    if (clearBeforeStart || this.clearBeforeStart) terminal.clear()
     this.lastError = null
-    this.harnessId = spec.harnessId
-    const tab = getTabs().find((candidate) => candidate.id === this.tabId)
-    const runId = tab?.kind === 'session' && tab.runId ? tab.runId : crypto.randomUUID()
     this.startingRunId = runId
-    await persistSessionTabRunId(this.tabId, runId)
     this.runId = runId
     this.barrier.reset()
     this.streamRunId = runId
-
-    const stream = backend.sessions.start({ ...spec, runId }, terminal.cols, terminal.rows, {
+    const stream = open(terminal.cols, terminal.rows, {
       onOutput: (data) => this.handleOutput(runId, data),
       onEvent: (event) => this.handlePtyEvent(runId, event)
     })
     this.stream = stream
     if (this.disposed) stream.dispose()
     this.fitAndSyncSize()
-
     try {
       const info = await stream.ready
       if (this.disposed && this.stream === stream) this.releaseStream()
@@ -292,13 +281,6 @@ export class TerminalSessionManager {
       return info
     } catch (error) {
       this.ptyActive = false
-      if (!this.disposed && !this.stopPromise) {
-        this.startingRunId = null
-        this.runId = null
-        this.lastError = String(error)
-        this.emitError(this.lastError)
-        setSessionTabStatus(this.tabId, 'failed')
-      }
       this.releaseStream()
       throw error
     }
@@ -311,7 +293,7 @@ export class TerminalSessionManager {
     const text = this.textDecoder.decode(bytes, { stream: true })
     const title = this.titleParser.push(text)
     if (title !== null) {
-      setSessionTabTitle(this.tabId, stripTitlePrefixes(title, this.harness()?.title_prefixes ?? []))
+      this.behavior.onTitle?.(title)
     }
 
     this.renderOutput(bytes, sequence)
@@ -336,24 +318,26 @@ export class TerminalSessionManager {
       this.setReconnecting(false)
       this.lastError = null
       this.emitError(null)
-      setSessionTabStatus(this.tabId, 'running')
+      this.behavior.onEvent(event)
       this.barrier.markRendered(sequence)
     } else if (event.type === 'exit') {
       this.ptyActive = false
       this.setReconnecting(false)
       this.runId = null
-      setSessionTabRunId(this.tabId, null)
+      this.behavior.onEvent(event)
       this.renderOutput(textEncoder.encode('\r\n\x1b[33m[Process exited]\x1b[0m\r\n'), sequence)
-      setSessionTabStatus(this.tabId, 'exited')
+    } else if (event.type === 'error') {
+      this.lastError = event.message ?? 'Unknown PTY error'
+      this.emitError(this.lastError)
+      if (this.behavior.renderErrors) {
+        this.renderOutput(textEncoder.encode(`\r\n\x1b[31m${this.lastError}\x1b[0m\r\n`), sequence)
+      } else {
+        this.barrier.markRendered(sequence)
+      }
+      this.behavior.onEvent(event)
     } else {
       this.barrier.markRendered(sequence)
-      if (event.type === 'error') {
-        this.lastError = event.message ?? 'Unknown PTY error'
-        this.emitError(this.lastError)
-        setSessionTabStatus(this.tabId, 'failed')
-      } else if (event.type === 'sessionIdBound' && event.session_id) {
-        setSessionTabSessionId(this.tabId, event.session_id)
-      }
+      this.behavior.onEvent(event)
     }
   }
 
@@ -378,13 +362,12 @@ export class TerminalSessionManager {
       const tab = getTabs().find((tab) => tab.id === this.tabId)
       return {
         runId,
-        harnessId: this.harnessId ?? undefined,
         serializedBuffer: serializeAddon.serialize(),
         cols: terminal.cols,
         rows: terminal.rows,
         viewportPosition: terminal.buffer.active.viewportY,
         lastSequence,
-        status: tab?.kind === 'session' ? tab.status : undefined
+        status: tab && 'status' in tab ? tab.status : undefined
       }
     } finally {
       this.transferBarrierActive = false
@@ -398,7 +381,6 @@ export class TerminalSessionManager {
     this.releaseStream()
     this.runId = state.status === 'exited' ? null : state.runId
     this.barrier.reset()
-    this.harnessId = state.harnessId ?? null
     await this.ensureTerminal()
     await this.remoteStatusReady
 
@@ -448,10 +430,9 @@ export class TerminalSessionManager {
   markPtyLost(): void {
     this.ptyActive = false
     this.runId = null
-    setSessionTabRunId(this.tabId, null)
     this.releaseStream()
     this.writeTerminal('\r\n\x1b[31m[Connection to process lost]\x1b[0m\r\n')
-    setSessionTabStatus(this.tabId, 'failed')
+    this.behavior.onPtyLost()
   }
 
   stopPty(waitForStart = true): Promise<void> {
@@ -462,13 +443,12 @@ export class TerminalSessionManager {
       await pendingStart?.catch(() => {})
       const runId = this.streamRunId ?? this.runId ?? this.startingRunId ?? startedRunId
       if (!runId) return
-      await backend.sessions.stop(runId)
+      await this.behavior.stop(runId)
       this.ptyActive = false
       this.runId = null
       this.startingRunId = null
-      setSessionTabRunId(this.tabId, null)
       this.releaseStream()
-      setSessionTabStatus(this.tabId, 'exited')
+      if (!this.disposed) this.behavior.onEvent({ type: 'exit', run_id: runId })
     })()
     this.stopPromise = stop.finally(() => {
       this.stopPromise = null
@@ -530,7 +510,7 @@ export class TerminalSessionManager {
     this.deferredByteCount += bytes.byteLength
     // Keep the newest chunk even when it alone exceeds the cap; dropped
     // sequences count as rendered so the pause barrier stays consistent.
-    while (this.deferredByteCount > TerminalSessionManager.DEFERRED_BYTES_CAP && this.deferredOutput.length > 1) {
+    while (this.deferredByteCount > TerminalManager.DEFERRED_BYTES_CAP && this.deferredOutput.length > 1) {
       const dropped = this.deferredOutput.shift()!
       this.deferredByteCount -= dropped.bytes.byteLength
       this.barrier.markRendered(dropped.sequence)
@@ -647,7 +627,9 @@ export class TerminalSessionManager {
     // is a dumb dispatcher over the resolved KeyAction so adding a new
     // paste mode is a one-file change; harness encoding comes from its contribution.
     this.terminal.attachCustomKeyEventHandler((ev) => {
-      const action = resolveTerminalKey(ev, this.harness()?.shift_encoding ?? 'legacy')
+      const encoding = this.behavior.shiftEncoding()
+      if (encoding === null) return true
+      const action = resolveTerminalKey(ev, encoding)
       switch (action.kind) {
         case 'pass':
           return true
@@ -755,17 +737,17 @@ export class TerminalSessionManager {
   }
 
   private writeToPty(data: string): void {
-    if (!this.ptyActive || !this.inputEnabled || !this.runId) return
+    if (!this.ptyActive || !this.inputEnabled || !this.runId || !this.behavior.canInteract()) return
     const encoded = textEncoder.encode(data)
-    backend.sessions.write(this.runId, encoded).catch((error) => {
-      console.error('Session write error:', error)
+    backend.runs.write(this.runId, encoded).catch((error) => {
+      console.error('Terminal write error:', error)
     })
   }
 
   private fitAndSyncSize(): void {
     this.fitTerminal()
-    if (this.ptyActive && this.terminal && this.runId) {
-      void backend.sessions.resize(this.runId, this.terminal.cols, this.terminal.rows).catch(() => {})
+    if (this.ptyActive && this.terminal && this.runId && this.behavior.canInteract()) {
+      void backend.runs.resize(this.runId, this.terminal.cols, this.terminal.rows).catch(() => {})
     }
   }
 

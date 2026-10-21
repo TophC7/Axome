@@ -5,6 +5,7 @@
   import WorkbenchView from '$lib/features/app-shell/WorkbenchView.svelte'
   import { loadRecentFolders } from '$lib/features/folders/state.svelte'
   import { loadHarnesses } from '$lib/features/sessions/harnesses/state.svelte'
+  import { loadShells } from '$lib/features/shells/state.svelte'
   import { getTabs, openFolder, openHomeFolder, restoreWorkbench } from '$lib/features/workbench/state.svelte'
   import { openTextFile } from '$lib/features/workbench/surfaces/text/service.svelte'
   import { initGroupService, openWorkbench } from '$lib/features/workbench/groups.svelte'
@@ -31,6 +32,7 @@
     let unlisten: (() => void) | undefined
 
     void loadHarnesses().catch(() => {})
+    void loadShells().catch(() => {})
     void loadExtensionCatalog().catch((error) => {
       logClientError('extension catalog preload failed', { error })
     })

@@ -4,9 +4,8 @@ import { DND_MIME, parsePayload } from '$lib/features/dnd/payload'
 import * as modelCache from '$lib/features/editor/renderers/monaco/text/modelCache'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
-import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
-import * as taskRegistry from '$lib/features/tasks/taskRegistry'
-import { isTab, tabServer, type Tab, type TabId } from '$lib/features/workbench/model'
+import * as terminals from '$lib/features/terminal/registry'
+import { isTab, isTerminalTab, tabServer, type Tab, type TabId } from '$lib/features/workbench/model'
 import {
   getActiveTabId,
   getTabs,
@@ -79,11 +78,9 @@ export function freezeTabs(transferId: string, tabIds: readonly TabId[] | null):
 }
 
 export function cleanupRegistries(tab: Tab): void {
-  if (tab.kind === 'session') sessionRegistry.release(tab.id)
-  else if (tab.kind === 'task') taskRegistry.release(tab.runId)
+  if (isTerminalTab(tab)) terminals.release(tab.id)
   else if (tab.kind === 'text') modelCache.detachForTransfer(tab)
 }
-
 
 async function abortLocally(transferId: string, reason: string): Promise<void> {
   clearSourceTransfer(transferId)
@@ -112,10 +109,8 @@ async function handleTransferRequest({ transferId, tabId }: TransferRequestEvent
   try {
     let terminalState = null
     let modelState = null
-    if (tab.kind === 'session') {
-      terminalState = await sessionRegistry.exportTransferState(tab.id)
-    } else if (tab.kind === 'task') {
-      terminalState = await taskRegistry.exportTransferState(tab.runId)
+    if (isTerminalTab(tab)) {
+      terminalState = await terminals.exportTransferState(tab.id)
     } else if (tab.kind === 'text') {
       modelState = modelCache.exportModelTransfer(tab)
     }
@@ -146,23 +141,11 @@ async function handleTransferImport({ transferId, exportPayload, targetIndex }: 
       return
     }
 
-    if (exportPayload.terminalState) {
-      if (tab.kind === 'session') {
-        await sessionRegistry.importTransferState(tab.id, exportPayload.terminalState, transferId)
-        if (!targetTransfers.has(transferId)) {
-          cleanupRegistries(tab)
-          return
-        }
-      } else if (tab.kind === 'task') {
-        await taskRegistry.importTransferState(
-          tab,
-          exportPayload.terminalState,
-          transferId
-        )
-        if (!targetTransfers.has(transferId)) {
-          cleanupRegistries(tab)
-          return
-        }
+    if (exportPayload.terminalState && isTerminalTab(tab)) {
+      await terminals.importTransferState(tab, exportPayload.terminalState, transferId)
+      if (!targetTransfers.has(transferId)) {
+        cleanupRegistries(tab)
+        return
       }
     }
     if (exportPayload.modelState && monaco) modelCache.importModelTransfer(exportPayload.modelState, monaco)
@@ -199,8 +182,7 @@ function handleTransferAborted({ transferId, reason, ptyLost }: TransferAbortedE
   if (sourceTabId) {
     const tab = getTabs().find((candidate) => candidate.id === sourceTabId)
     if (ptyLost) {
-      if (tab?.kind === 'session') sessionRegistry.get(tab.id)?.markPtyLost()
-      else if (tab?.kind === 'task') taskRegistry.get(tab.runId)?.markPtyLost()
+      if (tab && isTerminalTab(tab)) terminals.get(tab.id)?.markPtyLost()
     }
     clearSourceTransfer(transferId)
   }
@@ -248,7 +230,6 @@ export async function initTransferService(): Promise<() => void> {
     initialized = null
   }
 }
-
 
 /** Accept a tab or a whole group dragged in from another window. */
 export function dropFromOtherWindow(event: DragEvent, targetIndex: number): boolean {

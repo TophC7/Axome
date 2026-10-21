@@ -4,36 +4,27 @@
 // behavior layer: opening task tabs, handling singleton semantics,
 // showing the confirm prompt, and rebinding singleton tabs on restart.
 
-import { backend } from '$lib/api/backend'
 import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import type { TaskDefinition } from '$lib/types/backend'
-import type { TabId, TaskTab } from '$lib/features/workbench/model'
+import type { TabId } from '$lib/features/workbench/model'
 import {
   addTaskTab,
   findTaskTabByTaskId,
   getActiveTab,
   getTabs,
-  resetTaskTabForRestart,
-  setTaskTabStatus
+  resetTaskTabForRestart
 } from '$lib/features/workbench/state.svelte'
 import { findTask } from '$lib/features/tasks/state.svelte'
-import * as taskRegistry from '$lib/features/tasks/taskRegistry'
-
-/** Stop an attached task after startup settles, or stop a restored inactive run directly. */
-export async function stopTaskProcess(tab: TaskTab): Promise<void> {
-  const terminal = taskRegistry.get(tab.runId)
-  if (terminal) return terminal.stopProcess()
-  await backend.tasks.stop(tab.runId)
-  setTaskTabStatus(tab.id, 'exited', null)
-}
+import * as terminals from '$lib/features/terminal/registry'
+import { stopTerminalProcess } from '$lib/features/terminal/lifecycle'
 
 /** Start a task without mounting its surface; resolves at PTY readiness, not exit. */
 export async function startTaskTab(tabId: TabId, clearBeforeStart = false): Promise<void> {
   const tab = getTabs().find((tab) => tab.id === tabId)
   if (!tab || tab.kind !== 'task') throw new Error('Task tab is no longer available')
-  await taskRegistry.getOrCreate(tab, clearBeforeStart).start()
+  await terminals.getOrCreate(tab).start(clearBeforeStart)
 }
 
 // Tracks the most recently launched task per folder so "Re-run Last
@@ -92,12 +83,12 @@ export async function openTaskTab(
     if (existing) {
       const activeFilePath = activeFilePathFor(folderPath) ?? options.activeFilePath ?? existing.activeFilePath
       try {
-        await stopTaskProcess(existing)
+        await stopTerminalProcess(existing)
       } catch (error) {
         notify.error('Stop task failed', getErrorMessage(error))
         throw error
       }
-      taskRegistry.dispose(existing.runId)
+      terminals.rebind(existing.id)
       const nextRunId = crypto.randomUUID()
       resetTaskTabForRestart(existing.id, nextRunId, {
         activeFilePath,

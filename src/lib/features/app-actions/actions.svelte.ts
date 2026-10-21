@@ -16,6 +16,8 @@ import {
 } from '$lib/features/sessions/harnesses/state.svelte'
 import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { startSession } from '$lib/features/sessions/service.svelte'
+import { startShell } from '$lib/features/shells/service.svelte'
+import { getShellListing, reloadShellListings } from '$lib/features/shells/state.svelte'
 import { setSettingsOpen } from '$lib/features/settings/dialog/state.svelte'
 import { getLastTaskId, rerunLastTask } from '$lib/features/tasks/service.svelte'
 import { openCommandPaletteWithSearch } from '$lib/features/command-palette/state.svelte'
@@ -60,11 +62,11 @@ export async function reloadExtensions(): Promise<void> {
   await reloadView()
 }
 
-/** Re-probe the active folder's host environment, then refresh harness detection. */
+/** Re-probe the active folder's host environment, then refresh launch listings. */
 export async function reloadEnvironment(): Promise<void> {
   try {
     await backend.environment.reload(getActiveFolderPath())
-    await reloadHarnessListings()
+    await Promise.all([reloadHarnessListings(), reloadShellListings()])
   } catch (error) {
     notify.error('Reload environment failed', getErrorMessage(error))
   }
@@ -73,7 +75,7 @@ export async function reloadEnvironment(): Promise<void> {
 export function confirmCloseWorkbench(folders: string[]): Promise<boolean> {
   return confirmAsync({
     title: 'Close Workbench',
-    message: `Stop all sessions and tasks in ${[...new Set(folders.map(basename))].join(', ') || 'this workbench'} and delete its saved tabs and layout? Unsaved changes in any connected page will be lost.`,
+    message: `Stop all sessions, shells and tasks in ${[...new Set(folders.map(basename))].join(', ') || 'this workbench'} and delete its saved tabs and layout? Unsaved changes in any connected page will be lost.`,
     confirmLabel: 'Close Workbench',
     cancelLabel: 'Cancel'
   })
@@ -96,7 +98,7 @@ export async function closeCurrentWorkbench(): Promise<void> {
     const confirmed = await confirmAsync({
       title: 'Close Workbench',
       message: [
-        'Stop all sessions and tasks in this workbench and delete its saved tabs and layout?',
+        'Stop all sessions, shells and tasks in this workbench and delete its saved tabs and layout?',
         ...(dirtyPaths.length > 0 ? ['', 'Unsaved changes will be lost:', ...dirtyPaths] : [])
       ].join('\n'),
       confirmLabel: 'Close Workbench',
@@ -214,7 +216,19 @@ export function createSession(harnessId: string, preset: string | null): void {
 export function newTerminalSession(): void {
   const folderPath = getActiveFolderPath()
   if (!folderPath) return
-  startSession(folderPath, null, null)
+  const listing = getShellListing(folderPath)
+  const preset = listing.default_preset ?? null
+  if (preset !== null && !listing.presets.some(({ name }) => name === preset)) {
+    notify.error('Default shell preset unavailable', `${preset} is not defined in this folder's settings.`)
+    return
+  }
+  startShell(folderPath, preset)
+}
+
+export function newTerminalWithPreset(preset: string): void {
+  const folderPath = getActiveFolderPath()
+  if (!folderPath) return
+  startShell(folderPath, preset)
 }
 
 export function newDefaultSession(): void {

@@ -3,7 +3,7 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { sessionBrand, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
-  import { MoreHorizontalIcon, Play } from '$lib/icons/lucideExports'
+  import { MoreHorizontalIcon, Play, TerminalIcon } from '$lib/icons/lucideExports'
   import type { WorkbenchInfo } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
   import { timeAgo } from '$lib/utils/date'
@@ -44,6 +44,7 @@
   onDestroy(() => clearTimeout(hintTimer))
 
   interface RunChip {
+    key: string
     label: string
     icon: HarnessIconSource | null
     task: boolean
@@ -54,20 +55,24 @@
   let chips = $derived.by(() => {
     const byKey = new Map<string, RunChip>()
     for (const run of workbench.running) {
-      const key = run.kind === 'session' ? `session:${run.harness_id ?? 'shell'}` : `task:${run.task_id}`
+      const key =
+        run.kind === 'session' ? `session:${run.harness_id}` : run.kind === 'shell' ? 'shell' : `task:${run.task_id}`
       const chip = byKey.get(key)
       if (chip) {
         chip.count += 1
       } else if (run.kind === 'session') {
         const brand = sessionBrand(null, run.harness_id)
         byKey.set(key, {
+          key,
           label: brand.label,
           icon: brand.icon,
           task: false,
           count: 1
         })
+      } else if (run.kind === 'shell') {
+        byKey.set(key, { key, label: 'Terminal', icon: TerminalIcon, task: false, count: 1 })
       } else {
-        byKey.set(key, { label: run.task_id, icon: null, task: true, count: 1 })
+        byKey.set(key, { key, label: run.task_id, icon: null, task: true, count: 1 })
       }
     }
     return [...byKey.values()]
@@ -79,7 +84,7 @@
   <div class="min-w-0 flex-1">
     <div class="truncate text-base text-bright">{title}</div>
     <div class="flex min-w-0 items-center gap-3 overflow-hidden text-xs text-muted">
-      {#each chips as chip (chip.label + chip.task)}
+      {#each chips as chip (chip.key)}
         <span class="flex shrink-0 items-center gap-1">
           {#if chip.icon}
             <HarnessIcon icon={chip.icon} size={12} />

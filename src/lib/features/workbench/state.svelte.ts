@@ -12,8 +12,7 @@ import { releaseFolder } from '$lib/features/folders/lifecycle'
 import { filterExistingFolders, pushRecentFolder } from '$lib/features/folders/state.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
-import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
-import * as taskRegistry from '$lib/features/tasks/taskRegistry'
+import * as terminals from '$lib/features/terminal/registry'
 import type {
   CompareDiffSource,
   CompareFileSide,
@@ -25,15 +24,15 @@ import type {
   NewTab,
   PersistedTab,
   SessionStatus,
-  SessionTab,
   Tab,
   TabId,
   TaskRunStatus,
   TaskTab,
+  TerminalTab,
   TextTab,
   Workbench
 } from '$lib/features/workbench/model'
-import { canLockTab, compareSidesEqual, tabServer } from '$lib/features/workbench/model'
+import { canLockTab, compareSidesEqual, isTerminalTab, tabServer } from '$lib/features/workbench/model'
 import { flushActiveGroups, getGroupRefs, isTabInert, restoreGroups, syncGroups } from './groups.svelte'
 import {
   loadPersistedWorkbench,
@@ -59,7 +58,7 @@ let activationSeq = $state(0)
 
 // LIFO stack of recently closed tabs for Ctrl+Shift+T. In-memory only: a
 // fresh launch has nothing to reopen beyond what restore hydrates. The cap
-// applies per kind group: sessions and everything else.
+// applies per kind group: sessions/shells and everything else.
 const MAX_CLOSED_TABS = 20
 let closedTabs = $state<PersistedTab[]>([])
 
@@ -245,7 +244,7 @@ function pushClosedTab(snapshot: PersistedTab): void {
   let sessions = 0
   let others = 0
   closedTabs = [snapshot, ...closedTabs].filter((tab) =>
-    tab.kind === 'session' ? ++sessions <= MAX_CLOSED_TABS : ++others <= MAX_CLOSED_TABS
+    tab.kind === 'session' || tab.kind === 'shell' ? ++sessions <= MAX_CLOSED_TABS : ++others <= MAX_CLOSED_TABS
   )
 }
 
@@ -272,7 +271,7 @@ export function getActiveTextFilePath(): string | null {
 /** Preview replacement must never discard edits or overwrite a locked/promoted tab. */
 export function getReplaceableTemporaryTab(
   tabId: TabId | null = workbench.activeTabId
-): Exclude<Tab, SessionTab | TaskTab> | null {
+): Exclude<Tab, TerminalTab> | null {
   const tab = tabId ? findTab(tabId) : undefined
   return tab &&
     'temporary' in tab &&
@@ -291,10 +290,10 @@ export function getActiveFolderPath(): string | null {
   return getActiveTab()?.folderPath ?? null
 }
 
-/** The active tab's id when it is a session tab. */
-export function getActiveSessionTabId(): TabId | null {
+/** The active tab's id when it is a terminal tab. */
+export function getActiveTerminalTabId(): TabId | null {
   const tab = getActiveTab()
-  return tab?.kind === 'session' ? tab.id : null
+  return tab && isTerminalTab(tab) ? tab.id : null
 }
 
 export function hasClosedTabs(): boolean {
@@ -306,6 +305,12 @@ export type ClosedSession = Extract<PersistedTab, { kind: 'session' }>
 /** Closed session snapshots for `folderPath`, newest first (this launch only). */
 export function getClosedSessions(folderPath: string): ClosedSession[] {
   return closedTabs.filter((tab): tab is ClosedSession => tab.kind === 'session' && tab.folderPath === folderPath)
+}
+
+export type ClosedShell = Extract<PersistedTab, { kind: 'shell' }>
+
+export function getClosedShells(folderPath: string): ClosedShell[] {
+  return closedTabs.filter((tab): tab is ClosedShell => tab.kind === 'shell' && tab.folderPath === folderPath)
 }
 
 /** Find an existing live task tab by its source task id (singleton rerun). */
@@ -528,7 +533,7 @@ export async function restoreWorkbench(): Promise<boolean> {
 
 // SESSION TABS //
 export interface SessionTabInit {
-  harnessId: string | null
+  harnessId: string
   preset: string | null
   title: string
   sessionId: string | null
@@ -550,25 +555,38 @@ export function addSessionTab(folderPath: string, init: SessionTabInit): TabId {
   })
 }
 
-export function setSessionTabStatus(tabId: TabId, status: SessionStatus): void {
-  updateTab(tabId, (t) => (t.kind === 'session' && t.status !== status ? { ...t, status } : t))
+export function addShellTab(folderPath: string, init: { preset: string | null; title: string }): TabId {
+  return insertTab({
+    kind: 'shell',
+    id: generateTabId(),
+    folderPath,
+    title: init.title,
+    preset: init.preset,
+    runId: null,
+    status: 'dormant',
+    locked: false
+  })
 }
 
-export function setSessionTabTitle(tabId: TabId, title: string): void {
-  if (!title) return
-  updateTab(tabId, (t) => (t.kind === 'session' && t.title !== title ? { ...t, title } : t))
+export function setTerminalTabStatus(tabId: TabId, status: SessionStatus): void {
+  updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.status !== status ? { ...t, status } : t))
 }
-export function setSessionTabRunId(tabId: TabId, runId: string | null): void {
-  updateTab(tabId, (t) => (t.kind === 'session' && t.runId !== runId ? { ...t, runId } : t))
+
+export function setTerminalTabTitle(tabId: TabId, title: string): void {
+  if (!title) return
+  updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.title !== title ? { ...t, title } : t))
+}
+export function setTerminalTabRunId(tabId: TabId, runId: string | null): void {
+  updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.runId !== runId ? { ...t, runId } : t))
 }
 /**
  * Persist a newly minted run id before asking the backend to start it.
  * Durability is best effort: the failed snapshot is requeued by
  * `flushWorkbench`, and a lost run id only costs reattach after a restart.
  */
-export async function persistSessionTabRunId(tabId: TabId, runId: string): Promise<void> {
-  setSessionTabRunId(tabId, runId)
-  await flushWorkbench().catch((error) => console.warn('Failed to persist session run id:', error))
+export async function persistTerminalTabRunId(tabId: TabId, runId: string): Promise<void> {
+  setTerminalTabRunId(tabId, runId)
+  await flushWorkbench().catch((error) => console.warn('Failed to persist terminal run id:', error))
 }
 
 export function setSessionTabSessionId(tabId: TabId, sessionId: string | null): void {
@@ -692,10 +710,8 @@ function addContentTab(
 ): TabId {
   if (temporary) {
     const existingTemp = tabId
-      ? workbench.tabs.find(
-          (t) => t.id === tabId && t.kind === kind && t.kind !== 'session' && t.kind !== 'task' && t.temporary
-        )
-      : workbench.tabs.find((t) => t.kind === kind && t.kind !== 'session' && t.kind !== 'task' && t.temporary)
+      ? workbench.tabs.find((t) => t.id === tabId && t.kind === kind && !isTerminalTab(t) && t.temporary)
+      : workbench.tabs.find((t) => t.kind === kind && !isTerminalTab(t) && t.temporary)
     if (existingTemp) {
       const newTab = makeTab(existingTemp.id)
       if (isTabInert(newTab)) throw new Error('This server workbench is not controlled by this window')
@@ -1023,9 +1039,7 @@ export function updateEpicTabTitle(folderPath: string, epicId: string, title: st
 
 // PROMOTION //
 export function promoteTab(tabId: TabId): void {
-  updateTab(tabId, (t) =>
-    t.kind === 'session' || t.kind === 'new-tab' || t.kind === 'task' || !t.temporary ? t : { ...t, temporary: false }
-  )
+  updateTab(tabId, (t) => (isTerminalTab(t) || t.kind === 'new-tab' || !t.temporary ? t : { ...t, temporary: false }))
 }
 
 export function promoteTabWhenReady(pendingTabId: TabId | Promise<TabId> | null | undefined): void {
@@ -1047,11 +1061,7 @@ export function closeTab(tabId: TabId): void {
   const snapshot = tab.kind === 'task' ? null : tabToPersisted(tab)
   if (snapshot) pushClosedTab(snapshot)
 
-  if (tab.kind === 'session') {
-    sessionRegistry.dispose(tab.id)
-  } else if (tab.kind === 'task') {
-    taskRegistry.dispose(tab.runId)
-  }
+  if (isTerminalTab(tab)) terminals.dispose(tab.id)
   releaseTextFileClaim(tab)
 
   const tabs = workbench.tabs.filter((t) => t.id !== tabId)
@@ -1090,6 +1100,8 @@ export async function reopenClosedTab(snapshot: PersistedTab): Promise<TabId | n
           title: snapshot.title,
           sessionId: snapshot.sessionId
         })
+      case 'shell':
+        return addShellTab(snapshot.folderPath, { preset: snapshot.preset, title: snapshot.title })
       case 'task':
         // Task snapshots never enter closedTabs; keep the persisted union exhaustive.
         return null

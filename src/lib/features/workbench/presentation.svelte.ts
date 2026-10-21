@@ -5,6 +5,7 @@ import { getEpicTabTitle } from '$lib/features/workbench/surfaces/epic/service.s
 import { getIssueTabTitle } from '$lib/features/workbench/surfaces/issue/service.svelte'
 import { getTaskTabIcon, getTaskTabTitle } from '$lib/features/workbench/surfaces/task/service.svelte'
 import { getTextTabTitle } from '$lib/features/workbench/surfaces/text/service.svelte'
+import { TerminalIcon } from '$lib/icons/lucideExports'
 
 export interface TabPresentation {
   title: string
@@ -29,6 +30,8 @@ export function getTabPresentation(tab: Tab): TabPresentation {
         preview: false,
         sessionIcon: sessionBrand(tab.folderPath, tab.harnessId).icon
       }
+    case 'shell':
+      return { ...plain, title: tab.title, preview: false, sessionIcon: TerminalIcon }
     case 'text':
       return { ...plain, title: getTextTabTitle(tab), preview: tab.temporary, fileName: tab.fileName }
     case 'diff':

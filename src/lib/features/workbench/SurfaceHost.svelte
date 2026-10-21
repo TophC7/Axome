@@ -3,8 +3,7 @@
   import { getTabGroup, retryGroup } from '$lib/features/workbench/groups.svelte'
   import type { Tab } from '$lib/features/workbench/model'
   import NewTabSurface from '$lib/features/workbench/surfaces/new-tab/NewTabSurface.svelte'
-  import SessionSurface from '$lib/features/workbench/surfaces/session/SessionSurface.svelte'
-  import TaskSurface from '$lib/features/workbench/surfaces/task/TaskSurface.svelte'
+  import TerminalSurface from '$lib/features/workbench/surfaces/terminal/TerminalSurface.svelte'
   import TextSurface from '$lib/features/workbench/surfaces/text/TextSurface.svelte'
   import DiffSurface from '$lib/features/workbench/surfaces/diff/DiffSurface.svelte'
   import IssueSurface from '$lib/features/workbench/surfaces/issue/IssueSurface.svelte'
@@ -26,14 +25,12 @@
   </div>
 {:else if activeTab.kind === 'new-tab'}
   <NewTabSurface folderPath={activeTab.folderPath} />
-{:else if activeTab.kind === 'session'}
-  <SessionSurface tab={activeTab} />
+{:else if activeTab.kind === 'session' || activeTab.kind === 'shell' || activeTab.kind === 'task'}
+  <TerminalSurface tab={activeTab} />
 {:else if activeTab.kind === 'text'}
   <TextSurface tab={activeTab} folderPath={activeTab.folderPath} locked={activeTab.locked} />
 {:else if activeTab.kind === 'diff'}
   <DiffSurface tab={activeTab} folderPath={activeTab.folderPath} />
-{:else if activeTab.kind === 'task'}
-  <TaskSurface tab={activeTab} folderPath={activeTab.folderPath} />
 {:else if activeTab.kind === 'issue'}
   <IssueSurface tab={activeTab} folderPath={activeTab.folderPath} />
 {:else if activeTab.kind === 'epic'}

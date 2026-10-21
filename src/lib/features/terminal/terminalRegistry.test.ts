@@ -14,21 +14,33 @@ test('registry keeps detach, release, dispose and import rollback distinct', asy
     lastSequence: 1
   }
   const failure = new Error('attach failed')
-  const registry = createTerminalRegistry('terminal', (key: string) => key, (key) => {
-    calls.push(`create:${key}`)
-    return {
-      detach: () => { calls.push(`detach:${key}`) },
-      release: () => { calls.push(`release:${key}`) },
-      dispose: () => { calls.push(`dispose:${key}`) },
-      focus: () => { calls.push(`focus:${key}`) },
-      exportTransferState: async () => state,
-      importTransferState: async (received: TerminalTransferState, transferId: string) => {
-        assert.equal(received, state)
-        assert.equal(transferId, 'transfer')
-        if (key === 'failed') throw failure
+  const registry = createTerminalRegistry(
+    'terminal',
+    (key: string) => key,
+    (key) => {
+      calls.push(`create:${key}`)
+      return {
+        detach: () => {
+          calls.push(`detach:${key}`)
+        },
+        release: () => {
+          calls.push(`release:${key}`)
+        },
+        dispose: () => {
+          calls.push(`dispose:${key}`)
+        },
+        focus: () => {
+          calls.push(`focus:${key}`)
+        },
+        exportTransferState: async () => state,
+        importTransferState: async (received: TerminalTransferState, transferId: string) => {
+          assert.equal(received, state)
+          assert.equal(transferId, 'transfer')
+          if (key === 'failed') throw failure
+        }
       }
     }
-  })
+  )
 
   const first = registry.getOrCreate('first')
   assert.equal(registry.getOrCreate('first'), first)
@@ -53,8 +65,17 @@ test('registry keeps detach, release, dispose and import rollback distinct', asy
   assert.equal(registry.get('imported'), undefined)
   assert.equal(registry.get('last'), undefined)
   assert.deepEqual(calls, [
-    'create:first', 'detach:first', 'focus:first', 'release:first',
-    'create:closed', 'dispose:closed', 'create:imported',
-    'create:failed', 'release:failed', 'create:last', 'release:imported', 'release:last'
+    'create:first',
+    'detach:first',
+    'focus:first',
+    'release:first',
+    'create:closed',
+    'dispose:closed',
+    'create:imported',
+    'create:failed',
+    'release:failed',
+    'create:last',
+    'release:imported',
+    'release:last'
   ])
 })

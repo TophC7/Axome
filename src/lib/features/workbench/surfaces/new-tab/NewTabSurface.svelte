@@ -17,6 +17,8 @@
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { getLaunchOptions, getHarnessesLoading } from '$lib/features/sessions/harnesses/state.svelte'
   import { startSession } from '$lib/features/sessions/service.svelte'
+  import { startShell } from '$lib/features/shells/service.svelte'
+  import { getShellLaunchOptions } from '$lib/features/shells/state.svelte'
   import { openTaskTab } from '$lib/features/tasks/service.svelte'
   import { getTasksReactive } from '$lib/features/tasks/state.svelte'
   import { createUntitledTextSurface } from '$lib/features/workbench/surfaces/text/service.svelte'
@@ -51,8 +53,9 @@
   let tasks = $derived(getTasksReactive(folderPath))
   let harnessesLoading = $derived(getHarnessesLoading())
   let options = $derived(getLaunchOptions(folderPath))
+  let shellOptions = $derived(getShellLaunchOptions(folderPath))
   // Stagger slot after the direct row; New File always reserves one so tasks never jump.
-  let tasksDelay = $derived(0.1 + (options.length + 1 + 2) * 0.08)
+  let tasksDelay = $derived(0.1 + (options.length + shellOptions.length + 2) * 0.08)
 
   interface CardMeta {
     label: string
@@ -216,9 +219,21 @@
 
   <!-- Direct options -->
   <div class="grid grid-cols-2 gap-2.5">
-    {@render card(shell, 0.1 + (options.length + 1) * 0.08, () => startSession(folderPath, null, null), null)}
+    {#each shellOptions as option, i (option.preset)}
+      {@render card(
+        { ...shell, label: option.label },
+        0.1 + (options.length + 1 + i) * 0.08,
+        () => startShell(folderPath, option.preset),
+        basename(option.shell)
+      )}
+    {/each}
     {#if platform.native}
-      {@render card(newFile, 0.1 + (options.length + 1 + 1) * 0.08, () => createUntitledTextSurface(folderPath), null)}
+      {@render card(
+        newFile,
+        0.1 + (options.length + 1 + shellOptions.length) * 0.08,
+        () => createUntitledTextSurface(folderPath),
+        null
+      )}
     {/if}
   </div>
 

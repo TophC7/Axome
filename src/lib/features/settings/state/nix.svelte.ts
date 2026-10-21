@@ -5,6 +5,7 @@ import { backend } from '$lib/api/backend'
 import { refreshLspFolderEnvironment } from '$lib/features/editor/lsp/registry'
 import { createFolderKeyedStore } from '$lib/state/folderKeyedStore.svelte'
 import { loadHarnessesForFolder } from '$lib/features/sessions/harnesses/state.svelte'
+import { loadShellsForFolder } from '$lib/features/shells/state.svelte'
 import { notify, dismissNotification } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import type { NixDetection } from '$lib/types/backend'
@@ -93,7 +94,7 @@ export async function evaluateNix(folderPath: string): Promise<void> {
     detections.patch(folderPath, { selected: record })
     await refreshLspFolderEnvironment(folderPath)
     if (!current()) return
-    await loadHarnessesForFolder(folderPath, current)
+    await Promise.all([loadHarnessesForFolder(folderPath, current), loadShellsForFolder(folderPath, current)])
     if (!current()) return
     notify.update(notificationId, {
       title:
@@ -114,7 +115,7 @@ export async function evaluateNix(folderPath: string): Promise<void> {
         tone: 'error',
         loading: false
       })
-      await loadHarnessesForFolder(folderPath, current)
+      await Promise.all([loadHarnessesForFolder(folderPath, current), loadShellsForFolder(folderPath, current)])
     }
   } finally {
     if (current()) {
@@ -135,7 +136,7 @@ export async function clearNix(folderPath: string): Promise<void> {
     detections.patch(folderPath, { selected: null })
     await refreshLspFolderEnvironment(folderPath)
     if (!current()) return
-    await loadHarnessesForFolder(folderPath, current)
+    await Promise.all([loadHarnessesForFolder(folderPath, current), loadShellsForFolder(folderPath, current)])
     if (!current()) return
     notify.success('Disabled Nix environment')
   } catch (error) {
@@ -154,13 +155,13 @@ export async function activateNixFolder(folderPath: string): Promise<void> {
       if (!current()) return
     } else {
       // Folder presets and defaults apply even without a Nix environment.
-      await loadHarnessesForFolder(folderPath, current)
+      await Promise.all([loadHarnessesForFolder(folderPath, current), loadShellsForFolder(folderPath, current)])
       if (!current()) return
     }
   } catch (error) {
     if (current()) {
       notify.error('Nix detection failed', getErrorMessage(error))
-      await loadHarnessesForFolder(folderPath, current)
+      await Promise.all([loadHarnessesForFolder(folderPath, current), loadShellsForFolder(folderPath, current)])
     }
   }
 }

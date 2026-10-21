@@ -1,11 +1,10 @@
 <!--
   @component
-  HarnessesView — coding-agent harness roster and shell settings.
+  HarnessesView — coding-agent harness roster.
 
   Flat, IDE-style row list. Each row: switch + name/status/version
   + resolved path + chevron toggle. Expanding reveals inline rows
-  for binary-path override and extra-args. The Shell section edits
-  the login-shell override and args without an enable switch.
+  for binary-path override and extra-args.
   Writes debounce through a shared autoSaver.
 
   @param onSaving - flagged when the autoSaver goes busy
@@ -18,14 +17,9 @@
   import { Input } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
   import { notify } from '$lib/features/notifications/state.svelte'
-  import {
-    getSettings,
-    getSettingsHost,
-    saveHarnessConfig,
-    saveShellSettings
-  } from '$lib/features/settings/state/settings.svelte'
+  import { getSettings, getSettingsHost, saveHarnessConfig } from '$lib/features/settings/state/settings.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
-  import type { HarnessConfig, ShellSettings } from '$lib/types/backend'
+  import type { HarnessConfig } from '$lib/types/backend'
   import { onDestroy } from 'svelte'
   import { createAutoSaver } from './autoSaver'
 
@@ -38,8 +32,6 @@
   type Draft = { enabled: boolean; binaryPath: string; extraArgs: string }
   let drafts = $state<Record<string, Draft>>({})
   let expanded = $state<Record<string, boolean>>({})
-  let shellDraft = $state({ binaryPath: '', extraArgs: '' })
-  let shellSeeded = false
 
   // Seed drafts once per harness id. Subsequent backend refreshes
   // must not clobber in-progress edits, so we only populate ids we
@@ -55,13 +47,6 @@
         enabled: entry.config.enabled,
         binaryPath: entry.config.binary_path_override ?? '',
         extraArgs: entry.config.extra_args.join(' ')
-      }
-    }
-    if (!shellSeeded) {
-      shellSeeded = true
-      shellDraft = {
-        binaryPath: settings.shell.binary_path_override ?? '',
-        extraArgs: settings.shell.extra_args.join(' ')
       }
     }
   })
@@ -90,21 +75,6 @@
       extra_args: draft.extraArgs.split(/\s+/).filter(Boolean)
     }
     saver.schedule(`harness:${id}`, () => flush(next))
-  }
-
-  function updateShell(key: keyof typeof shellDraft, value: string) {
-    shellDraft = { ...shellDraft, [key]: value }
-    const next: ShellSettings = {
-      binary_path_override: shellDraft.binaryPath.trim() || null,
-      extra_args: shellDraft.extraArgs.split(/\s+/).filter(Boolean)
-    }
-    saver.schedule('shell', async () => {
-      try {
-        await saveShellSettings(next, host)
-      } catch (error) {
-        notify.error('Save shell failed', getErrorMessage(error))
-      }
-    })
   }
 
   function toggleExpanded(id: string) {
@@ -209,29 +179,6 @@
       </div>
     {/each}
   </div>
-  <section class="border-t border-edge">
-    <h3 class="px-5 py-4 text-md font-semibold text-bright">Shell</h3>
-    <div class="flex flex-col gap-3 border-t border-edge bg-surface/40 px-5 py-4">
-      <label class="flex items-center">
-        <span class="w-32 shrink-0 text-sm text-muted">Shell path</span>
-        <Input
-          class="flex-1 py-2"
-          value={shellDraft.binaryPath}
-          oninput={(e: Event) => updateShell('binaryPath', (e.currentTarget as HTMLInputElement).value)}
-          placeholder="Detected login shell"
-        />
-      </label>
-      <label class="flex items-center">
-        <span class="w-32 shrink-0 text-sm text-muted">Shell args</span>
-        <Input
-          class="flex-1 py-2"
-          value={shellDraft.extraArgs}
-          oninput={(e: Event) => updateShell('extraArgs', (e.currentTarget as HTMLInputElement).value)}
-          placeholder="--flag value"
-        />
-      </label>
-    </div>
-  </section>
 {:else}
   <div class="px-5 py-8 text-sm text-muted">Loading harnesses&hellip;</div>
 {/if}

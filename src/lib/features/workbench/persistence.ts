@@ -35,6 +35,15 @@ export function tabToPersisted(tab: Tab): PersistedTab | null {
         sessionId: tab.sessionId,
         locked: tab.locked
       }
+    case 'shell':
+      return {
+        kind: 'shell',
+        folderPath: tab.folderPath,
+        title: tab.title,
+        preset: tab.preset,
+        runId: tab.runId,
+        locked: tab.locked
+      }
     case 'text':
       // Untitled / new-empty buffers have no filePath yet and can't be
       // round-tripped to disk — drop them from persistence and the
@@ -135,6 +144,17 @@ export function persistedToTab(persisted: PersistedTab, id: string): Tab {
         runId: persisted.runId ?? null,
         sessionId: persisted.sessionId,
         // Restored processes start lazily on first activation.
+        status: 'dormant',
+        locked: persisted.locked
+      }
+    case 'shell':
+      return {
+        kind: 'shell',
+        id,
+        folderPath: persisted.folderPath,
+        title: persisted.title,
+        preset: persisted.preset,
+        runId: persisted.runId ?? null,
         status: 'dormant',
         locked: persisted.locked
       }
@@ -344,9 +364,10 @@ export function parsePersistedWorkbench(value: unknown): PersistedWorkbenchV4 | 
   // Preserve the active tab, or choose its next surviving neighbour.
   let activeTabIndex = snapshot.activeTabIndex < 0 ? -1 : 0
   const tabs = snapshot.tabs.filter((tab, index) => {
-    if (!tab || !['session', 'task', 'text', 'diff', 'new-tab', 'issue', 'epic'].includes(tab.kind)) return false
-    // Pre-harness session tabs (no harnessId) are dropped: clean cutover.
-    if (tab.kind === 'session' && !('harnessId' in tab)) return false
+    if (!tab || !['session', 'shell', 'task', 'text', 'diff', 'new-tab', 'issue', 'epic'].includes(tab.kind))
+      return false
+    // Session tabs without a harness (pre-split shells, pre-harness tabs) are dropped: clean cutover.
+    if (tab.kind === 'session' && typeof tab.harnessId !== 'string') return false
     if (index < snapshot.activeTabIndex) activeTabIndex += 1
     return true
   })

@@ -5,7 +5,14 @@ import { cleanupRegistries, freezeTabs } from './transferService.svelte'
 import * as modelCache from '$lib/features/editor/renderers/monaco/text/modelCache'
 import { platform, requireNative, type GroupHandoff, type GroupImport, type GroupFinalized } from '$lib/platform'
 import { getErrorMessage } from '$lib/utils/client-error'
-import { isTab, tabServer, type PersistedGroupRef, type PersistedTab, type PersistedWorkbenchV4, type Tab } from './model'
+import {
+  isTab,
+  tabServer,
+  type PersistedGroupRef,
+  type PersistedTab,
+  type PersistedWorkbenchV4,
+  type Tab
+} from './model'
 import {
   createWorkbenchWriter,
   parsePersistedWorkbench,
@@ -147,7 +154,7 @@ async function releaseViews(group: OwnedGroup): Promise<void> {
   const runIds: string[] = []
   for (const tab of currentTabs(group.server)) {
     cleanupRegistries(tab)
-    if (tab.kind === 'session' && tab.runId) runIds.push(tab.runId)
+    if ((tab.kind === 'session' || tab.kind === 'shell') && tab.runId) runIds.push(tab.runId)
     else if (tab.kind === 'task') runIds.push(tab.runId)
   }
   if (!runIds.length) return
@@ -544,7 +551,7 @@ async function stageGroup(handoff: GroupImport): Promise<void> {
     }
     for (const [index, tab] of handoff.tabs.entries()) {
       const staged: Tab =
-        tab.kind === 'session' && tab.status !== 'exited' && tab.status !== 'failed'
+        (tab.kind === 'session' || tab.kind === 'shell') && tab.status !== 'exited' && tab.status !== 'failed'
           ? { ...tab, status: 'dormant' }
           : tab.kind === 'task' && tab.status !== 'exited' && tab.status !== 'failed'
             ? { ...tab, status: 'starting', attachOnly: true }

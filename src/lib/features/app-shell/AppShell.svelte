@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { platform } from '$lib/platform'
-  import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
-  import * as taskRegistry from '$lib/features/tasks/taskRegistry'
+  import * as terminals from '$lib/features/terminal/registry'
   import { backend } from '$lib/api/backend'
   import { refreshIssuesForFolder } from '$lib/features/issues/state.svelte'
   import { refreshNixForFolder } from '$lib/features/settings/state/nix.svelte'
   import { refreshHarnessListings } from '$lib/features/sessions/harnesses/state.svelte'
+  import { refreshShellListings } from '$lib/features/shells/state.svelte'
   import CommandCenter from '$lib/features/command-palette/CommandCenter.svelte'
   import ConfirmHost from '$lib/features/confirm/ConfirmHost.svelte'
   import GitDialogHost from '$lib/features/git/dialogs/GitDialogHost.svelte'
@@ -22,7 +22,7 @@
     getTerminalFontSize,
     getUiFontFamily
   } from '$lib/features/settings/state/typography.svelte'
-  import { applyTerminalFont } from '$lib/features/sessions/terminal/xterm'
+  import { applyTerminalFont } from '$lib/features/terminal/xterm'
   import TitleBar from '$lib/features/app-shell/titlebar/TitleBar.svelte'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { initWindowControls } from '$lib/features/app-shell/window-controls/state.svelte'
@@ -33,7 +33,7 @@
   import {
     flushWorkbench,
     getActiveFolderPath,
-    getActiveSessionTabId,
+    getActiveTerminalTabId,
     requestFocusTab
   } from '$lib/features/workbench/state.svelte'
   import { notify } from '$lib/features/notifications/state.svelte'
@@ -47,11 +47,11 @@
 
   let { children }: { children: Snippet } = $props()
 
-  // Keep xterm's textarea focus aligned with the active session.
+  // Keep xterm's textarea focus aligned with the active terminal.
   //
   // Two classes of problem this solves:
-  //   1. Tab switches. When the user moves between sessions, a
-  //      different SessionSurface becomes visible but the previously
+  //   1. Tab switches. When the user moves between terminals, a
+  //      different TerminalSurface becomes visible but the previously
   //      clicked terminal keeps real DOM focus. Visible-but-unfocused
   //      xterm means Shift+Tab falls through to the browser's focus-
   //      navigation instead of reaching the PTY — feels like "terminal
@@ -62,20 +62,20 @@
   //      that reference is stale and focus falls to <body>.
   //
   // One effect tracks both signals. We refocus the current active
-  // session's xterm on any change, unless a transient modal is
+  // terminal's xterm on any change, unless a transient modal is
   // currently open — in which case the modal owns keyboard focus and
   // the effect will fire again when it closes. rAF waits one frame so
   // bits-ui's own restoration attempt completes first and we override
   // it last.
-  const activeSessionTabId = $derived(getActiveSessionTabId())
+  const activeTerminalTabId = $derived(getActiveTerminalTabId())
   const anyModalOpen = $derived(isAnyModalOpen())
 
   $effect(() => {
-    const id = activeSessionTabId
+    const id = activeTerminalTabId
     const open = anyModalOpen
     if (open || !id || !document.hasFocus()) return
     requestAnimationFrame(() => {
-      if (document.hasFocus()) sessionRegistry.focus(id)
+      if (document.hasFocus()) terminals.focus(id)
     })
   })
 
@@ -115,6 +115,7 @@
       backend.settings.onChanged((event) => {
         if (event.layer === 'global') void loadSettings()
         refreshHarnessListings(event)
+        refreshShellListings(event)
       }),
       backend.issues.onChanged(({ folderPath }) => void refreshIssuesForFolder(folderPath)),
       backend.nix.onChanged(({ folderPath }) => refreshNixForFolder(folderPath)),
@@ -154,8 +155,7 @@
           return
         }
       }
-      sessionRegistry.releaseAll()
-      taskRegistry.releaseAll()
+      terminals.releaseAll()
     })
 
     const cleanupShortcuts = setupGlobalShortcuts()

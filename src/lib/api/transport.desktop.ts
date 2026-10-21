@@ -6,6 +6,7 @@ import type {
   LspStreamRequest,
   PtySinks,
   SessionStreamRequest,
+  ShellStreamRequest,
   StreamHandle,
   TaskStreamRequest
 } from './transport'
@@ -44,9 +45,10 @@ export function openDesktopPtyStream<T>(command: string, params: object, sinks: 
 
 function openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
 function openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
+function openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
 function openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
 function openStream(
-  request: SessionStreamRequest | TaskStreamRequest | LspStreamRequest,
+  request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | LspStreamRequest,
   sinks: PtySinks | { onEvent: (event: LspEvent) => void }
 ): StreamHandle<SessionStartInfo | void> {
   return request.method === 'lsp_start'

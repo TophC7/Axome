@@ -10,7 +10,7 @@
   import githubIconUrl from '$lib/assets/github.svg?url'
   import appIconUrl from '$lib/assets/sworm.svg?url'
   import { getTabs } from '$lib/features/workbench/state.svelte'
-  import { isProcessLive } from '$lib/features/workbench/model'
+  import { isProcessLive, isTerminalTab } from '$lib/features/workbench/model'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
   import type { AppRuntimeInfo } from '$lib/types/backend'
@@ -26,9 +26,7 @@
 
   let tabs = $derived(getTabs())
   let folderCount = $derived(new Set(tabs.map((tab) => tab.folderPath)).size)
-  let liveProcessCount = $derived(
-    tabs.filter((tab) => (tab.kind === 'session' || tab.kind === 'task') && isProcessLive(tab.status)).length
-  )
+  let liveProcessCount = $derived(tabs.filter((tab) => isTerminalTab(tab) && isProcessLive(tab.status)).length)
 
   function formatBytes(bytes: number | null | undefined): string {
     if (bytes == null) return 'Unavailable'

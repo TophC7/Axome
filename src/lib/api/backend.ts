@@ -70,7 +70,8 @@ import type {
   PathRoot,
   HarnessConfig,
   HarnessListing,
-  ShellSettings,
+  ShellConfig,
+  ShellListing,
   SessionSpec,
   SessionStartInfo,
   SettingsChangedEvent,
@@ -197,20 +198,40 @@ export const backend = {
     start(spec: SessionSpec, cols: number, rows: number, sinks: PtySinks): StreamHandle<SessionStartInfo> {
       return getHostTransport().openStream({ method: 'session_start', params: { ...spec, cols, rows } }, sinks)
     },
-    write(runId: string, data: Uint8Array): Promise<void> {
-      return invoke<void>('session_write', {
-        runId,
-        data: Array.from(data)
-      })
-    },
-    resize(runId: string, cols: number, rows: number): Promise<void> {
-      return invoke<void>('session_resize', { runId, cols, rows })
-    },
     stop(runId: string): Promise<void> {
       return invoke<void>('session_stop', { runId })
     },
     ompResolveUri(uri: string, cwd?: string | null): Promise<{ path: string; is_dir: boolean }> {
       return invoke<{ path: string; is_dir: boolean }>('omp_resolve_uri', { uri, cwd: cwd ?? null })
+    }
+  },
+
+  shells: {
+    list(): Promise<ShellListing> {
+      return invoke<ShellListing>('shell_list')
+    },
+    listForFolder(folderPath: string): Promise<ShellListing> {
+      return invoke<ShellListing>('shell_list_for_folder', { folderPath })
+    },
+    start(
+      spec: { runId: string; folderPath: string; preset: string | null },
+      cols: number,
+      rows: number,
+      sinks: PtySinks
+    ): StreamHandle<void> {
+      return getHostTransport().openStream({ method: 'shell_start', params: { ...spec, cols, rows } }, sinks)
+    },
+    stop(runId: string): Promise<void> {
+      return invoke<void>('shell_stop', { runId })
+    }
+  },
+
+  runs: {
+    write(runId: string, data: Uint8Array): Promise<void> {
+      return invoke<void>('run_write', { runId, data: Array.from(data) })
+    },
+    resize(runId: string, cols: number, rows: number): Promise<void> {
+      return invoke<void>('run_resize', { runId, cols, rows })
     }
   },
 
@@ -519,8 +540,8 @@ export const backend = {
     setHarnessConfig(config: HarnessConfig, folderPath?: string): Promise<HarnessConfig> {
       return invoke<HarnessConfig>('settings_set_harness_config', { config, folderPath: folderPath ?? null })
     },
-    setShell(settings: ShellSettings, folderPath?: string): Promise<ShellSettings> {
-      return invoke<ShellSettings>('settings_set_shell', { settings, folderPath: folderPath ?? null })
+    setShellConfig(config: ShellConfig, folderPath?: string): Promise<ShellConfig> {
+      return invoke<ShellConfig>('settings_set_shell_config', { config, folderPath: folderPath ?? null })
     }
   },
 
@@ -636,12 +657,6 @@ export const backend = {
         },
         sinks
       )
-    },
-    write(runId: string, data: Uint8Array): Promise<void> {
-      return invoke<void>('tasks_write', { runId, data: Array.from(data) })
-    },
-    resize(runId: string, cols: number, rows: number): Promise<void> {
-      return invoke<void>('tasks_resize', { runId, cols, rows })
     },
     stop(runId: string): Promise<void> {
       return invoke<void>('tasks_stop', { runId })

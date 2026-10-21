@@ -21,6 +21,7 @@
     isProcessLive,
     tabServer,
     type SessionTab,
+    type ShellTab,
     type Tab,
     type TabId
   } from '$lib/features/workbench/model'
@@ -55,11 +56,11 @@
   import { groupDragSource, tabDragSource } from '$lib/features/dnd/adapters/tab-strip'
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
   import { dropFromOtherWindow, isTabTransferring } from '$lib/features/workbench/transferService.svelte'
-  import { restartSessionProcess, stopSessionProcess } from '$lib/features/sessions/service.svelte'
+  import { restartTerminalProcess, stopTerminalProcess } from '$lib/features/terminal/lifecycle'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import { findTask } from '$lib/features/tasks/state.svelte'
-  import { openTaskTab, stopTaskProcess } from '$lib/features/tasks/service.svelte'
+  import { openTaskTab } from '$lib/features/tasks/service.svelte'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { FileDiff, Layers, Lock, Plus, CircleDot, TerminalIcon, ServerIcon } from '$lib/icons/lucideExports'
   import FileIcon from '$lib/icons/FileIcon.svelte'
@@ -241,29 +242,29 @@
     }
   }
 
-  // SESSION MENU //
-  async function stopSession(tab: SessionTab) {
-    await runNotifiedTask(() => stopSessionProcess(tab.id), {
-      loading: { title: 'Stopping session', description: tab.title },
-      success: { title: 'Session stopped', description: tab.title },
-      error: { title: 'Stop session failed' }
+  // SESSION / SHELL MENU //
+  async function stopTerminal(tab: SessionTab | ShellTab) {
+    await runNotifiedTask(() => stopTerminalProcess(tab), {
+      loading: { title: tab.kind === 'shell' ? 'Stopping terminal' : 'Stopping session', description: tab.title },
+      success: { title: tab.kind === 'shell' ? 'Terminal stopped' : 'Session stopped', description: tab.title },
+      error: { title: tab.kind === 'shell' ? 'Stop terminal failed' : 'Stop session failed' }
     })
   }
 
-  async function restartSession(tab: SessionTab) {
+  async function restartTerminal(tab: SessionTab | ShellTab) {
     setActiveTab(tab.id)
     await tick()
-    await runNotifiedTask(() => restartSessionProcess(tab), {
-      loading: { title: 'Restarting session', description: tab.title },
-      success: { title: 'Session restarted', description: tab.title },
-      error: { title: 'Restart session failed' }
+    await runNotifiedTask(() => restartTerminalProcess(tab), {
+      loading: { title: tab.kind === 'shell' ? 'Restarting terminal' : 'Restarting session', description: tab.title },
+      success: { title: tab.kind === 'shell' ? 'Terminal restarted' : 'Session restarted', description: tab.title },
+      error: { title: tab.kind === 'shell' ? 'Restart terminal failed' : 'Restart session failed' }
     })
   }
 
   // TASK MENU //
   async function handleTaskStop(tab: Tab) {
     if (tab.kind !== 'task') return
-    await runNotifiedTask(() => stopTaskProcess(tab), {
+    await runNotifiedTask(() => stopTerminalProcess(tab), {
       loading: { title: 'Stopping task', description: tab.label },
       error: { title: 'Stop task failed' }
     })
@@ -282,7 +283,7 @@
 
 {#snippet tabItem(tab: Tab, i: number)}
   {@const presentation = getTabPresentation(tab)}
-  {@const sessionLive = tab.kind === 'session' && isProcessLive(tab.status)}
+  {@const terminalLive = (tab.kind === 'session' || tab.kind === 'shell') && isProcessLive(tab.status)}
   {@const transferring = isTabTransferring(tab.id)}
   {@const tabColor = getPathColor(tab.folderPath)}
   {@const inert = isTabInert(tab)}
@@ -326,6 +327,8 @@
             <FileIcon filename={tab.filePath ?? presentation.fileName} size={14} />
           {:else if tab.kind === 'new-tab'}
             <Plus size={14} class="shrink-0 text-accent" />
+          {:else if tab.kind === 'shell'}
+            <TerminalIcon size={14} class="shrink-0 text-muted" />
           {:else if tab.kind === 'task'}
             <!-- Task icon comes from .sworm/tasks.jsonc. Any Lucide name
                      is valid; fall back to the terminal glyph when the
@@ -349,9 +352,9 @@
     </ContextMenu.Trigger>
 
     <ContextMenu.Content>
-      {#if tab.kind === 'session'}
-        <ContextMenu.Item onSelect={() => void (sessionLive ? stopSession(tab) : restartSession(tab))}>
-          {sessionLive ? 'Stop' : 'Restart'}
+      {#if tab.kind === 'session' || tab.kind === 'shell'}
+        <ContextMenu.Item onSelect={() => void (terminalLive ? stopTerminal(tab) : restartTerminal(tab))}>
+          {terminalLive ? 'Stop' : 'Restart'}
         </ContextMenu.Item>
       {/if}
       {#if tab.kind === 'task'}

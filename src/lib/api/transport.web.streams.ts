@@ -4,6 +4,7 @@ import type {
   LspStreamRequest,
   PtySinks,
   SessionStreamRequest,
+  ShellStreamRequest,
   StreamHandle,
   TaskStreamRequest
 } from './transport'
@@ -296,7 +297,7 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
   }
 
   function openPty(
-    request: SessionStreamRequest | TaskStreamRequest,
+    request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest,
     sinks: PtySinks
   ): StreamHandle<SessionStartInfo | void> {
     const owner: PtyOwner = {
@@ -665,12 +666,11 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
         .send(jsonFrame({ kind: 'message', payload_json: (params as { messageJson: string }).messageJson }), 0)
         .then(() => undefined as T)
     }
-    const pty = /^(session|tasks)_(write|resize)$/.exec(method)
-    if (!pty) return undefined
+    if (method !== 'run_write' && method !== 'run_resize') return undefined
     const { runId } = params as { runId: string }
     const owner = ptys.get(runId)
     if (!owner || owner.disposed) return Promise.reject(disconnected())
-    if (pty[2] === 'resize') {
+    if (method === 'run_resize') {
       const { cols, rows } = params as { cols: number; rows: number }
       owner.dimensions = { cols, rows }
       if (currentGeneration === undefined) return Promise.reject(disconnected())
@@ -686,9 +686,10 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
 
   function openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
   function openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
+  function openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
   function openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
   function openStream(
-    request: SessionStreamRequest | TaskStreamRequest | LspStreamRequest,
+    request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | LspStreamRequest,
     sinks: PtySinks | { onEvent: (event: LspEvent) => void }
   ): StreamHandle<SessionStartInfo | void> {
     if (disposed) throw new Error(DISCONNECTED)

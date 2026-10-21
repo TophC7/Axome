@@ -20,14 +20,21 @@ export type SessionStatus = 'dormant' | 'starting' | 'running' | 'exited' | 'fai
 export interface SessionTab extends TabBase {
   kind: 'session'
   title: string
-  /** null = raw shell. */
-  harnessId: string | null
+  harnessId: string
   /** null = bare harness. */
   preset: string | null
   /** Frontend-generated UUID used as the PTY key; retained while the run may still be live. */
   runId: string | null
   /** Harness-owned session id; null until known. */
   sessionId: string | null
+  status: SessionStatus
+}
+
+export interface ShellTab extends TabBase {
+  kind: 'shell'
+  title: string
+  preset: string | null
+  runId: string | null
   status: SessionStatus
 }
 
@@ -150,7 +157,12 @@ export interface EpicTab extends TabBase {
   temporary: boolean
 }
 
-export type Tab = SessionTab | DiffTab | TextTab | NewTab | TaskTab | IssueTab | EpicTab
+export type TerminalTab = SessionTab | ShellTab | TaskTab
+export type Tab = TerminalTab | DiffTab | TextTab | NewTab | IssueTab | EpicTab
+
+export function isTerminalTab(tab: Tab): tab is TerminalTab {
+  return tab.kind === 'session' || tab.kind === 'shell' || tab.kind === 'task'
+}
 
 export function isTab(value: unknown): value is Tab {
   if (!value || typeof value !== 'object') return false
@@ -159,7 +171,7 @@ export function isTab(value: unknown): value is Tab {
     typeof tab.id === 'string' &&
     typeof tab.folderPath === 'string' &&
     typeof tab.kind === 'string' &&
-    ['session', 'diff', 'text', 'new-tab', 'task', 'issue', 'epic'].includes(tab.kind)
+    ['session', 'shell', 'diff', 'text', 'new-tab', 'task', 'issue', 'epic'].includes(tab.kind)
   )
 }
 
@@ -176,14 +188,20 @@ export type PersistedTab = { folderPath: string } & (
   | {
       kind: 'session'
       title: string
-      /** null = raw shell. */
-      harnessId: string | null
+      harnessId: string
       /** null = bare harness. */
       preset: string | null
       /** Absent in legacy blobs; hydrate as null. */
       runId?: string | null
       /** Harness-owned session id; null until known. */
       sessionId: string | null
+      locked: boolean
+    }
+  | {
+      kind: 'shell'
+      title: string
+      preset: string | null
+      runId?: string | null
       locked: boolean
     }
   | {
@@ -248,12 +266,10 @@ export interface PersistedWorkbenchV4 {
 }
 
 export function canLockTab(tab: Tab): boolean {
-  return (
-    tab.kind === 'session' || tab.kind === 'text' || tab.kind === 'task' || tab.kind === 'issue' || tab.kind === 'epic'
-  )
+  return isTerminalTab(tab) || tab.kind === 'text' || tab.kind === 'issue' || tab.kind === 'epic'
 }
 
-/** True while a session/task tab owns a live process (spawning or running). */
+/** True while a terminal tab owns a live process (spawning or running). */
 export function isProcessLive(status: SessionStatus | TaskRunStatus): boolean {
   return status === 'running' || status === 'starting'
 }

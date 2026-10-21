@@ -117,7 +117,9 @@ export type WorkbenchAttached =
 
 /** A live process a workbench left running. */
 export type WorkbenchRun =
-  { kind: 'session'; folder: string; harness_id: string | null } | { kind: 'task'; folder: string; task_id: string }
+  | { kind: 'session'; folder: string; harness_id: string; preset: string | null }
+  | { kind: 'shell'; folder: string; preset: string | null }
+  | { kind: 'task'; folder: string; task_id: string }
 
 /** A folder opened in Sworm, most recent first. */
 export interface RecentFolder {
@@ -135,7 +137,7 @@ export interface SessionStartInfo {
 export interface SessionSpec {
   runId: string
   folderPath: string
-  harnessId: string | null
+  harnessId: string
   preset: string | null
   sessionId: string | null
 }
@@ -255,9 +257,34 @@ export interface PresetSettings {
   view: SessionView | null
 }
 
+export interface ShellPresetSettings {
+  command?: string | null
+  args: string[]
+  env: Record<string, string>
+  startup?: string | null
+}
+
 export interface ShellSettings {
+  binary_path_override?: string | null
+  extra_args: string[]
+  default_preset?: string | null
+  presets: Record<string, ShellPresetSettings>
+}
+
+export interface ShellConfig {
   binary_path_override: string | null
   extra_args: string[]
+}
+
+export interface ShellPresetEntry {
+  name: string
+  shell: string
+}
+
+export interface ShellListing {
+  shell: string
+  presets: ShellPresetEntry[]
+  default_preset: string | null
 }
 
 export interface SessionsSettings {
@@ -827,6 +854,7 @@ export interface TaskDefinition {
   id: string
   label: string
   command: string
+  shell?: string
   cwd?: string
   env?: Record<string, string>
   icon?: string

@@ -25,6 +25,7 @@
     PackageIcon,
     ServerIcon,
     SettingsIcon,
+    TerminalIcon,
     X
   } from '$lib/icons/lucideExports'
   import { getSettingsHost, getSettingsServer, loadSettings } from '$lib/features/settings/state/settings.svelte'
@@ -37,6 +38,7 @@
   import LanguageSettingsView from '$lib/features/settings/views/LanguageSettingsView.svelte'
   import NixView from '$lib/features/settings/views/NixView.svelte'
   import HarnessesView from '$lib/features/settings/views/HarnessesView.svelte'
+  import ShellView from '$lib/features/settings/views/ShellView.svelte'
   import WindowView from '$lib/features/settings/views/WindowView.svelte'
   import RemoteServersView from '$lib/features/settings/views/RemoteServersView.svelte'
   import { getSettingsPage, setSettingsPage } from './state.svelte'
@@ -52,6 +54,7 @@
     { id: 'appearance', label: 'Appearance', icon: { kind: 'lucide', icon: PaintbrushIcon } },
     { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: { kind: 'lucide', icon: KeyboardIcon } },
     { id: 'harnesses', label: 'Harnesses', icon: { kind: 'lucide', icon: PackageIcon } },
+    { id: 'shell', label: 'Shell', icon: { kind: 'lucide', icon: TerminalIcon } },
     { id: 'window', label: 'Window', icon: { kind: 'lucide', icon: AppWindow }, native: true },
     {
       id: 'remote-servers',
@@ -85,7 +88,9 @@
 
   // Host sections show the loaded owner's values and save to the host captured
   // by each editor, even if the active folder moves before a write flushes.
-  let hostSectionServer = $derived(active === 'harnesses' || activeLanguagePage ? getSettingsServer() : null)
+  let hostSectionServer = $derived(
+    active === 'harnesses' || active === 'shell' || activeLanguagePage ? getSettingsServer() : null
+  )
 
   // Host-section editors seed drafts from the loaded owner's values, so they
   // re-mount when ownership moves rather than flushing stale drafts to a new
@@ -211,6 +216,10 @@
           {:else if active === 'harnesses'}
             {#key hostKey}
               <HarnessesView {onSaving} {onSaved} />
+            {/key}
+          {:else if active === 'shell'}
+            {#key hostKey}
+              <ShellView {onSaving} {onSaved} />
             {/key}
           {:else if active === 'window'}
             <WindowView />

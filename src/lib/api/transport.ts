@@ -17,6 +17,17 @@ export type SessionStreamRequest = {
   params: SessionSpec & { cols: number; rows: number }
 }
 
+export type ShellStreamRequest = {
+  method: 'shell_start'
+  params: {
+    runId: string
+    folderPath: string
+    preset: string | null
+    cols: number
+    rows: number
+  }
+}
+
 export type TaskStreamRequest = {
   method: 'tasks_start'
   params: {
@@ -45,6 +56,7 @@ export interface HostTransport {
   subscribe<T>(event: string, handler: (payload: T) => void): Promise<Unsubscribe>
   openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
   openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
+  openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
   openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
 }
 

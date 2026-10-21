@@ -30,7 +30,7 @@ const globalMethods: Record<string, true> = {
   settings_set_nix: true,
   settings_set_formatting: true,
   settings_set_harness_config: true,
-  settings_set_shell: true,
+  settings_set_shell_config: true,
   lsp_set_server_config: true,
   folder_home: true,
   folder_working_directory: true

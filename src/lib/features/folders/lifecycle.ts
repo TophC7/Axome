@@ -13,6 +13,7 @@ import { releaseGitTreeReveal } from '$lib/features/git/treeReveal.svelte'
 import { releaseWorktreeFolder } from '$lib/features/git/worktrees.svelte'
 import { releaseIssueFolder } from '$lib/features/issues/state.svelte'
 import { releaseHarnessFolder } from '$lib/features/sessions/harnesses/state.svelte'
+import { releaseShellFolder } from '$lib/features/shells/state.svelte'
 import { releaseNixFolder } from '$lib/features/settings/state/nix.svelte'
 
 /** Shared teardown; destructive operations propagate shutdown/release failures. */
@@ -25,6 +26,7 @@ export async function releaseFolder(folderPath: string, strict = false): Promise
   releaseIssueFolder(folderPath)
   releaseNixFolder(folderPath)
   releaseHarnessFolder(folderPath)
+  releaseShellFolder(folderPath)
   releaseFileTree(folderPath)
   releaseProjectFiles(folderPath)
   if (strict) {

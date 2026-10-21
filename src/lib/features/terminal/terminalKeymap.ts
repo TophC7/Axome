@@ -15,7 +15,7 @@ import { logicalKey } from '$lib/utils/keyboardEvent'
 // tagged `skipShell` (palette, zoom, reload). Anything
 // Tier 1 doesn't claim continues into the focused surface, where xterm's
 // `attachCustomKeyEventHandler` calls `resolveTerminalKey()`. The
-// returned `KeyAction` tells `TerminalSessionManager` exactly what to
+// returned `KeyAction` tells `TerminalManager` exactly what to
 // do — never split the decision between the keymap and the manager.
 //
 // Harness contributions declare their Shift encoding; the manager stays untouched.

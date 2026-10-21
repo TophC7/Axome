@@ -11,6 +11,7 @@ import {
 } from '$lib/features/notifications/state.svelte'
 import { svgUrl } from '$lib/features/sessions/harnesses/catalog'
 import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
+import { getShellListing } from '$lib/features/shells/state.svelte'
 import { isSidebarCollapsed, toggleSidebar } from '$lib/features/app-shell/sidebar/state.svelte'
 import { zoomIn, zoomOut, zoomReset } from '$lib/features/app-shell/zoom/state.svelte'
 import { localHostLabel, openBrowser } from '$lib/features/browser/state.svelte'
@@ -30,6 +31,7 @@ import {
   newDefaultSession,
   newEmptyFile,
   newTerminalSession,
+  newTerminalWithPreset,
   newWindow,
   openActiveFolderInExternalTerminal,
   openFolderPicker,
@@ -146,6 +148,17 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       keywords: ['new', 'session', 'agent', harness.label, preset ?? ''],
       visible: () => activeFolderVisible() && status?.status === 'connected',
       run: () => createSession(harness.id, preset)
+    })
+  )
+  const shellCommands = getShellListing(getActiveFolderPath()).presets.map(({ name }) =>
+    appCommand({
+      id: `new-terminal:${name}`,
+      label: `New Terminal · ${name}`,
+      group: 'Sessions',
+      icon: TerminalIcon,
+      keywords: ['terminal', 'shell', name],
+      visible: activeFolderVisible,
+      run: () => newTerminalWithPreset(name)
     })
   )
 
@@ -370,6 +383,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       visible: activeFolderVisible,
       run: newTerminalSession
     }),
+    ...shellCommands,
     appCommand({
       id: 'files.show',
       label: 'Go to File',

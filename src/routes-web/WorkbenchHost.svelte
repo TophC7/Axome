@@ -10,8 +10,7 @@
     confirmDiscardDirtyText,
     getDirtyTextSurfaceCount
   } from '$lib/features/workbench/surfaces/text/service.svelte'
-  import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
-  import * as taskRegistry from '$lib/features/tasks/taskRegistry'
+  import * as terminals from '$lib/features/terminal/registry'
   import { registerHostTransport } from '$lib/api/transport'
   import { createWebHostTransport, type WebHandshakeError, type WebHostTransport } from '$lib/api/transport.web'
   import { getHostConnection, setHostConnection } from '$lib/api/hostConnection.svelte'
@@ -116,8 +115,7 @@
     tornDown = true
     recovery.dispose()
     stopWorkbenchPersistence()
-    sessionRegistry.releaseAll()
-    taskRegistry.releaseAll()
+    terminals.releaseAll()
   }
 
   function terminate(state: 'busy' | 'revoked' | 'closed' | 'error', error?: WebHandshakeError): void {
