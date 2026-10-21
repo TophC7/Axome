@@ -4,7 +4,7 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { sidebarRowVariants } from '$lib/components/ui/sidebar-row'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { copyToClipboard, createTag, deleteRemoteTag, deleteTag, pushTag } from '$lib/features/git/actions.svelte'
+  import { createTag, deleteRemoteTag, deleteTag, pushTag } from '$lib/features/git/actions.svelte'
   import { checkoutRef } from '$lib/features/git/branches.svelte'
   import { openGitDialog } from './dialogs/host.svelte'
   import { getGitSummary, getTags, loadTags } from '$lib/features/git/state.svelte'
@@ -21,6 +21,7 @@
     TagIcon
   } from '$lib/icons/lucideExports'
   import { formatFullDate, timeAgo } from '$lib/utils/date'
+  import { copyToClipboard } from '$lib/utils/clipboard'
 
   let { folderPath }: { folderPath: string } = $props()
 

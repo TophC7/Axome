@@ -1,4 +1,5 @@
 pub mod app;
+pub mod chat;
 pub mod dnd;
 pub mod files;
 pub mod folders;
@@ -24,6 +25,7 @@ macro_rules! forward_command {
     (#[route($route:ident)] GitWatch => $($row:tt)*) => {};
     (#[route($route:ident)] GitWorktree => $($row:tt)*) => {};
     (#[route($route:ident)] SessionStart => $($row:tt)*) => {};
+    (#[route($route:ident)] ChatStart => $($row:tt)*) => {};
     (#[route($route:ident)] ShellStart => $($row:tt)*) => {};
     (#[route($route:ident)] TasksStart => $($row:tt)*) => {};
     (#[route($route:ident)] LspStart => $($row:tt)*) => {};
@@ -265,6 +267,13 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         sessions::session_start,
         session_stop,
         omp_resolve_uri,
+        // Chat commands
+        chat::chat_start,
+        chat_prompt,
+        chat_cancel,
+        chat_set_config,
+        chat_respond,
+        chat_stop,
         // Shell commands
         shells::shell_start,
         shell_stop,

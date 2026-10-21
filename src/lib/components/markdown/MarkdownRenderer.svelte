@@ -6,15 +6,19 @@
   import { platform, type AssetHandle } from '$lib/platform'
   import { openLink } from '$lib/features/workbench/links/openLink'
   import { getErrorMessage } from '$lib/utils/client-error'
+  import { cn } from '$lib/utils/cn'
+  import { copyToClipboard } from '$lib/utils/clipboard'
 
   let {
     source,
     folderPath,
-    filePath
+    filePath,
+    class: className
   }: {
     source: string
     folderPath?: string
     filePath?: string | null
+    class?: string
   } = $props()
 
   let rendered = $state.raw<Awaited<ReturnType<typeof renderMarkdown>> | null>(null)
@@ -127,7 +131,19 @@
 
   onDestroy(invalidateImages)
 
-  function handleClick(event: MouseEvent) {
+  async function handleClick(event: MouseEvent) {
+    const copy = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sworm-copy]') : null
+    if (copy && root.contains(copy)) {
+      event.preventDefault()
+      const text = copy.parentElement?.querySelector('pre')?.textContent ?? ''
+      await copyToClipboard(text, 'Copy code failed')
+      copy.textContent = 'Copied'
+      setTimeout(() => {
+        copy.textContent = 'Copy'
+      }, 1500)
+      return
+    }
+
     const anchor = event.target instanceof Element ? event.target.closest('a') : null
     const href = anchor?.getAttribute('href')
     if (!anchor || !root.contains(anchor) || !href) return
@@ -162,9 +178,9 @@
 {#if error}
   <p role="alert" class="px-6 py-4 text-danger">Markdown preview failed: {error}</p>
 {/if}
-<!-- Delegated clicks also receive native keyboard activation from rendered links. -->
+<!-- Delegated clicks also receive native keyboard activation from rendered links and buttons. -->
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-<div bind:this={root} class="markdown-body px-6 py-4" onclick={handleClick}>
+<div bind:this={root} class={cn('markdown-body px-6 py-4', className)} onclick={handleClick}>
   {#key rendered}
     {@html rendered?.html ?? ''}
   {/key}

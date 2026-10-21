@@ -237,7 +237,7 @@ impl Default for HarnessSettings {
 pub struct PresetSettings {
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
-    /// Default view for new tabs of this preset; accepted but not yet applied.
+    /// Default view for new tabs of this preset; `chat` falls back to `terminal` for harnesses without a chat agent.
     pub view: Option<SessionView>,
 }
 
@@ -269,6 +269,18 @@ pub struct ShellPresetSettings {
 pub struct SessionsSettings {
     /// `<harness_id>` or `<harness_id>/<preset>`; launched by New Session and listed first.
     pub default_preset: Option<String>,
+    /// MCP stdio servers passed to every chat session, keyed by server name. Global settings only.
+    pub mcp_servers: BTreeMap<String, McpServerSettings>,
+}
+
+/// A user-configured MCP stdio server.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct McpServerSettings {
+    /// Absolute path or a command on the folder's PATH.
+    pub command: String,
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]

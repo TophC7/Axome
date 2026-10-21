@@ -3,6 +3,7 @@
   import ChangedFilesTree from '$lib/features/git/ChangedFilesTree.svelte'
   import { openStashDiff } from '$lib/features/workbench/surfaces/diff/service.svelte'
   import { timeAgo, formatFullDate } from '$lib/utils/date'
+  import { copyToClipboard } from '$lib/utils/clipboard'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
@@ -23,7 +24,6 @@
   import {
     applyStash,
     branchFromStash,
-    copyToClipboard,
     clearStashes,
     dropStash,
     popLatestStash,

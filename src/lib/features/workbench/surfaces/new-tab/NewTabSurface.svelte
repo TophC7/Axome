@@ -196,7 +196,7 @@
 
   <!-- Agent CLIs -->
   <div class="grid grid-cols-2 gap-2.5">
-    {#each options as { harness, preset, status }, i (`${harness.id}:${preset ?? ''}`)}
+    {#each options as { harness, preset, view, status }, i (`${harness.id}:${preset ?? ''}`)}
       {@const meta = {
         label: harness.label,
         icon: svgUrl(harness.icon),
@@ -209,7 +209,7 @@
       {@render card(
         meta,
         0.1 + i * 0.08,
-        status?.status === 'connected' ? () => startSession(folderPath, harness.id, preset) : null,
+        status?.status === 'connected' ? () => startSession(folderPath, harness.id, preset, view) : null,
         preset ?? status?.version ?? null
       )}
     {/each}

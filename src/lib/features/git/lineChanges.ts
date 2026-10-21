@@ -231,11 +231,14 @@ function subtractRanges(range: LineSelectionRange, subtract: readonly LineSelect
   return remaining
 }
 
-const MAX_REFINED_LINE_CHANGE_CELLS = 40_000
+export const MAX_REFINED_LINE_CHANGE_CELLS = 40_000
 
 // Monaco can report a mixed-size hunk as one coarse replacement. Refining that
 // hunk into stable line-level pieces lets selection actions keep neighbors intact.
-function lcsLinePairs(originalLines: readonly string[], modifiedLines: readonly string[]): Array<[number, number]> {
+export function lcsLinePairs(
+  originalLines: readonly string[],
+  modifiedLines: readonly string[]
+): Array<[number, number]> {
   const rows = originalLines.length
   const columns = modifiedLines.length
   const matrix: number[][] = Array.from({ length: rows + 1 }, () => Array(columns + 1).fill(0))

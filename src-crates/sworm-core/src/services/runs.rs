@@ -271,6 +271,22 @@ impl RunCoordinator {
         token.and_then(|token| token.lock().clone())
     }
 
+    pub(crate) fn session_runs(&self, harness_id: &str, session_id: &str) -> Vec<String> {
+        self.state
+            .lock()
+            .records
+            .iter()
+            .filter(|(_, run)| {
+                matches!(&run.kind, RunKind::Session { harness_id: id, .. } if id == harness_id)
+                    && run
+                        .session_id
+                        .as_ref()
+                        .is_some_and(|slot| slot.lock().as_deref() == Some(session_id))
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
     pub(crate) fn completed_run(&self, run_id: &str) -> Result<Option<CompletedRun>, ApiError> {
         let store = self.state.lock().completed.clone();
         self.with_run(run_id, |_| {

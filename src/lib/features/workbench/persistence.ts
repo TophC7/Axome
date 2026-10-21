@@ -31,6 +31,7 @@ export function tabToPersisted(tab: Tab): PersistedTab | null {
         title: tab.title,
         harnessId: tab.harnessId,
         preset: tab.preset,
+        view: tab.view,
         runId: tab.runId,
         sessionId: tab.sessionId,
         locked: tab.locked
@@ -141,6 +142,7 @@ export function persistedToTab(persisted: PersistedTab, id: string): Tab {
         title: persisted.title,
         harnessId: persisted.harnessId,
         preset: persisted.preset,
+        view: persisted.view,
         runId: persisted.runId ?? null,
         sessionId: persisted.sessionId,
         // Restored processes start lazily on first activation.
@@ -366,8 +368,12 @@ export function parsePersistedWorkbench(value: unknown): PersistedWorkbenchV4 | 
   const tabs = snapshot.tabs.filter((tab, index) => {
     if (!tab || !['session', 'shell', 'task', 'text', 'diff', 'new-tab', 'issue', 'epic'].includes(tab.kind))
       return false
-    // Session tabs without a harness (pre-split shells, pre-harness tabs) are dropped: clean cutover.
-    if (tab.kind === 'session' && typeof tab.harnessId !== 'string') return false
+    // Session tabs without a harness (pre-split shells, pre-harness tabs) or without a view are dropped: clean cutover.
+    if (
+      tab.kind === 'session' &&
+      (typeof tab.harnessId !== 'string' || (tab.view !== 'chat' && tab.view !== 'terminal'))
+    )
+      return false
     if (index < snapshot.activeTabIndex) activeTabIndex += 1
     return true
   })

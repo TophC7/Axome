@@ -133,6 +133,131 @@ export interface SessionStartInfo {
   sessionId: string | null
 }
 
+export interface ChatStartInfo {
+  sessionId: string | null
+  resumed: boolean
+}
+
+export type ChatEvent =
+  | { type: 'snapshot'; state: ChatState }
+  | { type: 'turnState'; turn: ChatTurn }
+  | { type: 'entry'; entry: ChatEntry }
+  | { type: 'textDelta'; id: string; text: string }
+  | { type: 'configOptions'; options: ChatConfigOption[] }
+  | { type: 'commands'; commands: ChatCommand[] }
+  | { type: 'usage'; usage: ChatUsage }
+  | { type: 'request'; request: ChatRequest }
+  | { type: 'requestResolved'; request_id: string }
+  | { type: 'sessionBound'; session_id: string }
+  | { type: 'notice'; level: ChatNoticeLevel; message: string }
+  | { type: 'exit'; message: string | null }
+
+export interface ChatState {
+  session_id: string | null
+  turn: ChatTurn
+  entries: ChatEntry[]
+  config_options: ChatConfigOption[]
+  commands: ChatCommand[]
+  usage: ChatUsage | null
+  requests: ChatRequest[]
+  accepts_images: boolean
+}
+
+export type ChatTurn = 'starting' | 'idle' | 'running' | 'reconnecting'
+
+export type ChatEntry =
+  | { kind: 'user'; id: string; content: ChatContent[] }
+  | { kind: 'message'; id: string; text: string }
+  | { kind: 'thought'; id: string; text: string }
+  | {
+      kind: 'tool'
+      id: string
+      title: string
+      tool_kind: string
+      status: ChatToolStatus
+      content: ChatToolContent[]
+      locations: ChatLocation[]
+    }
+  | { kind: 'plan'; id: string; items: ChatPlanItem[] }
+
+export type ChatToolStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
+
+export type ChatToolContent =
+  { type: 'text'; text: string } | { type: 'diff'; path: string; old_text: string | null; new_text: string }
+
+export interface ChatLocation {
+  path: string
+  line: number | null
+}
+
+export interface ChatPlanItem {
+  content: string
+  priority: string
+  status: string
+}
+
+export type ChatContent = { type: 'text'; text: string } | { type: 'image'; mime_type: string; data: string }
+
+export interface ChatConfigOption {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  kind: ChatConfigKind
+}
+
+export type ChatConfigKind =
+  { type: 'select'; current_value: string; choices: ChatConfigChoice[] } | { type: 'boolean'; current_value: boolean }
+
+export interface ChatConfigChoice {
+  value: string
+  name: string
+  description: string | null
+  group: string | null
+}
+
+export type ChatConfigValue = { type: 'select'; value: string } | { type: 'boolean'; value: boolean }
+
+export interface ChatCommand {
+  name: string
+  description: string
+  hint: string | null
+}
+
+export interface ChatUsage {
+  used: number
+  size: number
+  cost: ChatCost | null
+}
+
+export interface ChatCost {
+  amount: number
+  currency: string
+}
+
+export type ChatRequest =
+  | {
+      kind: 'permission'
+      request_id: string
+      tool_call_id: string
+      title: string
+      options: ChatPermissionOption[]
+    }
+  | { kind: 'elicitation'; request_id: string; message: string; schema: unknown }
+
+export interface ChatPermissionOption {
+  option_id: string
+  name: string
+  kind: string
+}
+
+export type ChatResponse =
+  | { kind: 'permission'; option_id: string | null }
+  | { kind: 'elicitation'; action: ChatElicitationAction; content: Record<string, unknown> | null }
+
+export type ChatElicitationAction = 'accept' | 'decline' | 'cancel'
+export type ChatNoticeLevel = 'info' | 'warning' | 'error'
+
 /** Everything the backend needs to spawn a session tab's process under an ephemeral run id. */
 export interface SessionSpec {
   runId: string
@@ -144,12 +269,17 @@ export interface SessionSpec {
 
 export type HarnessConnectionStatus = 'connected' | 'missing' | 'error'
 
+export interface HarnessPresetEntry {
+  name: string
+  view: SessionView
+}
+
 export interface HarnessStatus {
   id: string
   label: string
   status: HarnessConnectionStatus
   enabled: boolean
-  presets: string[]
+  presets: HarnessPresetEntry[]
   version: string | null
   resolved_path: string | null
   message: string | null
@@ -253,7 +383,7 @@ export type SessionView = 'chat' | 'terminal'
 export interface PresetSettings {
   args: string[]
   env: Record<string, string>
-  /** Default view for new tabs of this preset; accepted but not yet applied. */
+  /** Default view for new tabs; chat falls back to terminal for harnesses without a chat agent. */
   view: SessionView | null
 }
 
@@ -290,6 +420,14 @@ export interface ShellListing {
 export interface SessionsSettings {
   /** `<harness_id>` or `<harness_id>/<preset>`; launched by New Session and listed first. */
   default_preset: string | null
+  /** MCP stdio servers passed to every chat session, keyed by name. Global settings only. */
+  mcp_servers: Record<string, McpServerSettings>
+}
+
+export interface McpServerSettings {
+  command: string
+  args: string[]
+  env: Record<string, string>
 }
 
 export interface RemoteSettings {
@@ -466,6 +604,8 @@ export interface HarnessDescriptor {
   id: string
   label: string
   extension_id: string
+  /** The harness has a chat (ACP) agent. */
+  chat: boolean
   /** SVG markup. */
   icon: string
   wordmark: string | null

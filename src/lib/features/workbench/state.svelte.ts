@@ -13,6 +13,8 @@ import { filterExistingFolders, pushRecentFolder } from '$lib/features/folders/s
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import * as terminals from '$lib/features/terminal/registry'
+import * as chats from '$lib/features/chat/registry'
+import type { SessionView } from '$lib/types/backend'
 import type {
   CompareDiffSource,
   CompareFileSide,
@@ -28,11 +30,18 @@ import type {
   TabId,
   TaskRunStatus,
   TaskTab,
-  TerminalTab,
+  RunTab,
   TextTab,
   Workbench
 } from '$lib/features/workbench/model'
-import { canLockTab, compareSidesEqual, isTerminalTab, tabServer } from '$lib/features/workbench/model'
+import {
+  canLockTab,
+  compareSidesEqual,
+  isChatTab,
+  isRunTab,
+  isTerminalTab,
+  tabServer
+} from '$lib/features/workbench/model'
 import { flushActiveGroups, getGroupRefs, isTabInert, restoreGroups, syncGroups } from './groups.svelte'
 import {
   loadPersistedWorkbench,
@@ -269,9 +278,7 @@ export function getActiveTextFilePath(): string | null {
 }
 
 /** Preview replacement must never discard edits or overwrite a locked/promoted tab. */
-export function getReplaceableTemporaryTab(
-  tabId: TabId | null = workbench.activeTabId
-): Exclude<Tab, TerminalTab> | null {
+export function getReplaceableTemporaryTab(tabId: TabId | null = workbench.activeTabId): Exclude<Tab, RunTab> | null {
   const tab = tabId ? findTab(tabId) : undefined
   return tab &&
     'temporary' in tab &&
@@ -535,6 +542,7 @@ export async function restoreWorkbench(): Promise<boolean> {
 export interface SessionTabInit {
   harnessId: string
   preset: string | null
+  view: SessionView
   title: string
   sessionId: string | null
 }
@@ -548,6 +556,7 @@ export function addSessionTab(folderPath: string, init: SessionTabInit): TabId {
     title: init.title,
     harnessId: init.harnessId,
     preset: init.preset,
+    view: init.view,
     runId: null,
     sessionId: init.sessionId,
     status: 'dormant',
@@ -568,7 +577,7 @@ export function addShellTab(folderPath: string, init: { preset: string | null; t
   })
 }
 
-export function setTerminalTabStatus(tabId: TabId, status: SessionStatus): void {
+export function setRunTabStatus(tabId: TabId, status: SessionStatus): void {
   updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.status !== status ? { ...t, status } : t))
 }
 
@@ -576,7 +585,7 @@ export function setTerminalTabTitle(tabId: TabId, title: string): void {
   if (!title) return
   updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.title !== title ? { ...t, title } : t))
 }
-export function setTerminalTabRunId(tabId: TabId, runId: string | null): void {
+export function setRunTabRunId(tabId: TabId, runId: string | null): void {
   updateTab(tabId, (t) => ((t.kind === 'session' || t.kind === 'shell') && t.runId !== runId ? { ...t, runId } : t))
 }
 /**
@@ -584,13 +593,17 @@ export function setTerminalTabRunId(tabId: TabId, runId: string | null): void {
  * Durability is best effort: the failed snapshot is requeued by
  * `flushWorkbench`, and a lost run id only costs reattach after a restart.
  */
-export async function persistTerminalTabRunId(tabId: TabId, runId: string): Promise<void> {
-  setTerminalTabRunId(tabId, runId)
-  await flushWorkbench().catch((error) => console.warn('Failed to persist terminal run id:', error))
+export async function persistRunTabRunId(tabId: TabId, runId: string): Promise<void> {
+  setRunTabRunId(tabId, runId)
+  await flushWorkbench().catch((error) => console.warn('Failed to persist run id:', error))
 }
 
 export function setSessionTabSessionId(tabId: TabId, sessionId: string | null): void {
   updateTab(tabId, (t) => (t.kind === 'session' && t.sessionId !== sessionId ? { ...t, sessionId } : t))
+}
+
+export function setSessionTabView(tabId: TabId, view: SessionView): void {
+  updateTab(tabId, (t) => (t.kind === 'session' ? { ...t, view, runId: null, status: 'dormant' } : t))
 }
 
 /** Drop the tab's session id only if it still equals `expectedId`; a session id bound meanwhile wins. */
@@ -710,8 +723,8 @@ function addContentTab(
 ): TabId {
   if (temporary) {
     const existingTemp = tabId
-      ? workbench.tabs.find((t) => t.id === tabId && t.kind === kind && !isTerminalTab(t) && t.temporary)
-      : workbench.tabs.find((t) => t.kind === kind && !isTerminalTab(t) && t.temporary)
+      ? workbench.tabs.find((t) => t.id === tabId && t.kind === kind && !isRunTab(t) && t.temporary)
+      : workbench.tabs.find((t) => t.kind === kind && !isRunTab(t) && t.temporary)
     if (existingTemp) {
       const newTab = makeTab(existingTemp.id)
       if (isTabInert(newTab)) throw new Error('This server workbench is not controlled by this window')
@@ -1039,7 +1052,7 @@ export function updateEpicTabTitle(folderPath: string, epicId: string, title: st
 
 // PROMOTION //
 export function promoteTab(tabId: TabId): void {
-  updateTab(tabId, (t) => (isTerminalTab(t) || t.kind === 'new-tab' || !t.temporary ? t : { ...t, temporary: false }))
+  updateTab(tabId, (t) => (isRunTab(t) || t.kind === 'new-tab' || !t.temporary ? t : { ...t, temporary: false }))
 }
 
 export function promoteTabWhenReady(pendingTabId: TabId | Promise<TabId> | null | undefined): void {
@@ -1062,6 +1075,7 @@ export function closeTab(tabId: TabId): void {
   if (snapshot) pushClosedTab(snapshot)
 
   if (isTerminalTab(tab)) terminals.dispose(tab.id)
+  else if (isChatTab(tab)) chats.dispose(tab.id)
   releaseTextFileClaim(tab)
 
   const tabs = workbench.tabs.filter((t) => t.id !== tabId)
@@ -1092,11 +1106,12 @@ export async function reopenClosedTab(snapshot: PersistedTab): Promise<TabId | n
 
   try {
     switch (snapshot.kind) {
-      // Closing killed this run. Reopen resumes harness history under a fresh PTY id.
+      // Closing killed this run. Reopen resumes harness history under a fresh run id.
       case 'session':
         return addSessionTab(snapshot.folderPath, {
           harnessId: snapshot.harnessId,
           preset: snapshot.preset,
+          view: snapshot.view,
           title: snapshot.title,
           sessionId: snapshot.sessionId
         })

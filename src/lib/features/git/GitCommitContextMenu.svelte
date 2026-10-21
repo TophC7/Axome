@@ -2,14 +2,7 @@
   import type { Snippet } from 'svelte'
   import { backend } from '$lib/api/backend'
   import * as ContextMenu from '$lib/components/ui/context-menu'
-  import {
-    cherryPickCommit,
-    copyToClipboard,
-    createTag,
-    deleteTag,
-    resetToCommit,
-    revertCommit
-  } from '$lib/features/git/actions.svelte'
+  import { cherryPickCommit, createTag, deleteTag, resetToCommit, revertCommit } from '$lib/features/git/actions.svelte'
   import { checkoutRef } from '$lib/features/git/branches.svelte'
   import { openGitDialog } from './dialogs/host.svelte'
   import { localNameForRemoteRef } from '$lib/features/git/gitRefs'
@@ -29,6 +22,7 @@
     Undo2Icon
   } from '$lib/icons/lucideExports'
   import type { GitRef, GraphCommit } from '$lib/types/backend'
+  import { copyToClipboard } from '$lib/utils/clipboard'
 
   let { folderPath, commit, children }: { folderPath: string; commit: GraphCommit; children: Snippet } = $props()
 

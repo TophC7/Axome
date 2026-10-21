@@ -1,7 +1,9 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import type { LspEvent, SessionStartInfo } from '$lib/types/backend'
+import type { ChatStartInfo, LspEvent, SessionStartInfo } from '$lib/types/backend'
 import type {
+  ChatSinks,
+  ChatStreamRequest,
   HostTransport,
   LspStreamRequest,
   PtySinks,
@@ -46,12 +48,13 @@ export function openDesktopPtyStream<T>(command: string, params: object, sinks: 
 function openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
 function openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
 function openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
+function openStream(request: ChatStreamRequest, sinks: ChatSinks): StreamHandle<ChatStartInfo>
 function openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
 function openStream(
-  request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | LspStreamRequest,
-  sinks: PtySinks | { onEvent: (event: LspEvent) => void }
-): StreamHandle<SessionStartInfo | void> {
-  return request.method === 'lsp_start'
+  request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | ChatStreamRequest | LspStreamRequest,
+  sinks: PtySinks | ChatSinks | { onEvent: (event: LspEvent) => void }
+): StreamHandle<SessionStartInfo | ChatStartInfo | void> {
+  return request.method === 'lsp_start' || request.method === 'chat_start'
     ? openChannels(request.method, request.params, { events: sinks.onEvent })
     : openDesktopPtyStream(request.method, request.params, sinks as PtySinks)
 }

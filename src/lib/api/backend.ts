@@ -1,9 +1,20 @@
 // Typed host API. Desktop and future web transports provide the same calls.
 
-import { getHostTransport, type PtySinks, type StreamHandle, type Unsubscribe } from './transport'
+import {
+  getHostTransport,
+  type ChatSinks,
+  type ChatStreamRequest,
+  type PtySinks,
+  type StreamHandle,
+  type Unsubscribe
+} from './transport'
 import type {
   AppRuntimeInfo,
   BranchSummary,
+  ChatConfigValue,
+  ChatContent,
+  ChatResponse,
+  ChatStartInfo,
   ExtensionCatalog,
   ExtensionGrammar,
   FormatterStatus,
@@ -203,6 +214,27 @@ export const backend = {
     },
     ompResolveUri(uri: string, cwd?: string | null): Promise<{ path: string; is_dir: boolean }> {
       return invoke<{ path: string; is_dir: boolean }>('omp_resolve_uri', { uri, cwd: cwd ?? null })
+    }
+  },
+
+  chat: {
+    start(spec: ChatStreamRequest['params'], sinks: ChatSinks): StreamHandle<ChatStartInfo> {
+      return getHostTransport().openStream({ method: 'chat_start', params: spec }, sinks)
+    },
+    prompt(runId: string, prompt: ChatContent[]): Promise<void> {
+      return invoke<void>('chat_prompt', { runId, prompt })
+    },
+    cancel(runId: string): Promise<void> {
+      return invoke<void>('chat_cancel', { runId })
+    },
+    setConfig(runId: string, configId: string, value: ChatConfigValue): Promise<void> {
+      return invoke<void>('chat_set_config', { runId, configId, value })
+    },
+    respond(runId: string, requestId: string, response: ChatResponse): Promise<void> {
+      return invoke<void>('chat_respond', { runId, requestId, response })
+    },
+    stop(runId: string): Promise<void> {
+      return invoke<void>('chat_stop', { runId })
     }
   },
 

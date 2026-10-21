@@ -1,6 +1,7 @@
 use crate::errors::ApiError;
 use crate::events::{deliver, EventSink, HostEvent};
 use crate::services::{
+    chat::ChatService,
     db::DatabaseService,
     env::EnvironmentService,
     file_watcher::FileWatcherService,
@@ -31,6 +32,9 @@ pub struct Host {
     pub db: Arc<DatabaseService>,
     pub pty: PtyService,
     pub(crate) runs: RunCoordinator,
+    pub(crate) chat: ChatService,
+    // ponytail: host-wide lock around session-id checks and PTY spawn; per-session locks if starts contend
+    pub(crate) session_claims: Mutex<()>,
     pub(crate) git: Arc<GitService>,
     pub(crate) issues: Arc<IssueService>,
     pub(crate) issue_bridge: IssueBridgeService,
@@ -59,6 +63,8 @@ impl Host {
             db,
             pty: PtyService::new(),
             runs: RunCoordinator::default(),
+            chat: ChatService::new(),
+            session_claims: Mutex::new(()),
             git: Arc::clone(&git),
             issues: Arc::clone(&issues),
             issue_bridge: IssueBridgeService::new(issues, Arc::clone(&events)),
@@ -98,8 +104,11 @@ impl Host {
             .iter()
             .map(|root| std::fs::canonicalize(root).map_err(ApiError::from))
             .collect::<Result<Vec<_>, _>>()?;
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         let run_ids = self.runs.ids_in_roots(&roots);
+        for run_id in self.chat.run_ids_in_roots(&roots) {
+            self.chat_stop(run_id)?;
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         self.pty
             .drain_roots(&roots, deadline)
             .map_err(ApiError::Pty)?;
@@ -139,6 +148,9 @@ impl Host {
         self.runs.close_owner(owner, || {
             self.file_watchers.release_subscriber(owner);
             self.lsp.kill_owner(owner);
+            for run_id in self.chat.owner_run_ids(owner) {
+                let _ = self.chat_stop(run_id);
+            }
             for run_id in self.pty.owner_run_ids(owner, protected_pty_runs) {
                 self.runs.with_run(&run_id, |runs| {
                     if retire(&run_id) {
@@ -156,6 +168,11 @@ impl Host {
     pub fn stop_owner(&self, owner: &str) -> Result<(), crate::errors::ApiError> {
         self.runs.close_owner(owner, || {
             let mut failures = Vec::new();
+            for run_id in self.chat.owner_run_ids(owner) {
+                if let Err(error) = self.chat_stop(run_id.clone()) {
+                    failures.push(format!("{run_id}: {error}"));
+                }
+            }
             for run_id in self.pty.owner_run_ids(owner, &HashSet::new()) {
                 self.runs.with_run(&run_id, |runs| {
                     match self.pty.stop_owned_run(&run_id, owner) {
@@ -213,10 +230,15 @@ impl Host {
             .release_unrestored_tasks(owner, restored, &self.pty)
     }
 
-    /// Live, noncompleted runs per owner with their folder and kind. Runs
+    pub fn owner_has_live_run(&self, owner: &str) -> bool {
+        self.pty.owner_has_live_run(owner) || !self.chat.owner_run_ids(owner).is_empty()
+    }
+
+    /// Live, noncompleted runs per owner with their folder and kind. PTY runs
     /// whose coordinator record is gone are skipped.
     pub fn live_runs_by_owner(&self) -> HashMap<String, Vec<WorkbenchRun>> {
-        self.pty
+        let mut owners: HashMap<String, Vec<WorkbenchRun>> = self
+            .pty
             .live_owner_runs()
             .into_iter()
             .map(|(owner, run_ids)| {
@@ -239,15 +261,28 @@ impl Host {
                     .collect();
                 (owner, runs)
             })
-            .collect()
+            .collect();
+        for (owner, folder, harness_id, preset) in self.chat.live_runs() {
+            if let Some(owner) = owner {
+                owners
+                    .entry(owner)
+                    .or_default()
+                    .push(WorkbenchRun::Session {
+                        folder: folder.to_string_lossy().into_owned(),
+                        harness_id,
+                        preset,
+                    });
+            }
+        }
+        owners
     }
 
     pub fn settings_generation(&self) -> u64 {
         self.settings_watchers.generation()
     }
 
-    /// Gracefully terminate local PTYs and language servers while detaching
-    /// adopted runs whose backend owns their remote lifetime.
+    /// Gracefully terminate local PTYs and language servers and kill chat agents,
+    /// while detaching adopted runs whose backend owns their remote lifetime.
     pub fn shutdown(&self) -> (usize, usize) {
         let pty_cleaned = self.runs.with_exclusive(|runs| {
             let cleaned = self.pty.kill_all();
@@ -255,6 +290,7 @@ impl Host {
             cleaned
         });
         let lsp_cleaned = self.lsp.kill_all();
+        self.chat.shutdown();
         (pty_cleaned, lsp_cleaned)
     }
 

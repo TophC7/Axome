@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 pub const EXTENSION_API_VERSION: u32 = 1;
 pub const EXTENSION_MANIFEST_FILE: &str = "extension.json";
@@ -36,6 +37,8 @@ pub struct ExtensionContributions {
     pub formatters: Vec<FormatterContribution>,
     #[serde(default)]
     pub harnesses: Vec<HarnessContribution>,
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerContribution>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +118,7 @@ pub struct HarnessContribution {
     /// Terminal launch and presentation configuration.
     #[serde(default)]
     pub terminal: HarnessTerminal,
-    /// ACP agent for the Chat view; parsed and validated, not yet launched.
+    /// ACP agent for the Chat view.
     #[serde(default)]
     pub chat: Option<HarnessChat>,
 }
@@ -199,6 +202,8 @@ pub enum ShiftEncoding {
     Kitty,
 }
 
+/// ACP agent for the Chat view. Sworm runs `command [harness extra_args] [preset args] [args]`,
+/// so harness flags precede an agent subcommand such as `acp`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HarnessChat {
@@ -207,6 +212,20 @@ pub struct HarnessChat {
     /// ACP agent arguments; variables are not allowed.
     #[serde(default)]
     pub args: Vec<String>,
+}
+
+/// An MCP stdio server passed to every chat session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct McpServerContribution {
+    pub id: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
+    #[serde(default)]
+    pub install_hint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -270,6 +289,8 @@ pub struct HarnessDescriptor {
     pub shift_encoding: ShiftEncoding,
     /// Markers stripped in order, trimming following whitespace and stopping at the first absent marker.
     pub title_prefixes: Vec<String>,
+    /// The harness has a chat (ACP) agent.
+    pub chat: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

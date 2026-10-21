@@ -57,6 +57,9 @@
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
   import { dropFromOtherWindow, isTabTransferring } from '$lib/features/workbench/transferService.svelte'
   import { restartTerminalProcess, stopTerminalProcess } from '$lib/features/terminal/lifecycle'
+  import { restartTabRun, stopTabRun } from '$lib/features/workbench/runLifecycle'
+  import { getHarness } from '$lib/features/sessions/harnesses/catalog'
+  import { switchSessionView } from '$lib/features/sessions/service.svelte'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import { FileDiff, Layers, Lock, Plus, CircleDot, TerminalIcon, ServerIcon } from '$lib/icons/lucideExports'
@@ -240,18 +243,18 @@
   }
 
   // SESSION / SHELL MENU //
-  async function stopTerminal(tab: SessionTab | ShellTab) {
-    await runNotifiedTask(() => stopTerminalProcess(tab), {
+  async function stopRun(tab: SessionTab | ShellTab) {
+    await runNotifiedTask(() => stopTabRun(tab), {
       loading: { title: tab.kind === 'shell' ? 'Stopping terminal' : 'Stopping session', description: tab.title },
       success: { title: tab.kind === 'shell' ? 'Terminal stopped' : 'Session stopped', description: tab.title },
       error: { title: tab.kind === 'shell' ? 'Stop terminal failed' : 'Stop session failed' }
     })
   }
 
-  async function restartTerminal(tab: SessionTab | ShellTab) {
+  async function restartRun(tab: SessionTab | ShellTab) {
     setActiveTab(tab.id)
     await tick()
-    await runNotifiedTask(() => restartTerminalProcess(tab), {
+    await runNotifiedTask(() => restartTabRun(tab), {
       loading: { title: tab.kind === 'shell' ? 'Restarting terminal' : 'Restarting session', description: tab.title },
       success: { title: tab.kind === 'shell' ? 'Terminal restarted' : 'Session restarted', description: tab.title },
       error: { title: tab.kind === 'shell' ? 'Restart terminal failed' : 'Restart session failed' }
@@ -348,8 +351,13 @@
 
     <ContextMenu.Content>
       {#if tab.kind === 'session' || tab.kind === 'shell'}
-        <ContextMenu.Item onSelect={() => void (terminalLive ? stopTerminal(tab) : restartTerminal(tab))}>
+        <ContextMenu.Item onSelect={() => void (terminalLive ? stopRun(tab) : restartRun(tab))}>
           {terminalLive ? 'Stop' : 'Restart'}
+        </ContextMenu.Item>
+      {/if}
+      {#if tab.kind === 'session' && getHarness(tab.folderPath, tab.harnessId)?.chat}
+        <ContextMenu.Item disabled={tab.locked || transferring} onSelect={() => void switchSessionView(tab.id)}>
+          {tab.view === 'chat' ? 'Switch to Terminal' : 'Switch to Chat'}
         </ContextMenu.Item>
       {/if}
       {#if tab.kind === 'task'}

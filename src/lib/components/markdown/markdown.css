@@ -52,6 +52,19 @@
   content: ' ';
 }
 
+.markdown-body .markdown-code {
+  @apply relative;
+}
+
+.markdown-body .markdown-copy {
+  @apply absolute top-1.5 right-1.5 rounded-md border border-edge bg-raised px-1.5 py-0.5 font-sans text-xs text-muted opacity-0 transition-opacity hover:text-bright focus-visible:opacity-100 focus-visible:shadow-focus-ring focus-visible:outline-none;
+  transition-duration: var(--duration-fast);
+}
+
+.markdown-body .markdown-code:hover .markdown-copy {
+  @apply opacity-100;
+}
+
 /* remark-gfm checkboxes lack GitHub's task-list-item-checkbox class. */
 .markdown-body .task-list-item input[type='checkbox'] {
   margin: 0 0.2em 0.25em -1.4em;

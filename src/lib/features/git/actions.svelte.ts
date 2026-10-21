@@ -45,7 +45,6 @@ import type {
 import { getErrorMessage } from '$lib/utils/client-error'
 import { basename, isPathWithin } from '$lib/utils/paths'
 import { SvelteSet } from 'svelte/reactivity'
-import { platform } from '$lib/platform'
 
 const GIT_ACTION_NOTIFICATIONS = {
   pull: {
@@ -786,15 +785,6 @@ export async function clearStashes(folderPath: string): Promise<boolean> {
       runGitAction(folderPath, (path) => backend.git.stash(path, { kind: 'clear' })).then(() => true)
     )) === true
   )
-}
-
-/** Copy text from a git menu; clipboard refusal (permissions, unfocused page) notifies instead of rejecting. */
-export async function copyToClipboard(text: string, errorTitle = 'Copy failed'): Promise<void> {
-  try {
-    await platform.clipboard.writeText(text)
-  } catch (e) {
-    notify.error(errorTitle, getErrorMessage(e))
-  }
 }
 
 export async function branchFromStash(folderPath: string, index: number): Promise<boolean> {

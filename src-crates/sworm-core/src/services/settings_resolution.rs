@@ -336,7 +336,12 @@ fn json_pointer(parts: &[&str]) -> String {
 
 /// JSON Pointer prefixes of settings that are strictly `GlobalOnly` and cannot be
 /// configured in project folder settings.
-pub(crate) const GLOBAL_ONLY_POINTERS: &[&str] = &["/window", "/typography", "/remotes"];
+pub(crate) const GLOBAL_ONLY_POINTERS: &[&str] = &[
+    "/window",
+    "/typography",
+    "/remotes",
+    "/sessions/mcp_servers",
+];
 
 pub(crate) fn is_global_only_pointer(pointer: &str) -> bool {
     GLOBAL_ONLY_POINTERS.iter().any(|prefix| {
@@ -622,6 +627,36 @@ mod tests {
                     && diagnostic.message.contains("window-scoped")
             }));
         }
+    }
+
+    #[test]
+    fn folder_layer_rejects_mcp_servers() {
+        let resolved = resolve(
+            loaded(
+                SettingsLayerKind::Global,
+                "global",
+                json!({ "sessions": { "mcp_servers": {
+                    "example": { "command": "global-server" }
+                } } }),
+            ),
+            Some(loaded(
+                SettingsLayerKind::Folder,
+                "folder",
+                json!({ "sessions": { "mcp_servers": {
+                    "example": { "command": "folder-server" }
+                } } }),
+            )),
+        );
+
+        assert_eq!(
+            resolved.settings.sessions.mcp_servers["example"].command,
+            "global-server"
+        );
+        assert_eq!(resolved.diagnostics.len(), 1);
+        let diagnostic = &resolved.diagnostics[0];
+        assert_eq!(diagnostic.layer, SettingsLayerKind::Folder);
+        assert_eq!(diagnostic.code, SettingsDiagnosticCode::UnknownKey);
+        assert_eq!(diagnostic.pointer, "/sessions/mcp_servers");
     }
 
     #[test]

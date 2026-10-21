@@ -1,6 +1,7 @@
 pub mod activity_map;
 pub mod app;
 pub mod branch;
+pub mod chat;
 pub mod config_schemas;
 pub mod extensions;
 pub mod file_diff;

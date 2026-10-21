@@ -36,6 +36,7 @@ import {
 } from '$lib/features/workbench/state.svelte'
 import { closeFocusedTab } from '$lib/features/workbench/tabActions.svelte'
 import type { TabId } from '$lib/features/workbench/model'
+import type { SessionView } from '$lib/types/backend'
 import { takeBackGroup, moveGroupToNewWindow, removeGroupFromWindow } from '$lib/features/workbench/groups.svelte'
 import { basename, resolveProjectFile, splitRemotePath } from '$lib/utils/paths'
 
@@ -201,7 +202,7 @@ export function openActiveFolderInExternalTerminal(): void {
     })
 }
 
-export function createSession(harnessId: string, preset: string | null): void {
+export function createSession(harnessId: string, preset: string | null, view: SessionView): void {
   const folderPath = getActiveFolderPath()
   if (!folderPath) return
   const option = getLaunchOptions(folderPath).find((o) => o.harness.id === harnessId && o.preset === preset)
@@ -210,7 +211,7 @@ export function createSession(harnessId: string, preset: string | null): void {
     notify.error(`${label} unavailable`, `Install or enable ${label} in Settings → Harnesses first.`)
     return
   }
-  startSession(folderPath, harnessId, preset)
+  startSession(folderPath, harnessId, preset, view)
 }
 
 export function newTerminalSession(): void {
@@ -244,7 +245,7 @@ export function newDefaultSession(): void {
     notify.error('No harness available', 'Install a harness or enable one in Settings → Harnesses.')
     return
   }
-  startSession(folderPath, launch.harness.id, launch.preset)
+  startSession(folderPath, launch.harness.id, launch.preset, launch.view)
 }
 
 export function showTasks(): void {

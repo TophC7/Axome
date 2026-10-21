@@ -17,7 +17,7 @@ jsonc-parser = { version = "0.32", features = ["serde", "cst"] }
 anyhow = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util", "time", "process"] }
 rusqlite = { version = "0.33", features = ["bundled"] }
 tracing = "0.1"
 parking_lot = "0.12"

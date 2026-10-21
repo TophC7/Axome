@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { platform } from '$lib/platform'
   import * as terminals from '$lib/features/terminal/registry'
+  import * as chats from '$lib/features/chat/registry'
   import { backend } from '$lib/api/backend'
   import { refreshIssuesForFolder } from '$lib/features/issues/state.svelte'
   import { refreshNixForFolder } from '$lib/features/settings/state/nix.svelte'
@@ -156,6 +157,7 @@
         }
       }
       terminals.releaseAll()
+      chats.releaseAll()
     })
 
     const cleanupShortcuts = setupGlobalShortcuts()

@@ -1,23 +1,47 @@
 use crate::errors::ApiError;
 use crate::host::Host;
-use crate::services::extensions::{missing_requirement, ExtensionService};
+use crate::services::extensions::{
+    missing_requirement, ExtensionService, LoadedExtensionCatalog, LoadedHarness,
+};
 use crate::services::folders::resolve_folder;
 use crate::services::harness_scanners::Scanner;
 use crate::services::harnesses::{resolve_harness_command, terminal_args, SessionLaunch};
 use crate::services::omp;
-use crate::services::pty::{CompletedRunSink, PtySubscriber};
+use crate::services::pty::{CompletedRunSink, PtyRunState, PtySubscriber};
 use crate::services::resume_discovery::PendingRun;
 use crate::services::runs::RunKind;
 use crate::services::settings_resolution::resolve_effective_settings_for_folder_path;
 use parking_lot::Mutex;
+use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 use std::time::SystemTime;
 use sworm_protocol::session::SessionStartInfo;
-use sworm_protocol::settings::PresetSettings;
+use sworm_protocol::settings::{HarnessSettings, McpServerSettings, PresetSettings};
 use tracing::{info, warn};
+
+pub(crate) struct HarnessLaunch {
+    catalog: Arc<LoadedExtensionCatalog>,
+    index: usize,
+    pub(crate) config: HarnessSettings,
+    pub(crate) preset: PresetSettings,
+    /// Folder env (login env + Nix) with the preset env applied.
+    pub(crate) env: HashMap<String, String>,
+    pub(crate) mcp_servers: BTreeMap<String, McpServerSettings>,
+}
+
+impl HarnessLaunch {
+    pub(crate) fn harness(&self) -> &LoadedHarness {
+        &self.catalog.harnesses[self.index]
+    }
+
+    pub(crate) fn catalog(&self) -> &LoadedExtensionCatalog {
+        &self.catalog
+    }
+}
 
 /// Keep the session id only when it exists; otherwise log that the harness's
 /// conversation vanished and start fresh.
@@ -36,6 +60,77 @@ fn validated_session_id(
 }
 
 impl Host {
+    pub(crate) fn resolve_harness_launch(
+        &self,
+        folder: &Path,
+        harness_id: &str,
+        preset: Option<&str>,
+    ) -> Result<HarnessLaunch, ApiError> {
+        let effective_settings =
+            resolve_effective_settings_for_folder_path(Some(folder)).map_err(ApiError::Internal)?;
+        let settings = &effective_settings.settings;
+        let mut env = self.folder_env(folder);
+        let catalog = ExtensionService::current();
+        let index = catalog
+            .harnesses
+            .iter()
+            .position(|harness| harness.definition.id == harness_id)
+            .ok_or_else(|| ApiError::InvalidArgument(format!("Unknown harness: {harness_id}")))?;
+        let config = settings
+            .harnesses
+            .get(harness_id)
+            .cloned()
+            .unwrap_or_default();
+        if !config.enabled {
+            return Err(ApiError::InvalidArgument(format!(
+                "Harness disabled by settings: {harness_id}"
+            )));
+        }
+        let preset = match preset {
+            None => PresetSettings::default(),
+            Some(name) => config.presets.get(name).cloned().ok_or_else(|| {
+                ApiError::InvalidArgument(format!("Unknown preset {harness_id}/{name}"))
+            })?,
+        };
+        env.extend(preset.env.clone());
+        let path = env.get("PATH").map(String::as_str).unwrap_or("");
+        if let Some(message) = missing_requirement(&catalog.harnesses[index].requires, path) {
+            return Err(ApiError::InvalidArgument(message));
+        }
+        Ok(HarnessLaunch {
+            catalog,
+            index,
+            config,
+            preset,
+            env,
+            mcp_servers: settings.sessions.mcp_servers.clone(),
+        })
+    }
+
+    /// Caller holds `session_claims`. Errors when another live chat or terminal run on this host holds the session.
+    pub(crate) fn ensure_session_free(
+        &self,
+        harness_id: &str,
+        session_id: &str,
+        run_id: &str,
+    ) -> Result<(), ApiError> {
+        if self
+            .chat
+            .holder(harness_id, session_id)
+            .is_some_and(|other| other != run_id)
+            || self
+                .runs
+                .session_runs(harness_id, session_id)
+                .iter()
+                .any(|id| id != run_id && self.pty.run_state(id) == Some(PtyRunState::Live))
+        {
+            return Err(ApiError::InvalidArgument(format!(
+                "Session {session_id} is already open in another tab"
+            )));
+        }
+        Ok(())
+    }
+
     /// Start a run in a PTY inside `folder_path`.
     ///
     /// Resume semantics come from the harness's `terminal` contribution.
@@ -85,17 +180,11 @@ impl Host {
                 rows,
                 subscriber,
                 owner_id,
-                token.clone(),
+                token,
                 completed,
             );
             match result {
-                Ok(info) => {
-                    let mut current = token.lock();
-                    if current.is_none() {
-                        *current = info.session_id.clone();
-                    }
-                    Ok(info)
-                }
+                Ok(info) => Ok(info),
                 Err(error) => {
                     runs.abort(&run_id);
                     Err(error)
@@ -118,33 +207,12 @@ impl Host {
         token: Arc<Mutex<Option<String>>>,
         completed: Option<CompletedRunSink>,
     ) -> Result<SessionStartInfo, ApiError> {
-        let effective_settings =
-            resolve_effective_settings_for_folder_path(Some(folder)).map_err(ApiError::Internal)?;
-        let settings = &effective_settings.settings;
-        let mut child_env = self.folder_env(folder);
+        let launch = self.resolve_harness_launch(folder, &harness_id, preset.as_deref())?;
+        let harness = launch.harness();
+        let config = &launch.config;
         let cwd = folder.to_string_lossy().into_owned();
         let id = harness_id;
-        let catalog = ExtensionService::current();
-        let harness = catalog
-            .find_harness(&id)
-            .ok_or_else(|| ApiError::InvalidArgument(format!("Unknown harness: {id}")))?;
-        let config = settings.harnesses.get(&id).cloned().unwrap_or_default();
-        if !config.enabled {
-            return Err(ApiError::InvalidArgument(format!(
-                "Harness disabled by settings: {id}"
-            )));
-        }
-        let preset_settings =
-            match preset {
-                None => PresetSettings::default(),
-                Some(name) => config.presets.get(&name).cloned().ok_or_else(|| {
-                    ApiError::InvalidArgument(format!("Unknown preset {id}/{name}"))
-                })?,
-            };
-        let path = child_env.get("PATH").map(String::as_str).unwrap_or("");
-        if let Some(message) = missing_requirement(&harness.requires, path) {
-            return Err(ApiError::InvalidArgument(message));
-        }
+        let path = launch.env.get("PATH").map(String::as_str).unwrap_or("");
         let cli_cmd =
             resolve_harness_command(harness, path, config.binary_path_override.as_deref())
                 .map_err(ApiError::InvalidArgument)?;
@@ -159,14 +227,19 @@ impl Host {
         };
         let minted = (session_id.is_none() && !terminal.new_session_args.is_empty())
             .then(|| uuid::Uuid::new_v4().to_string());
-        let launch = match (session_id.as_deref(), minted.as_deref()) {
+        let session_launch = match (session_id.as_deref(), minted.as_deref()) {
             (Some(id), _) => SessionLaunch::Resume(id),
             (_, Some(id)) => SessionLaunch::Mint(id),
             _ => SessionLaunch::Fresh,
         };
-        let args = terminal_args(terminal, launch, &config.extra_args, &preset_settings.args);
+        let args = terminal_args(
+            terminal,
+            session_launch,
+            &config.extra_args,
+            &launch.preset.args,
+        );
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-        child_env.extend(preset_settings.env);
+        let mut child_env = launch.env;
 
         // Bridge values override inherited, Nix-provided and preset values.
         {
@@ -199,6 +272,12 @@ impl Host {
             discovery.cancel(rid);
         });
 
+        let _claim = self.session_claims.lock();
+        if let Some(session_id) = session_id.as_deref() {
+            self.ensure_session_free(&id, session_id, &run_id)?;
+        }
+        *token.lock() = session_id.clone().or_else(|| minted.clone());
+
         // Taken before spawn so nothing the process creates can predate it.
         let spawned_at = SystemTime::now();
         let event_sink = self
@@ -218,6 +297,7 @@ impl Host {
                 completed,
             )
             .map_err(ApiError::Pty)?;
+        drop(_claim);
 
         match &session_id {
             Some(id) => self.resume_discovery.claim(id),

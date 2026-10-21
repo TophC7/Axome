@@ -9,7 +9,7 @@ import rehypeSlug from 'rehype-slug'
 import rehypeSanitize, { defaultSchema, type Options } from 'rehype-sanitize'
 import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
 import rehypeStringify from 'rehype-stringify'
-import { visit } from 'unist-util-visit'
+import { SKIP, visit } from 'unist-util-visit'
 import type { Highlighter } from 'shiki'
 import { platform } from '$lib/platform'
 import { markdownImageSrc } from '$lib/utils/mediaAssets'
@@ -132,6 +132,29 @@ export async function renderMarkdown(
           console.warn('Markdown syntax highlighting failed', cause)
         }
       }
+      visit(tree, 'element', (node, index, parent) => {
+        if (node.tagName !== 'pre' || !parent || index === undefined) return
+        parent.children[index] = {
+          type: 'element',
+          tagName: 'div',
+          properties: { className: ['markdown-code'] },
+          children: [
+            node,
+            {
+              type: 'element',
+              tagName: 'button',
+              properties: {
+                type: 'button',
+                className: ['markdown-copy'],
+                dataSwormCopy: '',
+                ariaLabel: 'Copy code'
+              },
+              children: [{ type: 'text', value: 'Copy' }]
+            }
+          ]
+        }
+        return [SKIP, index + 1]
+      })
     })
     .use(rehypeStringify)
 

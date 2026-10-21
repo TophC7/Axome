@@ -14,7 +14,8 @@
       size: {
         default: 'px-3.5 py-2 text-base',
         sm: 'px-2.5 py-1 text-sm',
-        xs: 'px-2 py-0.5 text-xs'
+        xs: 'px-2 py-0.5 text-xs',
+        icon: 'size-7 p-0'
       }
     },
     defaultVariants: {

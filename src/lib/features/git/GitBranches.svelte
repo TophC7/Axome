@@ -23,7 +23,6 @@
   import { openRangeDiff } from '$lib/features/workbench/surfaces/diff/service.svelte'
   import {
     addRemote,
-    copyToClipboard,
     createTag,
     deleteMergedBranches,
     fastForwardBranch,
@@ -39,6 +38,7 @@
   } from '$lib/features/git/actions.svelte'
   import { getGitSummary } from '$lib/features/git/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
+  import { copyToClipboard } from '$lib/utils/clipboard'
   import { groupBySlash, type BranchTreeNode } from '$lib/utils/git/branchHierarchy'
   import { basename } from '$lib/utils/paths'
   import { localNameForRemoteRef } from '$lib/features/git/gitRefs'
