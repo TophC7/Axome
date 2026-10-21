@@ -485,7 +485,10 @@ async fn shortcuts(client: &RemoteClient, home: &Path) -> Result<()> {
 
 async fn catalogs_and_providers(client: &RemoteClient, home: &Path) -> Result<()> {
     let catalog = client
-        .call_as(&Request::BuiltinsGetCatalog {}, Reply::builtins_get_catalog)
+        .call_as(
+            &Request::ExtensionsGetCatalog {},
+            Reply::extensions_get_catalog,
+        )
         .await?;
     assert!(catalog
         .runtime

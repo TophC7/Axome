@@ -77,6 +77,13 @@ impl SettingsService {
         )
     }
 
+    pub fn global_data_dir() -> Result<PathBuf, String> {
+        Self::global_data_dir_from_env_vars(
+            std::env::var_os("XDG_DATA_HOME"),
+            std::env::var_os("HOME"),
+        )
+    }
+
     pub fn global_settings_path() -> Result<PathBuf, String> {
         Ok(Self::global_config_dir()?.join(settings::SETTINGS_FILE_NAME))
     }
@@ -97,6 +104,21 @@ impl SettingsService {
             .ok_or_else(|| "HOME is required to resolve global config path".to_string())?;
         Ok(home
             .join(".config")
+            .join(settings::GLOBAL_SETTINGS_DIR_NAME))
+    }
+
+    pub fn global_data_dir_from_env_vars(
+        xdg_data_home: Option<OsString>,
+        home: Option<OsString>,
+    ) -> Result<PathBuf, String> {
+        if let Some(path) = non_empty_env_path(xdg_data_home) {
+            return Ok(path.join(settings::GLOBAL_SETTINGS_DIR_NAME));
+        }
+
+        let home = non_empty_env_path(home)
+            .ok_or_else(|| "HOME is required to resolve data path".to_string())?;
+        Ok(home
+            .join(".local/share")
             .join(settings::GLOBAL_SETTINGS_DIR_NAME))
     }
 

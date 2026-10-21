@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { platform } from '$lib/platform'
-  import { preloadBuiltinCatalog } from '$lib/features/builtins/catalog.svelte'
+  import { loadExtensionCatalog } from '$lib/features/extensions/catalog.svelte'
   import WorkbenchView from '$lib/features/app-shell/WorkbenchView.svelte'
   import { loadRecentFolders } from '$lib/features/folders/state.svelte'
   import { loadProviders } from '$lib/features/sessions/providers/state.svelte'
@@ -31,8 +31,8 @@
     let unlisten: (() => void) | undefined
 
     void loadProviders().catch(() => {})
-    void preloadBuiltinCatalog().catch((error) => {
-      logClientError('builtin catalog preload failed', { error })
+    void loadExtensionCatalog().catch((error) => {
+      logClientError('extension catalog preload failed', { error })
     })
 
     void (async () => {

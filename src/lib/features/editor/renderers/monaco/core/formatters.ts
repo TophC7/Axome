@@ -1,10 +1,9 @@
 import { backend } from '$lib/api/backend'
-import { formatterManagedLanguageIds, formatterPolicyForLanguage } from '$lib/features/editor/formatters/config'
+import { getFormatterPolicy } from '$lib/features/extensions/catalog.svelte'
 import { formatDocumentWithLsp, getLspDocumentContext } from '$lib/features/editor/lsp/registry'
 import { modelHostPath } from '$lib/features/editor/renderers/monaco/text/modelCache'
-import { preloadBuiltinCatalog } from '$lib/features/builtins/catalog.svelte'
 import { getSettings, loadSettings } from '$lib/features/settings/state/settings.svelte'
-import type { BuiltinFormatterPolicy, FormatterSelection, FormattingSettings } from '$lib/types/backend'
+import type { LanguageFormatterPolicy, FormattingSettings } from '$lib/types/backend'
 
 type Monaco = typeof import('monaco-editor')
 type MonacoModel = import('monaco-editor').editor.ITextModel
@@ -12,14 +11,16 @@ type MonacoTextEdit = import('monaco-editor').languages.TextEdit
 
 const registeredLanguages = new Set<string>()
 
-export async function ensureMonacoFormatters(monaco: Monaco): Promise<void> {
-  await preloadBuiltinCatalog()
-  ensureFormatterSettingsCacheInvalidation()
-  if (!getSettings()) {
-    void loadSettings()
+let initialized = false
+
+export function ensureFormattingProviders(monaco: Monaco, languageIds: string[]): void {
+  if (!initialized) {
+    initialized = true
+    ensureFormatterSettingsCacheInvalidation()
+    if (!getSettings()) void loadSettings()
   }
 
-  for (const languageId of formatterManagedLanguageIds()) {
+  for (const languageId of languageIds) {
     if (registeredLanguages.has(languageId)) continue
     registeredLanguages.add(languageId)
     monaco.languages.registerDocumentFormattingEditProvider(languageId, {
@@ -29,35 +30,21 @@ export async function ensureMonacoFormatters(monaco: Monaco): Promise<void> {
 }
 
 async function provideDocumentFormattingEdits(model: MonacoModel): Promise<MonacoTextEdit[]> {
-  const policy = formatterPolicyForLanguage(model.getLanguageId())
-  if (!policy) return []
-
   const context = getLspDocumentContext(model)
-  if (!context) return []
+  if (!context) return formatDocumentWithLsp(model)
 
-  const formatter = await resolveFormatterSelection(policy, context.folderPath)
+  const policy = getFormatterPolicy(context.folderPath, model.getLanguageId())
+  const formatter = policy ? await resolveFormatterSelection(policy, context.folderPath) : 'lsp'
   if (formatter === 'disabled') return []
   if (formatter === 'lsp') {
     return formatDocumentWithLsp(model)
   }
 
   try {
-    if (formatter === 'biome') {
-      const filePath = modelHostPath(model.uri)
-      if (!filePath) return []
-      const formatted = await backend.formatting.biome(context.folderPath, filePath, model.getValue())
-      return toFullDocumentEdit(model, formatted)
-    }
-
-    if (formatter === 'nixfmt') {
-      const formatted = await backend.formatting.nixfmt(context.folderPath, model.getValue())
-      return toFullDocumentEdit(model, formatted)
-    }
-
-    if (formatter === 'gofmt') {
-      const formatted = await backend.formatting.gofmt(context.folderPath, model.getValue())
-      return toFullDocumentEdit(model, formatted)
-    }
+    const filePath = modelHostPath(model.uri)
+    if (!filePath) return []
+    const formatted = await backend.formatting.format(context.folderPath, filePath, formatter, model.getValue())
+    return toFullDocumentEdit(model, formatted)
   } catch (error) {
     console.warn(`Formatter ${formatter} failed`, error)
   }
@@ -69,18 +56,16 @@ const formatterSettingsByFolder = new Map<string, Promise<FormattingSettings>>()
 let formatterSettingsInvalidationStarted = false
 let formatterSettingsCachingEnabled = true
 
-async function resolveFormatterSelection(
-  policy: BuiltinFormatterPolicy,
-  folderPath: string
-): Promise<FormatterSelection> {
+async function resolveFormatterSelection(policy: LanguageFormatterPolicy, folderPath: string): Promise<string> {
+  let selection: string | undefined
   try {
     const formatting = await resolveProjectFormattingSettings(folderPath)
-    return formatting[policy.group]?.formatter ?? policy.default
+    selection = formatting[policy.language_id]?.formatter
   } catch (error) {
     console.warn('Failed to load project-effective formatter settings', error)
-    const settings = getSettings()?.formatting
-    return settings?.[policy.group]?.formatter ?? policy.default
+    selection = getSettings()?.formatting[policy.language_id]?.formatter
   }
+  return selection && policy.options.some((option) => option.id === selection) ? selection : policy.default
 }
 
 function ensureFormatterSettingsCacheInvalidation(): void {

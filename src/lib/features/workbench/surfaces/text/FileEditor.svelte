@@ -95,7 +95,7 @@
   // Git snapshots have no on-disk path for asset:// to fetch, so media
   // preview is gated to live (non-gitRef) files.
   let mediaKindValue = $derived(filePath != null && !gitRef ? mediaKind(filePath) : null)
-  let language = $derived(filePath != null ? filePathToLanguage(filePath) : 'plaintext')
+  let language = $derived(filePath != null ? filePathToLanguage(folderPath, filePath) : 'plaintext')
   let isNix = $derived(language === 'nix')
   let modelKey = $derived(filePath != null && !gitRef && !streamed ? `${folderPath}/${filePath}` : null)
   let gitSummary = $derived(getGitSummary(folderPath))

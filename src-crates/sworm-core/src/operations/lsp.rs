@@ -1,7 +1,7 @@
 use crate::errors::ApiError;
 use crate::events::EventSink;
 use crate::host::Host;
-use crate::services::builtins::BuiltinCatalogService;
+use crate::services::extensions::ExtensionService;
 use crate::services::folders::resolve_folder;
 use crate::services::lsp::{resolve_launch, resolve_server_status};
 use crate::services::settings::SettingsService;
@@ -29,8 +29,9 @@ impl Host {
         let effective = resolve_effective_settings_for_folder_path(project_path.as_deref())
             .map_err(ApiError::Internal)?;
 
+        let extensions = ExtensionService::current();
         let mut entries = Vec::new();
-        for server in BuiltinCatalogService::server_definitions() {
+        for server in &extensions.lsp_servers {
             let config = lsp_config_record(&effective.settings, &server.server_definition_id);
             let status = resolve_server_status(server, &config, &env);
             entries.push(LspServerSettingsEntry {
@@ -83,7 +84,9 @@ impl Host {
         root_path: String,
         events: EventSink<LspEvent>,
     ) -> Result<(), ApiError> {
-        let server = BuiltinCatalogService::find_server_definition(&server_definition_id)
+        let extensions = ExtensionService::current();
+        let server = extensions
+            .find_lsp_server(&server_definition_id)
             .ok_or_else(|| {
                 ApiError::NotFound(format!(
                     "Unknown LSP server definition {server_definition_id}"

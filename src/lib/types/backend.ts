@@ -216,18 +216,11 @@ export interface GitChangedEvent {
   error: string | null
 }
 
-export type FormatterSelection = 'lsp' | 'biome' | 'nixfmt' | 'gofmt' | 'disabled'
-
 export interface FormattingLanguageSettings {
-  formatter: FormatterSelection
+  formatter: string
 }
 
-export interface FormattingSettings {
-  javascript_typescript: FormattingLanguageSettings
-  json: FormattingLanguageSettings
-  nix: FormattingLanguageSettings
-  go: FormattingLanguageSettings
-}
+export type FormattingSettings = Record<string, FormattingLanguageSettings>
 
 export interface ProviderConfig {
   provider_id: string
@@ -359,10 +352,9 @@ export interface SettingsPayload {
 export type LspTraceLevel = 'off' | 'messages' | 'verbose'
 export type LspServerConnectionStatus = 'connected' | 'missing' | 'error' | 'disabled'
 export type LspTransportTraceDirection = 'incoming' | 'outgoing' | 'stderr'
-export type BuiltinFormatterGroupId = 'javascript_typescript' | 'json' | 'nix'
-export type BuiltinSettingsPageKind = 'language' | 'nix'
+export type SettingsPageKind = 'language' | 'nix'
 
-export interface BuiltinLanguageContribution {
+export interface LanguageContribution {
   id: string
   label: string
   aliases: string[]
@@ -376,7 +368,7 @@ export interface LspDocumentSelector {
   filenames: string[]
 }
 
-// Optional per-server settings descriptor sourced from the builtin
+// Optional per-server settings descriptor sourced from the extension
 // manifest. `schema` is an inlined JSON Schema object usable by Monaco
 // for autocomplete/validation; `section` hints which LSP workspace
 // configuration section the JSON is expected to slot into; `defaults`
@@ -387,33 +379,67 @@ export interface LspServerSettingsDescriptor {
   schema: unknown
 }
 
-export interface BuiltinFormatterPolicy {
-  group: BuiltinFormatterGroupId
-  options: FormatterSelection[]
-  default: FormatterSelection
+export interface LanguageFormatterPolicy {
+  language_id: string
+  language_label: string
+  options: FormatterOption[]
+  default: string
 }
 
-export interface BuiltinSettingsPage {
+export interface FormatterOption {
   id: string
-  kind: BuiltinSettingsPageKind
+  label: string
+}
+
+export interface SettingsPage {
+  id: string
+  kind: SettingsPageKind
   label: string
   icon_filename: string
   language_ids: string[]
   server_definition_ids: string[]
-  formatter: BuiltinFormatterPolicy | null
 }
 
-export interface BuiltinRuntimeCatalog {
-  languages: BuiltinLanguageContribution[]
+export interface ExtensionRuntimeCatalog {
+  languages: LanguageContribution[]
+  formatter_policies: LanguageFormatterPolicy[]
 }
 
-export interface BuiltinSettingsCatalog {
-  pages: BuiltinSettingsPage[]
+export interface ExtensionSettingsCatalog {
+  pages: SettingsPage[]
 }
 
-export interface BuiltinCatalog {
-  runtime: BuiltinRuntimeCatalog
-  settings: BuiltinSettingsCatalog
+export interface ExtensionDiagnostic {
+  extension_id: string | null
+  path: string
+  message: string
+}
+
+export interface ExtensionCatalog {
+  runtime: ExtensionRuntimeCatalog
+  settings: ExtensionSettingsCatalog
+  diagnostics: ExtensionDiagnostic[]
+}
+
+export interface ExtensionGrammar {
+  extension_id: string
+  language: string
+  embedded_languages: string[]
+  grammar: Record<string, unknown>
+}
+
+export type FormatterAvailability = 'available' | 'missing'
+
+export interface FormatterStatus {
+  formatter_id: string
+  label: string
+  extension_id: string
+  extension_label: string
+  languages: string[]
+  status: FormatterAvailability
+  resolved_path: string | null
+  message: string | null
+  install_hint: string
 }
 
 export interface LspServerConfig {
@@ -427,8 +453,8 @@ export interface LspServerConfig {
 
 export interface LspServerStatus {
   server_definition_id: string
-  builtin_id: string
-  builtin_label: string
+  extension_id: string
+  extension_label: string
   label: string
   enabled: boolean
   status: LspServerConnectionStatus

@@ -1,19 +1,27 @@
 use crate::services::{
-    builtins::BuiltinCatalogService,
+    extensions::ExtensionService,
     settings::{SettingsJsoncLayer, SettingsService},
 };
 use jsonschema::{error::ValidationErrorKind, Validator};
 use schemars::schema_for;
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::{Path, PathBuf},
 };
+use sworm_protocol::extensions::{FORMATTER_DISABLED, FORMATTER_LSP};
 use sworm_protocol::settings::{
     EffectiveSettings, LspServerConfigRecord, LspServerSettings, ProviderConfigRecord,
     ProviderSettings, SettingsDiagnostic, SettingsDiagnosticCode, SettingsDiagnosticSeverity,
     SettingsLayerKind, SettingsOrigin, CANONICAL_PROVIDER_IDS,
 };
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SettingsCatalogIds {
+    pub lsp_server_ids: Vec<String>,
+    pub formatter_ids: Vec<String>,
+    pub formatting_defaults: BTreeMap<String, String>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SettingsLayerLoad {
@@ -34,7 +42,6 @@ pub struct ResolvedSettings {
 pub fn resolve_effective_settings_for_folder_path(
     folder_path: Option<&Path>,
 ) -> Result<ResolvedSettings, String> {
-    let lsp_server_ids = BuiltinCatalogService::server_definition_ids();
     let global_path = SettingsService::global_settings_path()?;
     let global = load_settings_layer(SettingsLayerKind::Global, global_path);
     let folder = folder_path.map(|folder_path| {
@@ -44,7 +51,11 @@ pub fn resolve_effective_settings_for_folder_path(
         )
     });
 
-    Ok(resolve_effective_settings(global, folder, &lsp_server_ids))
+    Ok(resolve_effective_settings(
+        global,
+        folder,
+        &ExtensionService::current().settings_ids,
+    ))
 }
 
 pub fn provider_binary_overrides(settings: &EffectiveSettings) -> HashMap<String, String> {
@@ -130,15 +141,18 @@ pub fn parse_error_diagnostic(
 pub fn resolve_effective_settings(
     global: SettingsLayerLoad,
     folder: Option<SettingsLayerLoad>,
-    lsp_server_ids: &[String],
+    ids: &SettingsCatalogIds,
 ) -> ResolvedSettings {
-    // ponytail: rebuild per call; OnceLock<Validator> keyed by lsp ids if profiling shows cost
-    let global_schema = settings_layer_schema(SettingsLayerKind::Global, lsp_server_ids);
+    // ponytail: rebuild per call; cache validators by catalog ids if profiling shows cost
+    let global_schema = settings_layer_schema(SettingsLayerKind::Global, ids);
     let global_validator =
         jsonschema::validator_for(&global_schema).expect("global model schema is valid");
     let mut diagnostics = Vec::new();
-    let mut merged = serde_json::to_value(EffectiveSettings::with_lsp_server_ids(lsp_server_ids))
-        .expect("default settings serialize");
+    let mut merged = serde_json::to_value(EffectiveSettings::with_catalog_defaults(
+        &ids.lsp_server_ids,
+        &ids.formatting_defaults,
+    ))
+    .expect("default settings serialize");
 
     if let Some(value) = validate_layer(
         &global_validator,
@@ -150,7 +164,7 @@ pub fn resolve_effective_settings(
     }
 
     if let Some(folder_load) = folder {
-        let folder_schema = settings_layer_schema(SettingsLayerKind::Folder, lsp_server_ids);
+        let folder_schema = settings_layer_schema(SettingsLayerKind::Folder, ids);
         let folder_validator =
             jsonschema::validator_for(&folder_schema).expect("folder model schema is valid");
         if let Some(value) = validate_layer(
@@ -170,7 +184,7 @@ pub fn resolve_effective_settings(
             Path::new(""),
             format!("Settings model rejected validated layers: {error}"),
         ));
-        EffectiveSettings::with_lsp_server_ids(lsp_server_ids)
+        EffectiveSettings::with_catalog_defaults(&ids.lsp_server_ids, &ids.formatting_defaults)
     });
 
     ResolvedSettings {
@@ -220,12 +234,14 @@ fn validate_layer(
                     (pointer, SettingsDiagnosticCode::UnknownKey, message)
                 }));
             }
-            // Rejected map key: providers and lsp.servers are keyed by runtime
-            // catalog ids, pinned in the schema as `propertyNames`.
+            // Rejected map key: providers, lsp.servers, and formatting are keyed
+            // by runtime catalog ids, pinned in the schema as `propertyNames`.
             ValidationErrorKind::PropertyNames { error: inner } => {
                 let key = inner.instance().as_str().unwrap_or_default().to_string();
                 let noun = if at == "/providers" {
                     "provider"
+                } else if at == "/formatting" {
+                    "formatting language"
                 } else {
                     "LSP server"
                 };
@@ -330,13 +346,13 @@ pub(crate) fn is_global_only_pointer(pointer: &str) -> bool {
 }
 
 /// Runtime + editor JSON Schema for a settings layer file. Derived from the
-/// model; only the map key sets (provider ids, LSP server ids) are injected
-/// because they come from runtime catalogs, not types.
+/// model; catalog-driven map keys and formatter ids are injected because they
+/// come from runtime catalogs, not types.
 ///
 /// When generated for `SettingsLayerKind::Folder`, settings with global-only scope
 /// (defined in `GLOBAL_ONLY_POINTERS`) are pruned from the schema so that editors omit
 /// them from autocomplete and layer validation rejects them.
-pub(crate) fn settings_layer_schema(layer: SettingsLayerKind, lsp_server_ids: &[String]) -> Value {
+pub(crate) fn settings_layer_schema(layer: SettingsLayerKind, ids: &SettingsCatalogIds) -> Value {
     let mut schema =
         serde_json::to_value(schema_for!(EffectiveSettings)).expect("settings schema serializes");
     restrict_map_keys(
@@ -347,7 +363,24 @@ pub(crate) fn settings_layer_schema(layer: SettingsLayerKind, lsp_server_ids: &[
             .map(|provider_id| provider_id.to_string())
             .collect(),
     );
-    restrict_map_keys(&mut schema, &["lsp", "servers"], lsp_server_ids.to_vec());
+    restrict_map_keys(&mut schema, &["lsp", "servers"], ids.lsp_server_ids.clone());
+    restrict_map_keys(
+        &mut schema,
+        &["formatting"],
+        ids.formatting_defaults.keys().cloned().collect(),
+    );
+    let formatter_pointer = "/definitions/FormattingLanguageSettings/properties/formatter";
+    let formatter_ids: Vec<&str> = ids
+        .formatter_ids
+        .iter()
+        .map(String::as_str)
+        .chain([FORMATTER_LSP, FORMATTER_DISABLED])
+        .collect();
+    schema
+        .pointer_mut(formatter_pointer)
+        .and_then(Value::as_object_mut)
+        .unwrap_or_else(|| panic!("settings schema exposes {formatter_pointer}"))
+        .insert("enum".to_string(), json!(formatter_ids));
 
     if layer == SettingsLayerKind::Folder {
         for pointer in GLOBAL_ONLY_POINTERS {
@@ -413,17 +446,19 @@ pub(crate) fn field_ref(node: &Value) -> Option<&str> {
 mod tests {
     use super::*;
     use serde_json::json;
-    use sworm_protocol::settings::{FormatterSelection, TabBeamPosition};
+    use sworm_protocol::settings::TabBeamPosition;
     #[test]
     fn global_schema_includes_global_only_settings() {
-        let schema = settings_layer_schema(SettingsLayerKind::Global, &[]);
+        let schema =
+            settings_layer_schema(SettingsLayerKind::Global, &SettingsCatalogIds::default());
         assert!(schema.pointer("/properties/window").is_some());
         assert!(schema.pointer("/properties/remotes").is_some());
     }
 
     #[test]
     fn folder_schema_prunes_global_only_settings() {
-        let schema = settings_layer_schema(SettingsLayerKind::Folder, &[]);
+        let schema =
+            settings_layer_schema(SettingsLayerKind::Folder, &SettingsCatalogIds::default());
         assert!(schema.pointer("/properties/window").is_none());
         assert!(schema.pointer("/properties/typography").is_none());
         assert!(schema.pointer("/properties/remotes").is_none());
@@ -455,7 +490,21 @@ mod tests {
     }
 
     fn resolve(global: SettingsLayerLoad, project: Option<SettingsLayerLoad>) -> ResolvedSettings {
-        resolve_effective_settings(global, project, &["dev.sworm.vtsls::vtsls".to_string()])
+        resolve_effective_settings(
+            global,
+            project,
+            &SettingsCatalogIds {
+                lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                formatter_ids: vec![
+                    "dev.sworm.biome::biome".to_string(),
+                    "dev.sworm.nix::nixfmt".to_string(),
+                ],
+                formatting_defaults: BTreeMap::from([
+                    ("json".to_string(), "dev.sworm.biome::biome".to_string()),
+                    ("nix".to_string(), "dev.sworm.nix::nixfmt".to_string()),
+                ]),
+            },
+        )
     }
 
     #[test]
@@ -764,13 +813,10 @@ mod tests {
         assert_eq!(resolved.settings.typography.code_font_size, 13);
         assert_eq!(resolved.settings.typography.code_font_family, "Iosevka");
         assert_eq!(
-            resolved.settings.formatting.json.formatter,
-            FormatterSelection::Biome
+            resolved.settings.formatting["json"].formatter,
+            "dev.sworm.biome::biome"
         );
-        assert_eq!(
-            resolved.settings.formatting.nix.formatter,
-            FormatterSelection::Disabled
-        );
+        assert_eq!(resolved.settings.formatting["nix"].formatter, "disabled");
         for pointer in ["/typography/code_font_size", "/formatting/json/formatter"] {
             assert!(
                 resolved.diagnostics.iter().any(|diagnostic| {

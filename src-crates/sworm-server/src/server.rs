@@ -5,7 +5,10 @@ use crate::{
 };
 use anyhow::Context;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
-use sworm_core::{services::completed_runs::CompletedRunStore, Host};
+use sworm_core::{
+    services::{completed_runs::CompletedRunStore, extensions::ExtensionService},
+    Host,
+};
 use sworm_protocol::rpc::{Open, Response, WireError, MAX_FRAME_BYTES, MAX_REQUEST_FRAME_BYTES};
 use sworm_remote::{
     tls::{peer_fingerprint, server_config},
@@ -91,6 +94,9 @@ pub async fn serve(options: ServeOptions) -> anyhow::Result<ServerHandle> {
         .with_context(|| format!("create data directory {}", options.data_dir.display()))?;
     let (host_events, _) = broadcast::channel(HOST_EVENT_CAPACITY);
     let event_sender = host_events.clone();
+    if !ExtensionService::set_installed_dir(options.data_dir.join("extensions")) {
+        tracing::debug!("Installed extensions directory is already fixed");
+    }
     let host = Arc::new(Host::new(
         options.data_dir.join("server.db"),
         Arc::new(move |event| {

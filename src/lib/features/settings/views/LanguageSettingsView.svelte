@@ -6,6 +6,8 @@
   import * as Tabs from '$lib/components/ui/tabs'
   import { CircleAlert, ChevronDown, RefreshCwIcon } from '$lib/icons/lucideExports'
   import { getLspServers, getLspServersLoading, loadLspServers } from '$lib/features/settings/state/lspSettings.svelte'
+  import { getFormatterStatuses, loadFormatterStatuses } from '$lib/features/settings/state/formatterSettings.svelte'
+  import { getFormatterPolicy } from '$lib/features/extensions/catalog.svelte'
   import { notify } from '$lib/features/notifications/state.svelte'
   import {
     getSettings,
@@ -15,8 +17,8 @@
   } from '$lib/features/settings/state/settings.svelte'
   import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
   import type {
-    BuiltinSettingsPage,
-    FormatterSelection,
+    SettingsPage,
+    LanguageFormatterPolicy,
     LspServerConfig,
     LspServerSettingsEntry
   } from '$lib/types/backend'
@@ -32,7 +34,7 @@
     onSaving,
     onSaved
   }: {
-    definition: BuiltinSettingsPage
+    definition: SettingsPage
     onSaving: StatusHook
     onSaved: StatusHook
   } = $props()
@@ -45,9 +47,8 @@
   let servers = $derived(
     allServers.filter((entry) => definition.server_definition_ids.includes(entry.server.server_definition_id))
   )
-  let selectedFormatter = $derived(
-    definition.formatter && settings ? settings.formatting[definition.formatter.group].formatter : null
-  )
+  let policies = $derived(definition.language_ids.flatMap((id) => getFormatterPolicy(host, id) ?? []))
+  let formatterStatuses = $derived(getFormatterStatuses())
 
   type Draft = {
     enabled: boolean
@@ -70,7 +71,7 @@
       for (const id of ids) {
         if (id in drafts) continue
         const config = globalSettings.lsp.servers[id]
-        if (!config) throw new Error(`Missing global settings for builtin language server: ${id}`)
+        if (!config) throw new Error(`Missing global settings for language server: ${id}`)
         drafts[id] = {
           enabled: config.enabled,
           binaryPath: config.binary_path_override ?? '',
@@ -93,19 +94,27 @@
     lspLoader.run(folderPath, () => loadLspServers(folderPath))
   })
 
+  const formatterLoader = createTrackedAsyncLoad<string | undefined>()
+  $effect(() => {
+    const folderPath = activeFolderPath
+    formatterLoader.run(folderPath, () => loadFormatterStatuses(folderPath))
+  })
+
   onDestroy(() => saver.dispose())
 
-  async function saveFormatter(formatter: FormatterSelection) {
-    if (!definition.formatter || !settings || selectedFormatter === formatter) return
+  function selectedFormatter(policy: LanguageFormatterPolicy): string {
+    const stored = settings?.formatting[policy.language_id]?.formatter
+    return stored && policy.options.some((option) => option.id === stored) ? stored : policy.default
+  }
+
+  async function saveFormatter(policy: LanguageFormatterPolicy, formatter: string) {
+    if (!settings || selectedFormatter(policy) === formatter) return
     onSaving()
     try {
       await saveFormattingSettings(
         {
           ...settings.formatting,
-          [definition.formatter.group]: {
-            ...settings.formatting[definition.formatter.group],
-            formatter
-          }
+          [policy.language_id]: { formatter }
         },
         host
       )
@@ -146,7 +155,7 @@
 
   async function refresh() {
     try {
-      await loadLspServers(activeFolderPath)
+      await Promise.all([loadLspServers(activeFolderPath), loadFormatterStatuses(activeFolderPath)])
     } catch (error) {
       notify.error('Refresh language servers failed', getErrorMessage(error))
     }
@@ -176,40 +185,46 @@
     }
     return [...languages].sort()
   }
-
-  function formatterLabel(option: FormatterSelection): string {
-    switch (option) {
-      case 'biome':
-        return 'Biome'
-      case 'nixfmt':
-        return 'nixfmt'
-      case 'gofmt':
-        return 'gofmt'
-      case 'disabled':
-        return 'Disabled'
-      case 'lsp':
-      default:
-        return 'LSP'
-    }
-  }
 </script>
 
 <section class="border-b border-edge px-5 py-4">
   <div class="flex flex-col gap-2">
     <h4 class="text-sm font-semibold text-bright">Formatting</h4>
 
-    {#if definition.formatter}
+    {#if policies.length > 0}
       {#if settings}
-        <Tabs.Root
-          value={selectedFormatter ?? definition.formatter.default}
-          onValueChange={(value) => saveFormatter(value as FormatterSelection)}
-        >
-          <Tabs.List>
-            {#each definition.formatter.options as option (option)}
-              <Tabs.Trigger value={option}>{formatterLabel(option)}</Tabs.Trigger>
-            {/each}
-          </Tabs.List>
-        </Tabs.Root>
+        {#each policies as policy (policy.language_id)}
+          {@const selected = selectedFormatter(policy)}
+          {@const status = formatterStatuses.find((entry) => entry.formatter_id === selected)}
+          <div class="flex min-w-0 flex-col gap-2">
+            {#if policies.length > 1}
+              <p class="text-xs text-muted">{policy.language_label}</p>
+            {/if}
+            <Tabs.Root value={selected} onValueChange={(value) => saveFormatter(policy, value)}>
+              <Tabs.List>
+                {#each policy.options as option (option.id)}
+                  <Tabs.Trigger value={option.id}>{option.label}</Tabs.Trigger>
+                {/each}
+              </Tabs.List>
+            </Tabs.Root>
+            {#if status}
+              <div class="flex min-w-0 flex-col gap-0.5">
+                <div class="flex items-center gap-2">
+                  <Badge variant={status.status === 'available' ? 'success' : 'warning'}>{status.status}</Badge>
+                </div>
+                <span class="truncate font-mono text-xs text-muted">
+                  {status.resolved_path ?? status.install_hint}
+                </span>
+              </div>
+              {#if status.status === 'missing' && status.message}
+                <div class="flex items-center gap-2 bg-danger-bg/40 px-5 py-2 text-sm text-danger-bright">
+                  <CircleAlert size={14} />
+                  <span>{status.message}</span>
+                </div>
+              {/if}
+            {/if}
+          </div>
+        {/each}
       {:else}
         <p class="text-xs text-subtle">Loading formatting settings&hellip;</p>
       {/if}

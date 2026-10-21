@@ -1,12 +1,12 @@
 pub mod activity_map;
 pub mod app_state_kv;
-pub mod builtins;
 pub mod codex_state;
 pub mod completed_runs;
 pub mod config_schemas;
 pub mod db;
 pub mod env;
 pub mod explorer_filter;
+pub mod extensions;
 pub mod file_watcher;
 pub mod files;
 pub mod folders;

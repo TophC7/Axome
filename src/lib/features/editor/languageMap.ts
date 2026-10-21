@@ -4,7 +4,7 @@
 // vs "bash", "plaintext" vs "text"). This map is tailored for Monaco's
 // built-in Monarch tokenizers.
 
-import { getBuiltinLanguageForFilePath } from '$lib/features/builtins/catalog.svelte'
+import { getLanguageForFilePath } from '$lib/features/extensions/catalog.svelte'
 import { basename } from '$lib/utils/paths'
 
 // Map of file extension (without dot) to Monaco language ID.
@@ -97,7 +97,7 @@ const EXT_TO_LANG: Record<string, string> = {
   sh: 'shell',
   bash: 'shell',
   zsh: 'shell',
-  fish: 'fish', // Shiki TextMate grammar via @shikijs/monaco
+  fish: 'fish', // TextMate grammar from its bundled extension
   ksh: 'shell',
 
   // -- Data / query --
@@ -113,7 +113,7 @@ const EXT_TO_LANG: Record<string, string> = {
   cmake: 'cmake',
 
   // -- Svelte / Vue / frameworks --
-  svelte: 'svelte', // Shiki TextMate grammar via @shikijs/monaco
+  svelte: 'svelte', // TextMate grammar from its bundled extension
   vue: 'html',
 
   // -- Misc --
@@ -127,7 +127,7 @@ const EXT_TO_LANG: Record<string, string> = {
   log: 'log',
   txt: 'plaintext',
   lock: 'plaintext',
-  nix: 'nix' // Shiki TextMate grammar via @shikijs/monaco
+  nix: 'nix' // TextMate grammar from its bundled extension
 }
 
 // Exact filenames that map to a language (no extension needed).
@@ -222,10 +222,10 @@ function getExtension(filePath: string): string {
 }
 
 /** Resolve a file path to a Monaco language ID. */
-export function filePathToLanguage(filePath: string): string {
+export function filePathToLanguage(folderPath: string | null, filePath: string): string {
   const fileName = basename(filePath)
   const baseName = fileName.split('.').slice(0, -1).join('.') || fileName
-  const extensionLanguage = getBuiltinLanguageForFilePath(filePath)
+  const extensionLanguage = getLanguageForFilePath(folderPath, filePath)
   if (extensionLanguage) return extensionLanguage
 
   if (FILENAME_TO_LANG[fileName]) return FILENAME_TO_LANG[fileName]

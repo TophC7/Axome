@@ -120,8 +120,10 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         window::window_group_abort,
         window::pty_pause,
         window::pty_attach,
-        // Builtins commands
-        builtins_get_catalog,
+        // Extension commands
+        extensions_get_catalog,
+        extensions_get_grammars,
+        extensions_reload,
         // Config schema commands (drives Monaco autocomplete for .sworm/*.json)
         config_schemas_list,
         // Drag and drop commands
@@ -182,9 +184,8 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         shortcuts_create_global_file,
         shortcuts::shortcuts_open_global_file,
         // Formatter commands
-        formatting_format_biome,
-        formatting_format_nixfmt,
-        formatting_format_gofmt,
+        formatting_format,
+        formatting_list_formatters,
         // Task commands (folder-scoped .sworm/tasks.jsonc)
         tasks_list,
         tasks::tasks_start,

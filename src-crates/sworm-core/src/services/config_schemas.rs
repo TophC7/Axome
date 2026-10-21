@@ -3,10 +3,11 @@
 // Each entry pairs a schema with the glob patterns that identify the
 // file. The frontend fetches this list on boot and hands each entry to
 // Monaco so that opening a matching file gets autocomplete, validation,
-// and hover docs for free.
+// and hover docs for free. Settings schemas use the current extension catalog
+// for language, LSP server, and formatter ids.
 //
 // Adding a new config file is a three-step change:
-//   <> define/extend the canonical model under models/ (schema is derived)
+//   <> define/extend the canonical model under sworm-protocol (schema is derived)
 //   <> append a `ConfigSchemaEntry` below
 //   <> ship it; the frontend picks it up automatically on next boot
 
@@ -14,13 +15,12 @@ use schemars::schema_for;
 use serde_json::json;
 use sworm_protocol::config_schemas::ConfigSchemaEntry;
 
-use crate::services::{
-    builtins::BuiltinCatalogService, settings_resolution::settings_layer_schema,
-};
+use crate::services::{extensions::ExtensionService, settings_resolution::settings_layer_schema};
 use sworm_protocol::{server_config::ServerConfig, settings::SettingsLayerKind, task::TasksFile};
 
 pub fn all_config_schemas() -> Vec<ConfigSchemaEntry> {
-    let lsp_server_ids = BuiltinCatalogService::server_definition_ids();
+    let extensions = ExtensionService::current();
+    let ids = &extensions.settings_ids;
 
     vec![
         ConfigSchemaEntry {
@@ -34,12 +34,12 @@ pub fn all_config_schemas() -> Vec<ConfigSchemaEntry> {
         ConfigSchemaEntry {
             id: "sworm.settings.global".into(),
             file_match: vec!["**/sworm/settings.jsonc".into()],
-            schema: settings_layer_schema(SettingsLayerKind::Global, &lsp_server_ids),
+            schema: settings_layer_schema(SettingsLayerKind::Global, ids),
         },
         ConfigSchemaEntry {
             id: "sworm.settings.folder".into(),
             file_match: vec!["**/.sworm/settings.jsonc".into()],
-            schema: settings_layer_schema(SettingsLayerKind::Folder, &lsp_server_ids),
+            schema: settings_layer_schema(SettingsLayerKind::Folder, ids),
         },
         ConfigSchemaEntry {
             id: "sworm.shortcuts".into(),
@@ -100,6 +100,7 @@ fn shortcuts_file_schema() -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::settings_resolution::SettingsCatalogIds;
     use sworm_protocol::settings::CANONICAL_PROVIDER_IDS;
 
     #[test]
@@ -150,7 +151,10 @@ mod tests {
     fn settings_schema_contains_canonical_sections_and_ids() {
         let rendered = settings_layer_schema(
             SettingsLayerKind::Global,
-            &["dev.sworm.vtsls::vtsls".to_string()],
+            &SettingsCatalogIds {
+                lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                ..SettingsCatalogIds::default()
+            },
         )
         .to_string();
 
@@ -181,7 +185,10 @@ mod tests {
     fn settings_schema_allows_null_only_on_nullable_fields() {
         let schema = settings_layer_schema(
             SettingsLayerKind::Global,
-            &["dev.sworm.vtsls::vtsls".to_string()],
+            &SettingsCatalogIds {
+                lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                ..SettingsCatalogIds::default()
+            },
         );
         let rendered = schema.to_string();
 

@@ -1,8 +1,8 @@
 pub mod activity_map;
 pub mod app;
 pub mod branch;
-pub mod builtins;
 pub mod config_schemas;
+pub mod extensions;
 pub mod file_diff;
 pub mod files;
 pub mod folder;

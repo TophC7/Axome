@@ -39,50 +39,14 @@ pub enum LspTraceLevel {
     Verbose,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum FormatterSelection {
-    #[default]
-    Lsp,
-    Biome,
-    Nixfmt,
-    Gofmt,
-    Disabled,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct FormattingLanguageSettings {
-    pub formatter: FormatterSelection,
+    pub formatter: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(default, deny_unknown_fields)]
-pub struct FormattingSettings {
-    pub javascript_typescript: FormattingLanguageSettings,
-    pub json: FormattingLanguageSettings,
-    pub nix: FormattingLanguageSettings,
-    pub go: FormattingLanguageSettings,
-}
-
-impl Default for FormattingSettings {
-    fn default() -> Self {
-        Self {
-            javascript_typescript: FormattingLanguageSettings {
-                formatter: FormatterSelection::Biome,
-            },
-            json: FormattingLanguageSettings {
-                formatter: FormatterSelection::Biome,
-            },
-            nix: FormattingLanguageSettings {
-                formatter: FormatterSelection::Nixfmt,
-            },
-            go: FormattingLanguageSettings {
-                formatter: FormatterSelection::Lsp,
-            },
-        }
-    }
-}
+/// Keyed by language id. Values: `<extension_id>::<formatter_id>`, `lsp`, or `disabled`.
+pub type FormattingSettings = BTreeMap<String, FormattingLanguageSettings>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LspServerConfigRecord {
@@ -291,8 +255,8 @@ impl Default for LspServerSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct LspSettings {
-    /// Keyed by `BuiltinCatalogService` server_definition_id, formatted as
-    /// `${builtin_id}::${server_id}`.
+    /// Keyed by extension catalog (`ExtensionService`) server_definition_id, formatted as
+    /// `${extension_id}::${server_id}`.
     pub servers: BTreeMap<String, LspServerSettings>,
 }
 
@@ -331,9 +295,12 @@ impl Default for EffectiveSettings {
 }
 
 impl EffectiveSettings {
-    /// Builds default effective settings with LSP server IDs supplied by
-    /// `BuiltinCatalogService::server_definition_ids()`.
-    pub fn with_lsp_server_ids<I, S>(server_definition_ids: I) -> Self
+    /// Builds default effective settings with LSP server IDs and formatting defaults
+    /// supplied by the extension catalog (`ExtensionService`).
+    pub fn with_catalog_defaults<I, S>(
+        server_definition_ids: I,
+        formatting_defaults: &BTreeMap<String, String>,
+    ) -> Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -342,6 +309,17 @@ impl EffectiveSettings {
         settings.lsp.servers = server_definition_ids
             .into_iter()
             .map(|id| (id.as_ref().to_string(), LspServerSettings::default()))
+            .collect();
+        settings.formatting = formatting_defaults
+            .iter()
+            .map(|(language, formatter)| {
+                (
+                    language.clone(),
+                    FormattingLanguageSettings {
+                        formatter: formatter.clone(),
+                    },
+                )
+            })
             .collect();
         settings
     }
@@ -478,21 +456,34 @@ mod tests {
     }
 
     #[test]
-    fn lsp_defaults_are_keyed_by_builtin_server_definition_ids() {
-        let settings = EffectiveSettings::with_lsp_server_ids(["dev.sworm.vtsls::vtsls"]);
+    fn catalog_defaults_seed_lsp_servers_and_formatting() {
+        let settings = EffectiveSettings::with_catalog_defaults(
+            ["dev.sworm.vtsls::vtsls"],
+            &BTreeMap::from([(
+                "typescript".to_string(),
+                "dev.sworm.biome::biome".to_string(),
+            )]),
+        );
 
         assert_eq!(
             settings.lsp.servers["dev.sworm.vtsls::vtsls"],
             LspServerSettings::default()
         );
+        assert_eq!(
+            settings.formatting["typescript"].formatter,
+            "dev.sworm.biome::biome"
+        );
     }
 
     #[test]
     fn settings_payload_round_trips_global_lsp_defaults_and_overrides() {
-        let mut settings = EffectiveSettings::with_lsp_server_ids([
-            "dev.sworm.vtsls::vtsls",
-            "dev.sworm.rust-analyzer::rust-analyzer",
-        ]);
+        let mut settings = EffectiveSettings::with_catalog_defaults(
+            [
+                "dev.sworm.vtsls::vtsls",
+                "dev.sworm.rust-analyzer::rust-analyzer",
+            ],
+            &BTreeMap::new(),
+        );
         settings
             .lsp
             .servers

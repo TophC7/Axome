@@ -1,7 +1,5 @@
 import { backend } from '$lib/api/backend'
 import type { StreamHandle } from '$lib/api/transport'
-import { getBuiltinRuntimeLanguages, preloadBuiltinCatalog } from '$lib/features/builtins/catalog.svelte'
-import { isFormatterManagedLanguage } from '$lib/features/editor/formatters/config'
 import { filePathToLanguage, isBinaryFile } from '$lib/features/editor/languageMap'
 import { modelWorkspacePath, REMOTE_MODEL_SCHEME } from '$lib/features/editor/renderers/monaco/text/modelCache'
 import { openTextFile } from '$lib/features/workbench/surfaces/text/service.svelte'
@@ -90,7 +88,6 @@ interface ServerInstance {
 }
 
 class LspRegistry {
-  private providerInitPromise: Promise<void> | null = null
   private registeredLanguages = new Set<string>()
   private documents = new Map<string, ManagedDocument>()
   private serverInstances = new Map<string, ServerInstance>()
@@ -102,23 +99,9 @@ class LspRegistry {
   private stoppingInstances = new Set<ServerInstance>()
   private editorOpenerRegistered = false
 
-  async ensureMonaco(monaco: Monaco): Promise<void> {
+  ensureMonaco(monaco: Monaco): void {
     monacoRef = monaco
-    if (this.providerInitPromise) {
-      await this.providerInitPromise
-      return
-    }
-
-    this.providerInitPromise = (async () => {
-      await preloadBuiltinCatalog()
-      this.registerBuiltinLanguages(monaco)
-      this.registerProviders(monaco)
-    })().catch((error) => {
-      this.providerInitPromise = null
-      throw error
-    })
-
-    await this.providerInitPromise
+    this.registerEditorOpener(monaco)
   }
 
   async attachModel(model: MonacoModel, context: DocumentContext): Promise<void> {
@@ -319,19 +302,8 @@ class LspRegistry {
     return { suggestions }
   }
 
-  private registerBuiltinLanguages(monaco: Monaco) {
-    const existing = new Set(monaco.languages.getLanguages().map((entry) => entry.id))
-    for (const language of getBuiltinRuntimeLanguages()) {
-      if (existing.has(language.id)) continue
-      monaco.languages.register({ id: language.id, extensions: language.extensions, aliases: [language.label] })
-      existing.add(language.id)
-    }
-  }
-
-  private registerProviders(monaco: Monaco) {
-    this.registerEditorOpener(monaco)
-
-    for (const languageId of getBuiltinRuntimeLanguages().map((language) => language.id)) {
+  ensureLanguageProviders(monaco: Monaco, languageIds: string[]): void {
+    for (const languageId of languageIds) {
       if (this.registeredLanguages.has(languageId)) continue
       this.registeredLanguages.add(languageId)
 
@@ -347,12 +319,6 @@ class LspRegistry {
         triggerCharacters: ['.', ':', '"', "'", '/', '-', '<', ' '],
         provideCompletionItems: (model, position) => this.provideCompletionItems(model, position)
       })
-
-      if (!isFormatterManagedLanguage(languageId)) {
-        monaco.languages.registerDocumentFormattingEditProvider(languageId, {
-          provideDocumentFormattingEdits: (model) => this.provideDocumentFormattingEdits(model)
-        })
-      }
     }
   }
 
@@ -676,7 +642,7 @@ class LspRegistry {
 
     try {
       const { content } = await backend.files.read(context.folderPath, relativePath)
-      monacoRef.editor.createModel(content, filePathToLanguage(targetPath), resource)
+      monacoRef.editor.createModel(content, filePathToLanguage(context.folderPath, targetPath), resource)
       return true
     } catch (error) {
       console.warn(`Failed to preload LSP target model ${targetPath}`, error)
@@ -971,6 +937,10 @@ const registry = new LspRegistry()
 
 export function ensureMonacoLsp(monaco: Monaco) {
   return registry.ensureMonaco(monaco)
+}
+
+export function ensureLspLanguageProviders(monaco: Monaco, languageIds: string[]): void {
+  registry.ensureLanguageProviders(monaco, languageIds)
 }
 
 export function attachLspModel(model: MonacoModel, context: DocumentContext) {

@@ -204,8 +204,12 @@ macro_rules! sworm_rpc_ops {
             ActivityMapGet => activity_map_get() -> Vec<$crate::activity_map::DiscoveredProject>;
             #[route(none)]
             ActivityMapRefresh => activity_map_refresh() -> Vec<$crate::activity_map::DiscoveredProject>;
-            #[route(none)]
-            BuiltinsGetCatalog => builtins_get_catalog() -> $crate::builtins::BuiltinCatalog;
+            #[route(server)]
+            ExtensionsGetCatalog => extensions_get_catalog() -> $crate::extensions::ExtensionCatalog;
+            #[route(server)]
+            ExtensionsGetGrammars => extensions_get_grammars() -> Vec<$crate::extensions::ExtensionGrammar>;
+            #[route(server)]
+            ExtensionsReload => extensions_reload() -> ();
             #[route(none)]
             ConfigSchemasList => config_schemas_list() -> Vec<$crate::config_schemas::ConfigSchemaEntry>;
             #[route(none)]
@@ -597,21 +601,16 @@ macro_rules! sworm_rpc_ops {
                 folder_path: String,
             ) -> Vec<$crate::provider::ProviderStatus>;
             #[route(folder_path)]
-            FormattingFormatBiome => formatting_format_biome(
+            FormattingFormat => formatting_format(
                 folder_path: String,
                 file_path: String,
+                formatter_id: String,
                 content: String,
             ) -> String;
-            #[route(folder_path)]
-            FormattingFormatNixfmt => formatting_format_nixfmt(
-                folder_path: String,
-                content: String,
-            ) -> String;
-            #[route(folder_path)]
-            FormattingFormatGofmt => formatting_format_gofmt(
-                folder_path: String,
-                content: String,
-            ) -> String;
+            #[route(opt_folder_path)]
+            FormattingListFormatters => formatting_list_formatters(
+                folder_path: Option<String>,
+            ) -> Vec<$crate::extensions::FormatterStatus>;
             #[route(opt_folder_path)]
             SettingsGetEffective => settings_get_effective(
                 folder_path: Option<String>,

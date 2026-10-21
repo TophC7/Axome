@@ -9,7 +9,7 @@
 -->
 
 <script lang="ts">
-  import { getBuiltinSettingsPages, preloadBuiltinCatalog } from '$lib/features/builtins/catalog.svelte'
+  import { getSettingsPages, loadExtensionCatalog } from '$lib/features/extensions/catalog.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import { IconButton } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -60,7 +60,7 @@
       native: true
     }
   ]
-  let languagePages = $derived(getBuiltinSettingsPages())
+  let languagePages = $derived(getSettingsPages(getSettingsHost()))
 
   let LANGUAGE_ITEMS = $derived(
     languagePages.map((definition): NavItem => ({
@@ -122,6 +122,7 @@
   $effect(() => {
     if (!open) return
     void loadSettings(getActiveFolderPath())
+    void loadExtensionCatalog(getActiveFolderPath()).catch(() => {})
   })
 
   // VERSION //
@@ -133,7 +134,6 @@
       .version()
       .then((v) => (version = v.split('+')[1] ?? (v === '0.0.0' ? 'dev' : v)))
       .catch(() => {})
-    void preloadBuiltinCatalog().catch(() => {})
   })
 
   let saveTooltip = $derived(

@@ -18,13 +18,13 @@
       webkitgtk_4_1
     ];
 
-  # Filter for crane workspace sources: keep Rust source, Tauri configs, desktop files, migrations, icons, and builtins.
+  # Filter for crane workspace sources: keep Rust source, Tauri configs, desktop files, migrations, icons, and extensions.
   workspaceSourceFilter =
     craneLib: path: type:
     (craneLib.filterCargoSources path type)
     || (lib.hasSuffix "tauri.conf.json" path)
     || (lib.hasSuffix "sworm.desktop" path)
-    || (lib.hasInfix "src-crates/sworm-core/builtins" path)
+    || (lib.hasInfix "src-crates/sworm-core/extensions" path)
     || (lib.hasInfix "src-tauri/capabilities" path)
     || (lib.hasInfix "src-tauri/icons" path)
     || (lib.hasInfix "src-crates/sworm-core/migrations" path);

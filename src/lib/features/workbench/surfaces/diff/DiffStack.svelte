@@ -66,6 +66,12 @@
     let disposed = false
     void (async () => {
       const monaco = await pool.ready()
+      if (folderPath) {
+        const { ensureFolderLanguageSupport } = await import('$lib/features/editor/renderers/monaco/core/monacoEnv')
+        await ensureFolderLanguageSupport(monaco, folderPath).catch((error) =>
+          console.warn('Extension language support failed', error)
+        )
+      }
       if (disposed) return
       store.attach(monaco)
       // Reflect initial Svelte state onto the pool so already-pooled

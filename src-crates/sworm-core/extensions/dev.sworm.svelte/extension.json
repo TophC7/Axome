@@ -1,0 +1,43 @@
+{
+  "id": "dev.sworm.svelte",
+  "label": "Svelte",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "grammars": [
+      {
+        "language": "svelte",
+        "path": "./grammars/svelte.tmLanguage.json",
+        "embedded_languages": ["javascript", "typescript", "css", "postcss"]
+      }
+    ],
+    "languages": [
+      {
+        "id": "svelte",
+        "label": "Svelte",
+        "aliases": ["svelte"],
+        "extensions": [".svelte"]
+      }
+    ],
+    "lsp_servers": [
+      {
+        "id": "svelte-language-server",
+        "label": "Svelte Language Server",
+        "applies_to_languages": ["svelte"],
+        "command": "svelteserver",
+        "args": ["--stdio"],
+        "install_hint": "Install `svelte-language-server` and ensure `svelteserver` is on PATH.",
+        "document_selectors": [
+          {
+            "language": "svelte",
+            "extensions": [".svelte"]
+          }
+        ],
+        "settings": {
+          "section": "svelte",
+          "schema_path": "./settings.schema.json"
+        }
+      }
+    ]
+  }
+}

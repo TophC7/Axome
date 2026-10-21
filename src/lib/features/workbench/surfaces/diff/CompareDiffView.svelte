@@ -28,7 +28,7 @@
     path: right.path,
     oldPath: null,
     status: 'modified',
-    lang: filePathToLanguage(right.path),
+    lang: filePathToLanguage(folderPath, right.path),
     additions: null,
     deletions: null
   })

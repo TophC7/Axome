@@ -35,6 +35,7 @@ import {
   openFolderSettingsFile,
   openGlobalSettingsFile,
   openSettings,
+  reloadExtensions,
   reloadView,
   reopenTab,
   rerunLastFolderTask,
@@ -310,6 +311,15 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       keywords: ['settings', 'preferences', 'jsonc', 'folder', 'sworm'],
       visible: activeFolderVisible,
       run: openFolderSettingsFile
+    }),
+    appCommand({
+      id: 'reload-extensions',
+      label: 'Reload Extensions',
+      group: 'General',
+      icon: RefreshCwIcon,
+      keywords: ['extensions', 'reload', 'languages', 'grammars', 'formatters', 'lsp'],
+      terminalPolicy: 'skip-shell',
+      run: reloadExtensions
     }),
     appCommand({
       id: 'reveal-in-file-manager',

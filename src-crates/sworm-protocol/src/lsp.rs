@@ -1,4 +1,4 @@
-use crate::builtins::{BuiltinDocumentSelector, BuiltinLspServerSettingsDescriptor};
+use crate::extensions::{LspDocumentSelector, LspServerSettingsDescriptor};
 use crate::settings::LspServerConfigRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,17 +12,17 @@ pub struct LspServerSettingsEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LspServerStatus {
     pub server_definition_id: String,
-    pub builtin_id: String,
-    pub builtin_label: String,
+    pub extension_id: String,
+    pub extension_label: String,
     pub label: String,
     pub enabled: bool,
     pub status: LspServerConnectionStatus,
     pub resolved_path: Option<String>,
     pub message: Option<String>,
     pub install_hint: String,
-    pub document_selectors: Vec<BuiltinDocumentSelector>,
+    pub document_selectors: Vec<LspDocumentSelector>,
     pub initialization_options: Option<Value>,
-    pub settings: Option<BuiltinLspServerSettingsDescriptor>,
+    pub settings: Option<LspServerSettingsDescriptor>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

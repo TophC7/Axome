@@ -1,0 +1,52 @@
+{
+  "id": "dev.sworm.nix",
+  "label": "Nix",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "formatters": [
+      {
+        "id": "nixfmt",
+        "label": "nixfmt",
+        "languages": ["nix"],
+        "command": "nixfmt",
+        "default": true,
+        "install_hint": "Install `nixfmt` and ensure `nixfmt` is on PATH."
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nix",
+        "path": "./grammars/nix.tmLanguage.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "nix",
+        "label": "Nix",
+        "aliases": ["nix"],
+        "extensions": [".nix"]
+      }
+    ],
+    "lsp_servers": [
+      {
+        "id": "nil",
+        "label": "nil Language Server",
+        "applies_to_languages": ["nix"],
+        "command": "nil",
+        "args": [],
+        "install_hint": "Install `nil` and ensure `nil` is on PATH.",
+        "document_selectors": [
+          {
+            "language": "nix",
+            "extensions": [".nix"]
+          }
+        ],
+        "settings": {
+          "section": "nil",
+          "schema_path": "./settings.schema.json"
+        }
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 mod activity_map;
 mod app;
-mod builtins;
 mod config_schemas;
+mod extensions;
 mod files;
 mod folders;
 mod formatting;

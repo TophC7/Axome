@@ -4,7 +4,9 @@ import { getHostTransport, type PtySinks, type StreamHandle, type Unsubscribe } 
 import type {
   AppRuntimeInfo,
   BranchSummary,
-  BuiltinCatalog,
+  ExtensionCatalog,
+  ExtensionGrammar,
+  FormatterStatus,
   CommitDetail,
   ConfigSchemaEntry,
   DiffFileContent,
@@ -527,9 +529,15 @@ export const backend = {
     }
   },
 
-  builtins: {
-    getCatalog(): Promise<BuiltinCatalog> {
-      return invoke<BuiltinCatalog>('builtins_get_catalog')
+  extensions: {
+    getCatalog(folderPath?: string | null): Promise<ExtensionCatalog> {
+      return invoke<ExtensionCatalog>('extensions_get_catalog', { folderPath: folderPath ?? null })
+    },
+    getGrammars(folderPath?: string | null): Promise<ExtensionGrammar[]> {
+      return invoke<ExtensionGrammar[]>('extensions_get_grammars', { folderPath: folderPath ?? null })
+    },
+    reload(folderPath?: string | null): Promise<void> {
+      return invoke<void>('extensions_reload', { folderPath: folderPath ?? null })
     }
   },
 
@@ -631,18 +639,11 @@ export const backend = {
   },
 
   formatting: {
-    biome(folderPath: string, filePath: string, content: string): Promise<string> {
-      return invoke<string>('formatting_format_biome', {
-        folderPath,
-        filePath,
-        content
-      })
+    format(folderPath: string, filePath: string, formatterId: string, content: string): Promise<string> {
+      return invoke<string>('formatting_format', { folderPath, filePath, formatterId, content })
     },
-    nixfmt(folderPath: string, content: string): Promise<string> {
-      return invoke<string>('formatting_format_nixfmt', { folderPath, content })
-    },
-    gofmt(folderPath: string, content: string): Promise<string> {
-      return invoke<string>('formatting_format_gofmt', { folderPath, content })
+    listFormatters(folderPath?: string | null): Promise<FormatterStatus[]> {
+      return invoke<FormatterStatus[]>('formatting_list_formatters', { folderPath: folderPath ?? null })
     }
   },
 

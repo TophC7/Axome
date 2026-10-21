@@ -13,7 +13,7 @@
 <script lang="ts">
   import { Input } from '$lib/components/ui/input'
   import LanguageSettingsView from './LanguageSettingsView.svelte'
-  import type { BuiltinSettingsPage } from '$lib/types/backend'
+  import type { SettingsPage } from '$lib/types/backend'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getSettings, getSettingsHost, saveNixSettings } from '$lib/features/settings/state/settings.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
@@ -26,7 +26,7 @@
     onSaving,
     onSaved
   }: {
-    definition: BuiltinSettingsPage
+    definition: SettingsPage
     onSaving: StatusHook
     onSaved: StatusHook
   } = $props()
@@ -70,7 +70,16 @@
 
     <div class="flex items-center">
       <span class="w-36 shrink-0 text-sm text-muted">Eval timeout</span>
-      <Input class="w-24 py-2" type="number" min="30" max="3600" step="30" bind:value={timeout} oninput={schedule} disabled={!settings} />
+      <Input
+        class="w-24 py-2"
+        type="number"
+        min="30"
+        max="3600"
+        step="30"
+        bind:value={timeout}
+        oninput={schedule}
+        disabled={!settings}
+      />
       <span class="pl-2 text-sm text-subtle">seconds</span>
     </div>
 

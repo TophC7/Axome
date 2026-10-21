@@ -1,7 +1,7 @@
 use crate::{
     errors::ApiError,
     services::{
-        builtins::BuiltinCatalogService,
+        extensions::ExtensionService,
         settings::SettingsService,
         settings_resolution::{
             parse_error_diagnostic, provider_binary_overrides, provider_config_record,
@@ -34,7 +34,8 @@ impl Host {
             })
             .collect();
         let mut lsp = resolved.settings.lsp;
-        for server in BuiltinCatalogService::server_definitions() {
+        let extensions = ExtensionService::current();
+        for server in &extensions.lsp_servers {
             lsp.servers
                 .entry(server.server_definition_id.clone())
                 .or_default();

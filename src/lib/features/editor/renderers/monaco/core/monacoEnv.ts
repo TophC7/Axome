@@ -1,6 +1,5 @@
-// Monaco environment bootstrap. Imported once as a side effect before
-// any editor mounts. Sets up workers, Shiki tokenization for languages
-// Monaco lacks (Nix, Svelte, Fish), theme, and keybinding overrides.
+// Monaco environment bootstrap. Sets up workers, theme, keybinding
+// overrides, and per-host language support from extension catalogs.
 
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
@@ -8,12 +7,13 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { initializeMonacoEditorServices } from '$lib/features/editor/renderers/monaco/core/editorServices'
-import { ensureMonacoFormatters } from '$lib/features/editor/renderers/monaco/core/formatters'
+import { ensureFolderLanguageSupport } from '$lib/features/editor/renderers/monaco/core/languageSupport'
 import { attachMonacoKeybindingOverrides } from '$lib/features/editor/renderers/monaco/core/keybindings'
-import { registerNixLanguage } from '$lib/features/editor/renderers/monaco/core/languages/nix'
 import { ensureMonacoLsp } from '$lib/features/editor/lsp/registry'
-import { registerSwormTheme, SWORM_SHIKI_THEME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { registerSwormTheme } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
 import { attachMonaco } from '$lib/features/editor/schemas/registry'
+
+export { ensureFolderLanguageSupport }
 
 self.MonacoEnvironment = {
   getWorker(_workerId: string, label: string): Worker {
@@ -24,10 +24,6 @@ self.MonacoEnvironment = {
     return new EditorWorker()
   }
 }
-
-// Languages where Shiki's TextMate grammars replace Monaco's missing
-// or inadequate Monarch tokenizers.
-const SHIKI_LANGUAGES = ['nix', 'svelte', 'fish', 'go'] as const
 
 interface TsLanguageDefaults {
   modeConfiguration: {
@@ -84,7 +80,7 @@ function getJsonLanguageService(monaco: typeof import('monaco-editor')): JsonLan
   return (monaco.languages.json as unknown as { jsonDefaults: JsonLanguageDefaults }).jsonDefaults
 }
 
-/** One-time Monaco setup: Shiki tokenization, theme, keybinding overrides. */
+/** One-time Monaco setup: extension language support, theme, keybinding overrides. */
 let initPromise: Promise<void> | null = null
 
 export function initMonaco(monaco: typeof import('monaco-editor')): Promise<void> {
@@ -92,35 +88,11 @@ export function initMonaco(monaco: typeof import('monaco-editor')): Promise<void
 
   initPromise = (async () => {
     initializeMonacoEditorServices()
+    registerSwormTheme(monaco)
     // Monaco caches glyph metrics per font. A face that finishes loading after
     // the first measurement (bundled Monocraft, a newly chosen code font)
     // would otherwise keep the fallback's widths and misplace the cursor.
     document.fonts.addEventListener('loadingdone', () => monaco.editor.remeasureFonts())
-    const [{ createHighlighter, createJavaScriptRegexEngine }, { shikiToMonaco }] = await Promise.all([
-      import('shiki'),
-      import('@shikijs/monaco')
-    ])
-
-    const highlighter = await createHighlighter({
-      themes: [SWORM_SHIKI_THEME],
-      langs: [...SHIKI_LANGUAGES],
-      // Prefer the pure-JS engine here. The default Oniguruma wasm
-      // path has been crashing inside Tauri/WebView during Monaco
-      // background tokenization with out-of-bounds memory errors.
-      engine: createJavaScriptRegexEngine({ forgiving: true })
-    })
-
-    for (const lang of SHIKI_LANGUAGES) {
-      monaco.languages.register({ id: lang })
-    }
-
-    // shikiToMonaco registers a TokensProvider per loaded language and
-    // defines its own version of the theme. We call registerSwormTheme
-    // after to re-define the theme with merged Monarch + TextMate rules.
-    // The Shiki TokensProvider's internal color map stays from the first
-    // registration, which is fine because both use the same palette.
-    shikiToMonaco(highlighter, monaco)
-    registerSwormTheme(monaco)
 
     // Keep Monaco's built-in language features as fallback when an
     // external LSP is missing or disabled, but suppress TS diagnostics
@@ -153,10 +125,10 @@ export function initMonaco(monaco: typeof import('monaco-editor')): Promise<void
       cssLanguageService.setDiagnosticsOptions({ validate: false })
     }
 
-    // Language-specific configuration (after Shiki registers language IDs)
-    registerNixLanguage(monaco)
     await ensureMonacoLsp(monaco)
-    await ensureMonacoFormatters(monaco)
+    await ensureFolderLanguageSupport(monaco, null).catch((error) =>
+      console.warn('Extension language support failed', error)
+    )
 
     const { KeyMod, KeyCode } = monaco
     monaco.editor.addKeybindingRules([
@@ -170,7 +142,7 @@ export function initMonaco(monaco: typeof import('monaco-editor')): Promise<void
     // finished loading (bootstrap runs before the first editor mount).
     attachMonaco(monaco)
   })().catch((err) => {
-    // Allow retry on next editor mount if Shiki fails to load
+    // Allow retry on next editor mount if initialization fails.
     initPromise = null
     throw err
   })

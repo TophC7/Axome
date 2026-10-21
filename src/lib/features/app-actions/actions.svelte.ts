@@ -44,6 +44,17 @@ export async function reloadView(): Promise<void> {
   window.location.reload()
 }
 
+/** Rebuild the extension catalog on the active folder's host, then reload this view to apply it. */
+export async function reloadExtensions(): Promise<void> {
+  try {
+    await backend.extensions.reload(getActiveFolderPath())
+  } catch (error) {
+    notify.error('Reload extensions failed', getErrorMessage(error))
+    return
+  }
+  await reloadView()
+}
+
 export function confirmCloseWorkbench(folders: string[]): Promise<boolean> {
   return confirmAsync({
     title: 'Close Workbench',

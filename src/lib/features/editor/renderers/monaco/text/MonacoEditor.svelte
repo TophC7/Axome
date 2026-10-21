@@ -77,12 +77,18 @@
     let mountedController: MountedTextSurfaceController | null = null
     let disposeReady: void | (() => void)
     async function init() {
-      const { initMonaco } = await import('$lib/features/editor/renderers/monaco/core/monacoEnv')
+      const { initMonaco, ensureFolderLanguageSupport } =
+        await import('$lib/features/editor/renderers/monaco/core/monacoEnv')
       const m = await import('monaco-editor')
       if (disposed || !containerEl) return
 
       monaco = m
       await initMonaco(m)
+      if (folderPath) {
+        await ensureFolderLanguageSupport(m, folderPath).catch((error) =>
+          console.warn('Extension language support failed', error)
+        )
+      }
       if (disposed || !containerEl) return
 
       modelHandle =

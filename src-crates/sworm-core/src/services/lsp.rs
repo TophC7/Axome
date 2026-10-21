@@ -1,6 +1,8 @@
 use crate::errors::ApiError;
 use crate::events::EventSink;
-use crate::services::builtins::LoadedBuiltinLspServerDefinition;
+use crate::services::extensions::{
+    missing_requirement, resolve_contribution_command, LoadedLspServer,
+};
 #[cfg(unix)]
 use crate::services::pty::{groups_terminated, stop_process};
 use crate::services::pty::{ChildExit, PROCESS_STOP_TIMEOUT};
@@ -587,7 +589,7 @@ fn already_active(session_id: &str) -> ApiError {
 }
 
 pub fn resolve_server_status(
-    server: &LoadedBuiltinLspServerDefinition,
+    server: &LoadedLspServer,
     config: &LspServerConfigRecord,
     env: &HashMap<String, String>,
 ) -> LspServerStatus {
@@ -606,14 +608,14 @@ pub fn resolve_server_status(
 
     LspServerStatus {
         server_definition_id: server.server_definition_id.clone(),
-        builtin_id: server.builtin_id.clone(),
-        builtin_label: server.builtin_label.clone(),
+        extension_id: server.extension_id.clone(),
+        extension_label: server.extension_label.clone(),
         label: server.definition.label.clone(),
         enabled: config.enabled,
         status,
         resolved_path,
         message,
-        install_hint: server.definition.install_hint.clone(),
+        install_hint: server.install_hint.clone(),
         document_selectors: server.definition.document_selectors.clone(),
         initialization_options: server.definition.initialization_options.clone(),
         settings: server.definition.settings.clone(),
@@ -621,14 +623,19 @@ pub fn resolve_server_status(
 }
 
 pub fn resolve_launch(
-    server: &LoadedBuiltinLspServerDefinition,
+    server: &LoadedLspServer,
     config: &LspServerConfigRecord,
     env: &HashMap<String, String>,
     cwd: &str,
 ) -> Result<ResolvedLspCommand, String> {
-    let program = resolve_host_command(
+    let path = env.get("PATH").map(String::as_str).unwrap_or("");
+    if let Some(message) = missing_requirement(&server.requires, path) {
+        return Err(message);
+    }
+    let program = resolve_contribution_command(
         &server.definition.command,
-        env.get("PATH").map(String::as_str).unwrap_or(""),
+        server.extension_dir.as_deref(),
+        path,
         config.binary_path_override.as_deref(),
     )?;
 
@@ -641,49 +648,6 @@ pub fn resolve_launch(
         cwd: cwd.to_string(),
         env: env.clone(),
     })
-}
-
-fn resolve_host_command(
-    command: &str,
-    merged_path: &str,
-    override_path: Option<&str>,
-) -> Result<String, String> {
-    let candidate = override_path.unwrap_or(command).trim();
-    if candidate.is_empty() {
-        return Err("Command path is empty".to_string());
-    }
-
-    if candidate.contains('/') {
-        return validate_direct_command_path(candidate);
-    }
-
-    which::which_in(candidate, Some(merged_path), ".")
-        .map(|path| path.to_string_lossy().to_string())
-        .map_err(|_| format!("{} is not installed or not on PATH", candidate))
-}
-
-fn validate_direct_command_path(candidate: &str) -> Result<String, String> {
-    let path = Path::new(candidate);
-    if !path.exists() {
-        return Err(format!("Command not found at {}", candidate));
-    }
-    if !path.is_file() {
-        return Err(format!("Command path is not a file: {}", candidate));
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-
-        let metadata = path
-            .metadata()
-            .map_err(|error| format!("Failed to read command metadata {}: {}", candidate, error))?;
-        if metadata.permissions().mode() & 0o111 == 0 {
-            return Err(format!("Command is not executable: {}", candidate));
-        }
-    }
-
-    Ok(candidate.to_string())
 }
 
 fn read_lsp_message<R: Read>(reader: &mut BufReader<R>) -> Result<Option<String>, String> {
@@ -791,31 +755,6 @@ mod tests {
         let framed = b"content-length: 2\r\ncontent-type: application/vscode-jsonrpc\r\n\r\n{}";
         let message = read_lsp_message(&mut BufReader::new(framed.as_slice())).unwrap();
         assert_eq!(message.as_deref(), Some("{}"));
-    }
-
-    #[test]
-    fn rejects_missing_direct_command_paths() {
-        let missing =
-            std::env::temp_dir().join(format!("sworm-lsp-missing-{}", uuid::Uuid::new_v4()));
-        let result = validate_direct_command_path(missing.to_string_lossy().as_ref());
-        assert!(result.is_err());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn accepts_executable_direct_command_paths() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let path = std::env::temp_dir().join(format!("sworm-lsp-command-{}", uuid::Uuid::new_v4()));
-        fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
-        let mut permissions = fs::metadata(&path).unwrap().permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&path, permissions).unwrap();
-
-        let resolved = validate_direct_command_path(path.to_string_lossy().as_ref()).unwrap();
-        assert_eq!(resolved, path.to_string_lossy());
-
-        fs::remove_file(path).unwrap();
     }
 
     #[cfg(unix)]
