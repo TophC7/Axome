@@ -8,7 +8,7 @@ import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import type { TaskDefinition } from '$lib/types/backend'
-import type { TabId } from '$lib/features/workbench/model'
+import type { TabId, TaskTab } from '$lib/features/workbench/model'
 import {
   addTaskTab,
   findTaskTabByTaskId,
@@ -59,6 +59,29 @@ async function confirmIfRequired(task: TaskDefinition): Promise<boolean> {
   })
 }
 
+async function rebindTaskTab(tab: TaskTab, task: TaskDefinition, activeFilePath: string | null): Promise<TabId> {
+  try {
+    await stopTerminalProcess(tab)
+  } catch (error) {
+    notify.error('Stop task failed', getErrorMessage(error))
+    throw error
+  }
+  terminals.rebind(tab.id)
+  resetTaskTabForRestart(tab.id, crypto.randomUUID(), {
+    activeFilePath,
+    label: task.label,
+    icon: trimmedOrNull(task.icon),
+    group: trimmedOrNull(task.group)
+  })
+  rememberLastTask(tab.folderPath, task.id)
+  return tab.id
+}
+
+export async function restartTaskTab(tab: TaskTab, task: TaskDefinition): Promise<TabId | null> {
+  if (!(await confirmIfRequired(task))) return null
+  return rebindTaskTab(tab, task, tab.activeFilePath)
+}
+
 /**
  * Open (or activate) a task tab for the given definition.
  *
@@ -82,22 +105,7 @@ export async function openTaskTab(
     const existing = findTaskTabByTaskId(folderPath, task.id)
     if (existing) {
       const activeFilePath = activeFilePathFor(folderPath) ?? options.activeFilePath ?? existing.activeFilePath
-      try {
-        await stopTerminalProcess(existing)
-      } catch (error) {
-        notify.error('Stop task failed', getErrorMessage(error))
-        throw error
-      }
-      terminals.rebind(existing.id)
-      const nextRunId = crypto.randomUUID()
-      resetTaskTabForRestart(existing.id, nextRunId, {
-        activeFilePath,
-        label: task.label,
-        icon,
-        group
-      })
-      rememberLastTask(folderPath, task.id)
-      return existing.id
+      return rebindTaskTab(existing, task, activeFilePath)
     }
   }
 

@@ -158,7 +158,9 @@ Tasks in `.sworm/tasks.jsonc` can also run automatically when a worktree is crea
 
 ### Use your project's Nix environment
 
-Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers. Without a ready Nix environment, sessions use the host environment.
+Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers.
+
+Everything Sworm launches starts from your login shell's environment (what `$SHELL -l` exports, including home-manager session variables) with the folder's Nix environment layered on top. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Sworm.
 
 The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the sidebar footer shows the current folder.
 
@@ -168,6 +170,23 @@ The sidebar rail's foot holds the Nix environment, remote servers, notifications
 ![Terminal session with the project environment status visible](docs/readme/terminal.png)
 
 </details>
+
+### Terminal presets
+
+Define shell launch variants under `shell.presets` in `~/.config/sworm/settings.jsonc` or a folder's `.sworm/settings.jsonc`. Each preset can override the shell `command`, append `args`, add `env`, and type a `startup` line into the shell after it starts. `shell.default_preset` picks what **New Terminal** (Ctrl+T) opens; every preset also gets its own New Tab card and palette command.
+
+```jsonc
+{
+  "shell": {
+    "default_preset": "dev",
+    "presets": {
+      "dev": { "args": ["-l"], "env": { "RUST_LOG": "debug" }, "startup": "git status -sb" }
+    }
+  }
+}
+```
+
+A task in `.sworm/tasks.jsonc` can run inside a preset with `"shell": "dev"`: the preset's `startup` runs first, then the task's `command`. Tasks without `shell` run under your login shell.
 
 ### Keep local tasks alongside the code
 

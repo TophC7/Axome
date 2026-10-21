@@ -168,6 +168,9 @@ export class TerminalManager {
     if (this.hostEl.parentElement !== container) {
       container.replaceChildren(this.hostEl)
     }
+    // WebGL must be initialized against connected, measured DOM. Immediate runs
+    // may finish before another resize or output write can repaint the canvas.
+    this.fitTerminal()
     // detach() drops the WebGL context so hidden sessions don't hold
     // GPU resources; bring it back for the visible one.
     if (this.webglAddon === null) {
@@ -186,10 +189,12 @@ export class TerminalManager {
     this.flushDeferredBytes()
 
     requestAnimationFrame(() => {
+      if (this.container !== container || !this.terminal) return
       this.fitTerminal()
       if (this.viewportPosition > 0) {
         this.terminal?.scrollToLine(this.viewportPosition)
       }
+      this.terminal.refresh(0, this.terminal.rows - 1)
     })
   }
 
@@ -621,7 +626,6 @@ export class TerminalManager {
       new TerminalLinkProvider(this.terminal, linkHandlers)
     )
     this.terminal.open(this.hostEl)
-    this.enableWebglRenderer()
 
     // All key-by-key policy lives in terminalKeymap.ts. This handler
     // is a dumb dispatcher over the resolved KeyAction so adding a new

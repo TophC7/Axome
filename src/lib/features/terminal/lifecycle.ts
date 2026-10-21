@@ -1,5 +1,5 @@
 import { notify } from '$lib/features/notifications/state.svelte'
-import { openTaskTab } from '$lib/features/tasks/service.svelte'
+import { restartTaskTab } from '$lib/features/tasks/service.svelte'
 import { findTask } from '$lib/features/tasks/state.svelte'
 import type { TerminalTab } from '$lib/features/workbench/model'
 import { behaviorFor } from './behaviors'
@@ -21,7 +21,7 @@ export async function restartTerminalProcess(tab: TerminalTab): Promise<void> {
       notify.error('Cannot restart task', `Task "${tab.taskId}" is no longer defined in .sworm/tasks.jsonc`)
       return
     }
-    await openTaskTab(tab.folderPath, task, { activeFilePath: tab.activeFilePath })
+    await restartTaskTab(tab, task)
     return
   }
   const manager = terminals.getOrCreate(tab)

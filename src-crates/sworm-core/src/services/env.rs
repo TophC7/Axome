@@ -198,7 +198,8 @@ fn parse_probe_output(output: &[u8], marker: &[u8]) -> Option<HashMap<String, St
             continue;
         }
         let key = std::str::from_utf8(key).ok()?;
-        if matches!(key, "SHLVL" | "PWD" | "OLDPWD" | "_") {
+        // The probe runs without a terminal, so the TERM it reports (e.g. fish's `dumb`) describes nothing.
+        if matches!(key, "SHLVL" | "PWD" | "OLDPWD" | "_" | "TERM") {
             continue;
         }
         env.insert(
@@ -230,7 +231,7 @@ mod tests {
 
     #[test]
     fn probe_output_parses_between_markers() {
-        let output = b"login noise\n__MARK__KEY=a=b\0GOOD_2=yes\0bad-key=no\0SHLVL=1\0PWD=/\0OLDPWD=/tmp\0_=env\0__MARK__logout noise";
+        let output = b"login noise\n__MARK__KEY=a=b\0GOOD_2=yes\0bad-key=no\0SHLVL=1\0PWD=/\0OLDPWD=/tmp\0_=env\0TERM=dumb\0__MARK__logout noise";
         assert_eq!(
             parse_probe_output(output, b"__MARK__").unwrap(),
             HashMap::from([

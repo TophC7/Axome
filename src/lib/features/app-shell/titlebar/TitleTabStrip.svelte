@@ -59,9 +59,6 @@
   import { restartTerminalProcess, stopTerminalProcess } from '$lib/features/terminal/lifecycle'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
-  import { findTask } from '$lib/features/tasks/state.svelte'
-  import { openTaskTab } from '$lib/features/tasks/service.svelte'
-  import { notify } from '$lib/features/notifications/state.svelte'
   import { FileDiff, Layers, Lock, Plus, CircleDot, TerminalIcon, ServerIcon } from '$lib/icons/lucideExports'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import LucideIcon from '$lib/icons/LucideIcon.svelte'
@@ -272,12 +269,10 @@
 
   async function handleTaskRestart(tab: Tab) {
     if (tab.kind !== 'task') return
-    const def = findTask(tab.folderPath, tab.taskId)
-    if (!def) {
-      notify.error('Cannot restart task', `Task "${tab.taskId}" is no longer defined in .sworm/tasks.jsonc`)
-      return
-    }
-    await openTaskTab(tab.folderPath, def, { activeFilePath: tab.activeFilePath })
+    await runNotifiedTask(() => restartTerminalProcess(tab), {
+      loading: { title: 'Restarting task', description: tab.label },
+      error: { title: 'Restart task failed' }
+    })
   }
 </script>
 
