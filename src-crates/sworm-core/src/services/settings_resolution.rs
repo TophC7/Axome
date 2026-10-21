@@ -356,15 +356,19 @@ pub(crate) fn settings_layer_schema(layer: SettingsLayerKind, ids: &SettingsCata
     let mut schema =
         serde_json::to_value(schema_for!(EffectiveSettings)).expect("settings schema serializes");
     restrict_map_keys(&mut schema, &["harnesses"], ids.harness_ids.clone());
-    let presets_pointer = "/definitions/HarnessSettings/properties/presets";
-    schema
-        .pointer_mut(presets_pointer)
-        .and_then(Value::as_object_mut)
-        .unwrap_or_else(|| panic!("settings schema exposes {presets_pointer}"))
-        .insert(
-            "propertyNames".to_string(),
-            json!({ "pattern": "^[A-Za-z0-9_-]+$" }),
-        );
+    for presets_pointer in [
+        "/definitions/HarnessSettings/properties/presets",
+        "/definitions/ShellSettings/properties/presets",
+    ] {
+        schema
+            .pointer_mut(presets_pointer)
+            .and_then(Value::as_object_mut)
+            .unwrap_or_else(|| panic!("settings schema exposes {presets_pointer}"))
+            .insert(
+                "propertyNames".to_string(),
+                json!({ "pattern": "^[A-Za-z0-9_-]+$" }),
+            );
+    }
     restrict_map_keys(&mut schema, &["lsp", "servers"], ids.lsp_server_ids.clone());
     restrict_map_keys(
         &mut schema,

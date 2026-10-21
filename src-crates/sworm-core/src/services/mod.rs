@@ -28,4 +28,5 @@ pub mod runtime_info;
 pub mod settings;
 pub mod settings_resolution;
 pub mod settings_watcher;
+pub(crate) mod shells;
 pub mod tasks;

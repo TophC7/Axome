@@ -13,5 +13,6 @@ mod lsp;
 mod nix;
 mod sessions;
 mod settings;
+mod shells;
 mod shortcuts;
 mod tasks;

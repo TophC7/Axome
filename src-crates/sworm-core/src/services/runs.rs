@@ -12,15 +12,24 @@ use tracing::warn;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RunKind {
-    Session { harness_id: Option<String> },
-    Task { task_id: String },
+    Session {
+        harness_id: String,
+        preset: Option<String>,
+    },
+    Shell {
+        preset: Option<String>,
+    },
+    Task {
+        task_id: String,
+    },
 }
 
 struct RunRecord {
     folder: PathBuf,
     kind: RunKind,
     incarnation: u64,
-    token: Option<Arc<Mutex<Option<String>>>>,
+    /// Harness session id slot; only `RunKind::Session` runs have one.
+    session_id: Option<Arc<Mutex<Option<String>>>>,
     archived: bool,
     _gate: Arc<Mutex<()>>,
 }
@@ -258,7 +267,7 @@ impl RunCoordinator {
             .lock()
             .records
             .get(run_id)
-            .and_then(|run| run.token.clone());
+            .and_then(|run| run.session_id.clone());
         token.and_then(|token| token.lock().clone())
     }
 
@@ -376,7 +385,7 @@ impl RunGuard<'_> {
                 folder,
                 kind,
                 incarnation,
-                token: token.clone(),
+                session_id: token.clone(),
                 archived: false,
                 _gate: Arc::clone(
                     self.gate
@@ -537,6 +546,78 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn task_with_shell_preset_runs_startup_then_command() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture = Fixture::new("echo $A");
+        let script = fixture.folder.join("record-shell");
+        fs::write(
+            &script,
+            "#!/bin/sh\nprintf '%s\\0' \"$@\" > argv\nprintf '%s' \"$A\" > env\n",
+        )
+        .unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(
+            fixture.folder.join(".sworm/settings.jsonc"),
+            serde_json::json!({
+                "shell": {
+                    "extra_args": ["--base"],
+                    "presets": {
+                        "dev": {
+                            "command": script.to_string_lossy(),
+                            "args": ["--preset"],
+                            "env": { "A": "preset" },
+                            "startup": "export A=1"
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            fixture.folder.join(".sworm/tasks.jsonc"),
+            serde_json::json!({
+                "version": 1,
+                "tasks": [{
+                    "id": "once", "label": "Once", "command": "echo $A",
+                    "shell": "dev", "env": { "A": "task" }
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fixture
+            .host
+            .tasks_start(
+                "preset-task".into(),
+                fixture.path(),
+                "once".into(),
+                None,
+                80,
+                24,
+                None,
+                None,
+                false,
+            )
+            .unwrap();
+        wait_until(|| {
+            fixture
+                .host
+                .run_status("preset-task")
+                .unwrap()
+                .exited
+                .is_some()
+        });
+        assert_eq!(
+            fs::read(fixture.folder.join("argv")).unwrap(),
+            b"--base\0--preset\0-c\0export A=1\necho $A\0"
+        );
+        assert_eq!(fs::read(fixture.folder.join("env")).unwrap(), b"task");
     }
 
     #[cfg(unix)]
@@ -885,7 +966,7 @@ mod tests {
             host.session_start(
                 "discarded".into(),
                 fixture.path(),
-                Some("omp".into()),
+                "omp".into(),
                 None,
                 None,
                 80,
@@ -919,17 +1000,15 @@ mod tests {
     }
 
     #[test]
-    fn session_reattach_preserves_started_pid_and_rejects_other_owner() {
+    fn shell_reattach_preserves_started_pid_and_rejects_other_owner() {
         let fixture = Fixture::new("true");
         let folder = fixture.path();
         let (first, first_events) = subscriber();
         fixture
             .host
-            .session_start(
+            .shell_start(
                 "terminal-run".into(),
                 folder.clone(),
-                None,
-                None,
                 None,
                 80,
                 24,
@@ -944,13 +1023,11 @@ mod tests {
                 .any(|event| matches!(event, PtyEvent::Started { .. }))
         });
         let (second, second_events) = subscriber();
-        let info = fixture
+        fixture
             .host
-            .session_start(
+            .shell_start(
                 "terminal-run".into(),
                 folder.clone(),
-                None,
-                None,
                 None,
                 90,
                 30,
@@ -958,7 +1035,6 @@ mod tests {
                 Some("owner".into()),
             )
             .unwrap();
-        assert!(info.resumed);
         let first_pid = first_events
             .lock()
             .iter()
@@ -977,11 +1053,9 @@ mod tests {
             .unwrap();
         assert_eq!(first_pid, second_pid);
         assert!(matches!(
-            fixture.host.session_start(
+            fixture.host.shell_start(
                 "terminal-run".into(),
                 folder,
-                None,
-                None,
                 None,
                 80,
                 24,
@@ -990,7 +1064,7 @@ mod tests {
             ),
             Err(ApiError::Pty(_))
         ));
-        fixture.host.session_stop("terminal-run".into()).unwrap();
+        fixture.host.shell_stop("terminal-run".into()).unwrap();
     }
     #[test]
     fn stalled_start_does_not_block_other_runs_and_same_run_stop_waits() {
@@ -1015,38 +1089,18 @@ mod tests {
             let host = &fixture.host;
             let folder = fixture.path();
             let start = scope.spawn(move || {
-                host.session_start(
-                    "slow".into(),
-                    folder,
-                    None,
-                    None,
-                    None,
-                    80,
-                    24,
-                    Some(subscriber),
-                    None,
-                )
+                host.shell_start("slow".into(), folder, None, 80, 24, Some(subscriber), None)
             });
             entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
             let (stopped_tx, stopped_rx) = std::sync::mpsc::channel();
             scope.spawn(move || {
-                let result = host.session_stop("slow".into());
+                let result = host.shell_stop("slow".into());
                 stopped_tx.send(result).unwrap();
             });
             let (other_tx, other_rx) = std::sync::mpsc::channel();
             let folder = fixture.path();
             scope.spawn(move || {
-                let result = host.session_start(
-                    "other".into(),
-                    folder,
-                    None,
-                    None,
-                    None,
-                    80,
-                    24,
-                    None,
-                    None,
-                );
+                let result = host.shell_start("other".into(), folder, None, 80, 24, None, None);
                 other_tx.send(result).unwrap();
             });
             let other = other_rx.recv_timeout(Duration::from_secs(2));
@@ -1083,11 +1137,9 @@ mod tests {
         };
         let host = Arc::clone(&fixture.host);
         let first = tokio::task::spawn_blocking(move || {
-            host.session_start(
+            host.shell_start(
                 "first".into(),
                 folder,
-                None,
-                None,
                 None,
                 80,
                 24,
@@ -1102,18 +1154,16 @@ mod tests {
         let host = Arc::clone(&fixture.host);
         let folder = fixture.path();
         let same_owner_task = tokio::task::spawn_blocking(move || {
-            host.session_start(
+            host.shell_start(
                 "same-owner".into(),
                 folder,
-                None,
-                None,
                 None,
                 80,
                 24,
                 None,
                 Some("owner-a".into()),
             )?;
-            host.session_stop("same-owner".into())
+            host.shell_stop("same-owner".into())
         });
         let same_owner = tokio::time::timeout(Duration::from_secs(2), same_owner_task).await;
         let host = Arc::clone(&fixture.host);
@@ -1129,18 +1179,16 @@ mod tests {
         let host = Arc::clone(&fixture.host);
         let folder = fixture.path();
         let other_task = tokio::task::spawn_blocking(move || {
-            host.session_start(
+            host.shell_start(
                 "second".into(),
                 folder,
-                None,
-                None,
                 None,
                 80,
                 24,
                 None,
                 Some("owner-b".into()),
             )?;
-            host.session_stop("second".into())
+            host.shell_stop("second".into())
         });
         let other = tokio::time::timeout(Duration::from_secs(2), other_task).await;
         let close_waited = !close.is_finished();
@@ -1159,11 +1207,9 @@ mod tests {
             .unwrap();
         assert!(!fixture.host.run_status("first").unwrap().live);
         assert!(matches!(
-            fixture.host.session_start(
+            fixture.host.shell_start(
                 "late".into(),
                 fixture.path(),
-                None,
-                None,
                 None,
                 80,
                 24,

@@ -1,12 +1,9 @@
 use crate::errors::ApiError;
 use crate::host::Host;
-use crate::services::env::EnvironmentService;
 use crate::services::extensions::{missing_requirement, ExtensionService};
 use crate::services::folders::resolve_folder;
 use crate::services::harness_scanners::Scanner;
-use crate::services::harnesses::{
-    binary_override, resolve_harness_command, terminal_args, SessionLaunch,
-};
+use crate::services::harnesses::{resolve_harness_command, terminal_args, SessionLaunch};
 use crate::services::omp;
 use crate::services::pty::{CompletedRunSink, PtySubscriber};
 use crate::services::resume_discovery::PendingRun;
@@ -41,12 +38,12 @@ fn validated_session_id(
 impl Host {
     /// Start a run in a PTY inside `folder_path`.
     ///
-    /// Resume semantics come from the harness's `terminal` contribution; shells never resume.
+    /// Resume semantics come from the harness's `terminal` contribution.
     pub fn session_start(
         &self,
         run_id: String,
         folder_path: String,
-        harness_id: Option<String>,
+        harness_id: String,
         preset: Option<String>,
         session_id: Option<String>,
         cols: u16,
@@ -58,6 +55,7 @@ impl Host {
         let folder = resolve_folder(&folder_path)?;
         let kind = RunKind::Session {
             harness_id: harness_id.clone(),
+            preset: preset.clone(),
         };
         self.runs.with_start(&run_id, |runs| {
             if runs.reuse(
@@ -110,7 +108,7 @@ impl Host {
         &self,
         run_id: String,
         folder: &std::path::Path,
-        harness_id: Option<String>,
+        harness_id: String,
         preset: Option<String>,
         session_id: Option<String>,
         cols: u16,
@@ -125,42 +123,7 @@ impl Host {
         let settings = &effective_settings.settings;
         let mut child_env = self.folder_env(folder);
         let cwd = folder.to_string_lossy().into_owned();
-        let Some(id) = harness_id else {
-            if preset.is_some() {
-                return Err(ApiError::InvalidArgument(
-                    "A shell session cannot use a preset".into(),
-                ));
-            }
-            let environment = EnvironmentService::current();
-            let cmd = binary_override(settings.shell.binary_path_override.as_deref())
-                .unwrap_or(&environment.detected_shell);
-            let args: Vec<&str> = settings
-                .shell
-                .extra_args
-                .iter()
-                .map(String::as_str)
-                .collect();
-            self.pty
-                .spawn(
-                    run_id,
-                    folder,
-                    cmd,
-                    &args,
-                    Some(&cwd),
-                    Some(&child_env),
-                    cols,
-                    rows,
-                    subscriber,
-                    owner_id,
-                    None,
-                    completed,
-                )
-                .map_err(ApiError::Pty)?;
-            return Ok(SessionStartInfo {
-                resumed: false,
-                session_id: None,
-            });
-        };
+        let id = harness_id;
         let catalog = ExtensionService::current();
         let harness = catalog
             .find_harness(&id)
@@ -288,10 +251,18 @@ impl Host {
         })
     }
 
-    /// Stop a session and release its retained record and transcript, rejecting task IDs.
+    /// Stop a session and release its retained record and transcript.
     pub fn session_stop(&self, run_id: String) -> Result<(), ApiError> {
         self.runs.with_run(&run_id, |runs| {
-            runs.stop(&run_id, RunKind::Session { harness_id: None }, &self.pty)?;
+            // Stop checks only the domain discriminant.
+            runs.stop(
+                &run_id,
+                RunKind::Session {
+                    harness_id: String::new(),
+                    preset: None,
+                },
+                &self.pty,
+            )?;
             self.forget_run(&run_id);
             Ok(())
         })

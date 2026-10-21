@@ -183,6 +183,7 @@ impl RouterInner {
             .await?;
         match kind {
             RemoteRunKind::Session => reply.session_stop(),
+            RemoteRunKind::Shell => reply.shell_stop(),
             RemoteRunKind::Task => reply.tasks_stop(),
         }
         .map_err(ApiError::from)

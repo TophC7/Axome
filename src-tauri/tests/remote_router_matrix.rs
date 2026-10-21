@@ -300,20 +300,29 @@ async fn local_leases_follow_authority_and_transfer_identity(
         .workbench_transfer("source", "target", "loop", id.clone(), "old".into())
         .await
         .is_err());
+    let (started_send, mut started_receive) = tokio::sync::mpsc::unbounded_channel();
+    let started_events: EventSink<PtyEvent> = Arc::new(move |event| {
+        if let PtyEvent::Started { pid, .. } = event {
+            started_send.send(pid).map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    });
     router
-        .session_start(
+        .shell_start(
             "transferred-proxy".into(),
             workspace.remote.clone(),
-            None,
-            None,
             None,
             80,
             24,
             Arc::new(|_| Ok(())),
-            Arc::new(|_| Ok(())),
+            Arc::clone(&started_events),
             Some("source".into()),
         )
         .await?;
+    let original_pid = tokio::time::timeout(Duration::from_secs(15), started_receive.recv())
+        .await?
+        .flatten()
+        .expect("original shell started");
     router
         .workbench_attach(
             "target",
@@ -359,23 +368,25 @@ async fn local_leases_follow_authority_and_transfer_identity(
         .pty
         .stop_owned_run("transferred-proxy", "source")
         .unwrap());
-    let adopted = router
-        .session_start(
+    router
+        .shell_start(
             "transferred-proxy".into(),
             workspace.remote.clone(),
-            None,
-            None,
             None,
             80,
             24,
             Arc::new(|_| Ok(())),
-            Arc::new(|_| Ok(())),
+            started_events,
             Some("target".into()),
         )
         .await?;
-    assert!(
-        adopted.resumed,
-        "local window transfer must retain the daemon process"
+    let adopted_pid = tokio::time::timeout(Duration::from_secs(15), started_receive.recv())
+        .await?
+        .flatten()
+        .expect("adopted shell started");
+    assert_eq!(
+        adopted_pid, original_pid,
+        "window transfer must retain the daemon process"
     );
     assert!(
         !router
@@ -404,7 +415,7 @@ async fn local_leases_follow_authority_and_transfer_identity(
         .pty
         .ensure_owner("transferred-proxy", Some("source"))
         .unwrap();
-    router.session_stop("transferred-proxy".into()).await?;
+    router.shell_stop("transferred-proxy".into()).await?;
 
     let outsider = fixture.client().await?;
     outsider
@@ -725,7 +736,7 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
         router.session_start(
             format!("{PROBE}-session"),
             remote.clone(),
-            Some(PROBE.to_owned()),
+            PROBE.to_owned(),
             None,
             None,
             80,

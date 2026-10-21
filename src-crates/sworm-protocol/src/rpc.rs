@@ -103,8 +103,12 @@ pub enum WorkbenchAttached {
 pub enum WorkbenchRun {
     Session {
         folder: String,
-        /// `None` for shells.
-        harness_id: Option<String>,
+        harness_id: String,
+        preset: Option<String>,
+    },
+    Shell {
+        folder: String,
+        preset: Option<String>,
     },
     Task {
         folder: String,
@@ -200,6 +204,8 @@ macro_rules! sworm_rpc_ops {
             FolderWorkingDirectory => folder_working_directory() -> String;
             #[route(none)]
             HarnessList => harness_list() -> $crate::harness::HarnessListing;
+            #[route(none)]
+            ShellList => shell_list() -> $crate::shell::ShellListing;
             #[route(none)]
             ActivityMapGet => activity_map_get() -> Vec<$crate::activity_map::DiscoveredProject>;
             #[route(none)]
@@ -603,6 +609,10 @@ macro_rules! sworm_rpc_ops {
                 folder_path: String,
             ) -> $crate::harness::HarnessListing;
             #[route(folder_path)]
+            ShellListForFolder => shell_list_for_folder(
+                folder_path: String,
+            ) -> $crate::shell::ShellListing;
+            #[route(folder_path)]
             FormattingFormat => formatting_format(
                 folder_path: String,
                 file_path: String,
@@ -636,9 +646,9 @@ macro_rules! sworm_rpc_ops {
                 config: $crate::settings::HarnessConfigRecord,
             ) -> $crate::settings::HarnessConfigRecord;
             #[route(server)]
-            SettingsSetShell => settings_set_shell(
-                settings: $crate::settings::ShellSettings,
-            ) -> $crate::settings::ShellSettings;
+            SettingsSetShellConfig => settings_set_shell_config(
+                config: $crate::settings::ShellConfigRecord,
+            ) -> $crate::settings::ShellConfigRecord;
             #[route(folder_path)]
             SettingsOpenFolderFile => settings_open_folder_file(
                 folder_path: String,
@@ -670,12 +680,20 @@ macro_rules! sworm_rpc_ops {
             SessionStart => session_start(
                 run_id: String,
                 folder_path: String,
-                harness_id: Option<String>,
+                harness_id: String,
                 preset: Option<String>,
                 session_id: Option<String>,
                 cols: u16,
                 rows: u16,
             ) -> $crate::session::SessionStartInfo;
+            #[route(folder_path)]
+            ShellStart => shell_start(
+                run_id: String,
+                folder_path: String,
+                preset: Option<String>,
+                cols: u16,
+                rows: u16,
+            ) -> ();
             #[route(folder_path)]
             TasksStart => tasks_start(
                 run_id: String,
@@ -688,6 +706,10 @@ macro_rules! sworm_rpc_ops {
             ) -> ();
             #[route(run)]
             SessionStop => session_stop(
+                run_id: String,
+            ) -> ();
+            #[route(run)]
+            ShellStop => shell_stop(
                 run_id: String,
             ) -> ();
             #[route(run)]

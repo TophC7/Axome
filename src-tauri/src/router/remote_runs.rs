@@ -26,6 +26,7 @@ const INPUT_QUEUE_CAPACITY: usize = 256;
 #[serde(rename_all = "snake_case")]
 pub(crate) enum RemoteRunKind {
     Session,
+    Shell,
     Task,
 }
 
@@ -33,6 +34,7 @@ impl RemoteRunKind {
     pub(crate) fn stop_request(self, run_id: String) -> Request {
         match self {
             Self::Session => Request::SessionStop { run_id },
+            Self::Shell => Request::ShellStop { run_id },
             Self::Task => Request::TasksStop { run_id },
         }
     }

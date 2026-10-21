@@ -8,7 +8,7 @@ use sworm_protocol::session::SessionStartInfo;
 pub async fn session_start(
     run_id: String,
     folder_path: String,
-    harness_id: Option<String>,
+    harness_id: String,
     preset: Option<String>,
     session_id: Option<String>,
     cols: u16,
@@ -38,23 +38,4 @@ pub async fn session_start(
         state.router.session_stop(run_id).await?;
     }
     Ok(info)
-}
-
-#[tauri::command]
-pub async fn session_write(
-    run_id: String,
-    data: Vec<u8>,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), ApiError> {
-    state.router.run_write(run_id, data).await
-}
-
-#[tauri::command]
-pub async fn session_resize(
-    run_id: String,
-    cols: u16,
-    rows: u16,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), ApiError> {
-    state.router.run_resize(run_id, cols, rows).await
 }

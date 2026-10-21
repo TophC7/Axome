@@ -5,8 +5,10 @@ pub mod folders;
 pub mod git;
 pub mod lsp;
 pub mod remote;
+pub mod runs;
 pub mod sessions;
 pub mod settings;
+pub mod shells;
 pub mod shortcuts;
 pub mod tasks;
 pub mod window;
@@ -22,6 +24,7 @@ macro_rules! forward_command {
     (#[route($route:ident)] GitWatch => $($row:tt)*) => {};
     (#[route($route:ident)] GitWorktree => $($row:tt)*) => {};
     (#[route($route:ident)] SessionStart => $($row:tt)*) => {};
+    (#[route($route:ident)] ShellStart => $($row:tt)*) => {};
     (#[route($route:ident)] TasksStart => $($row:tt)*) => {};
     (#[route($route:ident)] LspStart => $($row:tt)*) => {};
     (#[route($route:ident)] AppRuntimeInfo => $($row:tt)*) => {};
@@ -180,7 +183,7 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         settings_set_nix,
         settings_set_formatting,
         settings_set_harness_config,
-        settings_set_shell,
+        settings_set_shell_config,
         // Shortcut commands
         shortcuts_get_global,
         shortcuts_set_global,
@@ -192,8 +195,6 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         // Task commands (folder-scoped .sworm/tasks.jsonc)
         tasks_list,
         tasks::tasks_start,
-        tasks::tasks_write,
-        tasks::tasks_resize,
         tasks_stop,
         // Nix environment commands
         nix_detect,
@@ -262,9 +263,15 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         lsp_stop,
         // Session commands (process-only; resume identity lives in the tab)
         sessions::session_start,
-        sessions::session_write,
-        sessions::session_resize,
         session_stop,
         omp_resolve_uri,
+        // Shell commands
+        shells::shell_start,
+        shell_stop,
+        shell_list,
+        shell_list_for_folder,
+        // Run commands
+        runs::run_write,
+        runs::run_resize,
     ]
 }

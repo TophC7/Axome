@@ -413,6 +413,7 @@ macro_rules! dispatch_operation {
     (#[route($route:ident)] GitWorktreeDefaultPath => $($rest:tt)*) => {};
     (#[route($route:ident)] GitWorktree => $($rest:tt)*) => {};
     (#[route($route:ident)] SessionStart => $($rest:tt)*) => {};
+    (#[route($route:ident)] ShellStart => $($rest:tt)*) => {};
     (#[route($route:ident)] TasksStart => $($rest:tt)*) => {};
     (#[route($route:ident)] LspStart => $($rest:tt)*) => {};
     // The manifest and registered snapshots belong to the workbench registry.
@@ -888,7 +889,7 @@ impl DispatchRuntime<'_> {
         &self,
         run_id: String,
         folder_path: String,
-        harness_id: Option<String>,
+        harness_id: String,
         preset: Option<String>,
         session_id: Option<String>,
         cols: u16,
@@ -923,6 +924,34 @@ impl DispatchRuntime<'_> {
             .map_err(ApiError::from)??;
             context.publish_if_live(&host, &run_id).await?;
             Ok(info)
+        })
+        .await
+        .map_err(run_operation_join)?
+    }
+
+    async fn shell_start(
+        &self,
+        run_id: String,
+        folder_path: String,
+        preset: Option<String>,
+        cols: u16,
+        rows: u16,
+    ) -> Result<(), WireError> {
+        let folder = self.claim(&folder_path, "folder_path").await?;
+        let owner = self.run_owner();
+        let host = Arc::clone(self.host);
+        let context = Arc::clone(self.context);
+        tokio::spawn(async move {
+            let _folder = folder;
+            let _operation = context.run_operation(&run_id).await;
+            let id = run_id.clone();
+            let start_host = Arc::clone(&host);
+            tokio::task::spawn_blocking(move || {
+                start_host.shell_start(id, folder_path, preset, cols, rows, None, owner)
+            })
+            .await
+            .map_err(ApiError::from)??;
+            context.publish_if_live(&host, &run_id).await
         })
         .await
         .map_err(run_operation_join)?
@@ -978,6 +1007,24 @@ impl DispatchRuntime<'_> {
             check_run_owner(&host, owner, &run_id).await?;
             let id = run_id.clone();
             tokio::task::spawn_blocking(move || host.session_stop(id))
+                .await
+                .map_err(ApiError::from)??;
+            context.invalidate_run(&run_id).await
+        })
+        .await
+        .map_err(run_operation_join)?
+    }
+
+    async fn shell_stop(&self, run_id: String) -> Result<(), WireError> {
+        let owner = self.run_owner();
+        let host = Arc::clone(self.host);
+        let context = Arc::clone(self.context);
+        tokio::spawn(async move {
+            let _admission = Arc::clone(&host.admission).read_owned().await;
+            let _operation = context.run_operation(&run_id).await;
+            check_run_owner(&host, owner, &run_id).await?;
+            let id = run_id.clone();
+            tokio::task::spawn_blocking(move || host.shell_stop(id))
                 .await
                 .map_err(ApiError::from)??;
             context.invalidate_run(&run_id).await

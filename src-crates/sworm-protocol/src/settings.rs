@@ -23,6 +23,12 @@ pub struct HarnessConfigRecord {
     pub extra_args: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ShellConfigRecord {
+    pub binary_path_override: Option<String>,
+    pub extra_args: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum LspTraceLevel {
@@ -240,6 +246,22 @@ pub struct PresetSettings {
 pub struct ShellSettings {
     pub binary_path_override: Option<String>,
     pub extra_args: Vec<String>,
+    /// Preset launched by New Terminal (Ctrl+T); unset launches the bare shell.
+    pub default_preset: Option<String>,
+    /// Keyed by preset name ([A-Za-z0-9_-]+).
+    pub presets: BTreeMap<String, ShellPresetSettings>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct ShellPresetSettings {
+    /// Shell program; bare names resolve on the folder PATH. Defaults to the base shell.
+    pub command: Option<String>,
+    /// Appended after `shell.extra_args`.
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
+    /// Typed into the shell after every start, followed by a newline.
+    pub startup: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]

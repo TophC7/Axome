@@ -227,9 +227,12 @@ impl Host {
                     .map(|(folder, kind)| {
                         let folder = folder.to_string_lossy().into_owned();
                         match kind {
-                            RunKind::Session { harness_id } => {
-                                WorkbenchRun::Session { folder, harness_id }
-                            }
+                            RunKind::Session { harness_id, preset } => WorkbenchRun::Session {
+                                folder,
+                                harness_id,
+                                preset,
+                            },
+                            RunKind::Shell { preset } => WorkbenchRun::Shell { folder, preset },
                             RunKind::Task { task_id } => WorkbenchRun::Task { folder, task_id },
                         }
                     })

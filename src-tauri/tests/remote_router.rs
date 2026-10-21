@@ -9,9 +9,7 @@ use sworm_core::{
 };
 use sworm_lib::host_events::DesktopEvent;
 use sworm_lib::router::{Target, WorkspaceRouter};
-use sworm_protocol::{
-    pty::PtyEvent, rpc::AttachMode, session::SessionStartInfo, settings::PatchSettingsSectionInput,
-};
+use sworm_protocol::{pty::PtyEvent, rpc::AttachMode, settings::PatchSettingsSectionInput};
 use sworm_remote::Identity;
 use sworm_server::{serve, ServeOptions};
 use tempfile::tempdir;
@@ -47,17 +45,12 @@ async fn start_terminal(
     run_id: &str,
     folder: &str,
     owner: &str,
-) -> (
-    Result<SessionStartInfo, ApiError>,
-    mpsc::UnboundedReceiver<PtyDelivery>,
-) {
+) -> (Result<(), ApiError>, mpsc::UnboundedReceiver<PtyDelivery>) {
     let (output, events, receive) = pty_sinks();
     let result = router
-        .session_start(
+        .shell_start(
             run_id.into(),
             folder.into(),
-            None,
-            None,
             None,
             80,
             24,
@@ -67,6 +60,21 @@ async fn start_terminal(
         )
         .await;
     (result, receive)
+}
+
+async fn assert_replay_marker(
+    receive: &mut mpsc::UnboundedReceiver<PtyDelivery>,
+    marker: &[u8],
+    expected: bool,
+) {
+    let replay = receive_through(receive, |event| matches!(event, PtyEvent::Synced { .. })).await;
+    assert_eq!(
+        output_bytes(&replay)
+            .windows(marker.len())
+            .any(|window| window == marker),
+        expected,
+        "shell replay must reflect whether the original process survived"
+    );
 }
 
 async fn echo(
@@ -267,14 +275,11 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         .unwrap();
     assert!(workbench.yours);
     assert!(
-        workbench.running.iter().any(|run| matches!(
-            run,
-            sworm_protocol::rpc::WorkbenchRun::Session {
-                harness_id: None,
-                ..
-            }
-        )),
-        "session must belong to workbench, not connection"
+        workbench
+            .running
+            .iter()
+            .any(|run| matches!(run, sworm_protocol::rpc::WorkbenchRun::Shell { .. })),
+        "shell must belong to workbench, not connection"
     );
     assert!(router
         .workbench_attach(
@@ -311,7 +316,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         host.pty.run_state("leased-run").is_none(),
         "owned proxy must detach despite foreign error"
     );
-    router.session_stop("foreign-release-run".into()).await?;
+    router.shell_stop("foreign-release-run".into()).await?;
     router
         .workbench_detach(
             "foreign-window",
@@ -342,7 +347,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
             .unwrap()
             .running
             .iter()
-            .any(|run| matches!(run, sworm_protocol::rpc::WorkbenchRun::Session { .. })),
+            .any(|run| matches!(run, sworm_protocol::rpc::WorkbenchRun::Shell { .. })),
         "daemon run must remain alive after releasing its desktop proxy"
     );
     router
@@ -802,11 +807,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "desktop-window",
     )
     .await;
-    let reloaded = reloaded?;
-    assert!(
-        reloaded.resumed,
-        "view reload must not restart daemon process"
-    );
+    reloaded?;
     let replay = receive_through(&mut reloaded_deliveries, |event| {
         matches!(event, PtyEvent::Synced { .. })
     })
@@ -838,7 +839,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "__AFTER_RELOAD__",
     )
     .await;
-    router.session_stop("reconnect-run".into()).await?;
+    router.shell_stop("reconnect-run".into()).await?;
 
     router
         .workbench_attach(
@@ -890,8 +891,13 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "replacement-window",
     )
     .await;
-    let resumed = resumed?;
-    assert!(resumed.resumed, "last-owner close must detach remote run");
+    resumed?;
+    assert_replay_marker(
+        &mut resumed_owner_deliveries,
+        b"__BEFORE_OWNER_DETACH__\r\n",
+        true,
+    )
+    .await;
     assert!(router.run_status("last-owner-run".into()).await?.live);
     echo(
         &router,
@@ -900,7 +906,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "__AFTER_OWNER_DETACH__",
     )
     .await;
-    router.session_stop("last-owner-run".into()).await?;
+    router.shell_stop("last-owner-run".into()).await?;
 
     router
         .workbench_attach(
@@ -931,7 +937,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     std::thread::spawn(move || closing_host.release_owner("secondary-window", &HashSet::new()))
         .join()
         .expect("window event thread panicked");
-    let (stopping_start, _) = start_terminal(
+    let (stopping_start, mut stopping_deliveries) = start_terminal(
         &router,
         "secondary-owner-run",
         &remote_repository,
@@ -939,9 +945,14 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     )
     .await;
     match stopping_start {
-        Ok(started) => {
-            assert!(!started.resumed, "a stopping run must not be re-adopted");
-            router.session_stop("secondary-owner-run".into()).await?;
+        Ok(()) => {
+            assert_replay_marker(
+                &mut stopping_deliveries,
+                b"__BEFORE_OWNER_RELEASE__\r\n",
+                false,
+            )
+            .await;
+            router.shell_stop("secondary-owner-run".into()).await?;
         }
         Err(ApiError::Pty(message)) => assert!(message.contains("is stopping")),
         Err(error) => return Err(error.into()),
@@ -961,11 +972,13 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "replacement-window",
     )
     .await;
-    let restarted = restarted?;
-    assert!(
-        !restarted.resumed,
-        "secondary-owner close must kill remote run"
-    );
+    restarted?;
+    assert_replay_marker(
+        &mut restarted_owner_deliveries,
+        b"__BEFORE_OWNER_RELEASE__\r\n",
+        false,
+    )
+    .await;
     assert!(router.run_status("secondary-owner-run".into()).await?.live);
     echo(
         &router,
@@ -974,7 +987,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "__AFTER_OWNER_RELEASE__",
     )
     .await;
-    router.session_stop("secondary-owner-run".into()).await?;
+    router.shell_stop("secondary-owner-run".into()).await?;
 
     let (started, mut detached_deliveries) = start_terminal(
         &router,
@@ -1028,8 +1041,8 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "restarted-window",
     )
     .await;
-    let resumed = resumed?;
-    assert!(resumed.resumed, "daemon run must survive desktop shutdown");
+    resumed?;
+    assert_replay_marker(&mut resumed_deliveries, b"__BEFORE_DETACH__\r\n", true).await;
     echo(
         &router,
         "detached-run",
@@ -1037,7 +1050,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "__AFTER_DETACH__",
     )
     .await;
-    router.session_stop("detached-run".into()).await?;
+    router.shell_stop("detached-run".into()).await?;
 
     let (started, mut completed_deliveries) = start_terminal(
         &router,
@@ -1090,8 +1103,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         "replayed-window",
     )
     .await;
-    let replayed = replayed?;
-    assert!(replayed.resumed);
+    replayed?;
     let replayed = receive_through(&mut replayed_deliveries, |event| {
         matches!(event, PtyEvent::Exit { .. })
     })
@@ -1102,7 +1114,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     let completed_status = router.run_status("completed-run".into()).await?;
     assert!(!completed_status.live);
     assert_eq!(completed_status.exited, Some(Some(7)));
-    router.session_stop("completed-run".into()).await?;
+    router.shell_stop("completed-run".into()).await?;
 
     let (started, mut orphan_deliveries) =
         start_terminal(&router, "orphan-run", &remote_repository, "replayed-window").await;
@@ -1129,7 +1141,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         )
         .await?;
     assert!(
-        router.session_stop("orphan-run".into()).await.is_err(),
+        router.shell_stop("orphan-run".into()).await.is_err(),
         "an unreachable daemon must fail the stop"
     );
     assert_eq!(router.pending_stops_for_test().len(), 1);
@@ -1179,13 +1191,22 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     })
     .await
     .expect("timed out waiting for the pending remote stop to land");
-    let (orphan_restart, _) =
+    let (orphan_restart, mut orphan_restart_deliveries) =
         start_terminal(&router, "orphan-run", &remote_repository, "replayed-window").await;
-    let orphan_restart = orphan_restart?;
-    assert!(
-        !orphan_restart.resumed,
-        "the retried stop must have killed the daemon run"
-    );
+    orphan_restart?;
+    assert_replay_marker(
+        &mut orphan_restart_deliveries,
+        b"__BEFORE_ORPHAN__\r\n",
+        false,
+    )
+    .await;
+    echo(
+        &router,
+        "orphan-run",
+        &mut orphan_restart_deliveries,
+        "__AFTER_ORPHAN_RESTART__",
+    )
+    .await;
     router
         .settings_patch_global_section(
             None,
@@ -1200,7 +1221,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
             },
         )
         .await?;
-    assert!(router.session_stop("orphan-run".into()).await.is_err());
+    assert!(router.shell_stop("orphan-run".into()).await.is_err());
     assert_eq!(router.pending_stops_for_test().len(), 1);
     assert!(router
         .workbench_detach(
@@ -1244,14 +1265,16 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         router.pending_stops_for_test().is_empty(),
         "a takeover must discard stops authorized by the previous controller token"
     );
-    assert!(
-        start_terminal(&router, "orphan-run", &remote_repository, "replayed-window")
-            .await
-            .0?
-            .resumed,
-        "the run remains visible after its desktop lease is released"
-    );
-    router.session_stop("orphan-run".into()).await?;
+    let (retained, mut retained_deliveries) =
+        start_terminal(&router, "orphan-run", &remote_repository, "replayed-window").await;
+    retained?;
+    assert_replay_marker(
+        &mut retained_deliveries,
+        b"__AFTER_ORPHAN_RESTART__\r\n",
+        true,
+    )
+    .await;
+    router.shell_stop("orphan-run".into()).await?;
 
     server.shutdown().await;
     Ok(())

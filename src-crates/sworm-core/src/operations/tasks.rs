@@ -4,6 +4,8 @@ use crate::services::env::EnvironmentService;
 use crate::services::folders::resolve_folder;
 use crate::services::pty::{CompletedRunSink, PtySubscriber};
 use crate::services::runs::RunKind;
+use crate::services::settings_resolution::resolve_effective_settings_for_folder_path;
+use crate::services::shells;
 use std::sync::Arc;
 use sworm_protocol::task::TaskDefinition;
 
@@ -103,8 +105,44 @@ impl Host {
 
         // Always shell-wrap so pipes, globs, `&&`, and quoted args work
         // exactly as a user would type them in their own terminal.
-        let shell = EnvironmentService::current().detected_shell.clone();
-        let shell_args = ["-c", resolved.command.as_str()];
+        let environment = EnvironmentService::current();
+        let (shell, args, env) = if let Some(name) = task.shell.as_deref() {
+            let effective = resolve_effective_settings_for_folder_path(Some(&folder))
+                .map_err(ApiError::Internal)?;
+            // Keep the task resolver's expanded values above the preset layer.
+            let task_env: Vec<_> = task
+                .env
+                .iter()
+                .flat_map(|env| env.keys())
+                .filter_map(|key| {
+                    resolved
+                        .env
+                        .get(key)
+                        .map(|value| (key.clone(), value.clone()))
+                })
+                .collect();
+            let mut launch = shells::resolve(
+                &effective.settings.shell,
+                Some(name),
+                resolved.env,
+                &environment.detected_shell,
+            )
+            .map_err(ApiError::InvalidArgument)?;
+            let script = match launch.startup {
+                Some(startup) => format!("{startup}\n{}", resolved.command),
+                None => resolved.command,
+            };
+            launch.args.extend(["-c".into(), script]);
+            launch.env.extend(task_env);
+            (launch.cmd, launch.args, launch.env)
+        } else {
+            (
+                environment.detected_shell.clone(),
+                vec!["-c".into(), resolved.command],
+                resolved.env,
+            )
+        };
+        let shell_args: Vec<&str> = args.iter().map(String::as_str).collect();
         let cwd = resolved.cwd.to_string_lossy().into_owned();
 
         let on_exit = if task.singleton {
@@ -128,7 +166,7 @@ impl Host {
             &shell,
             &shell_args,
             Some(&cwd),
-            Some(&resolved.env),
+            Some(&env),
             cols,
             rows,
             subscriber,

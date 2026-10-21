@@ -245,6 +245,53 @@ macro_rules! define_router_operation {
     };
     (
         #[route(folder_path)]
+        ShellStart => $method:ident(
+            $run_id:ident: $run_id_type:ty,
+            $folder_path:ident: $folder_path_type:ty,
+            $preset:ident: $preset_type:ty,
+            $cols:ident: $cols_type:ty,
+            $rows:ident: $rows_type:ty $(,)?
+        ) -> $return_type:ty;
+    ) => {
+        #[allow(clippy::too_many_arguments)]
+        pub async fn $method(
+            &self,
+            $run_id: $run_id_type,
+            $folder_path: $folder_path_type,
+            $preset: $preset_type,
+            $cols: $cols_type,
+            $rows: $rows_type,
+            output: EventSink<Vec<u8>>,
+            events: EventSink<PtyEvent>,
+            owner_id: Option<String>,
+        ) -> Result<$return_type, ApiError> {
+            if let Target::Remote { server, path } = Target::parse(&$folder_path)? {
+                return self.start_remote_run(
+                    RemoteRunKind::Shell, $run_id.clone(), server, path, owner_id,
+                        Request::ShellStart {
+                            run_id: $run_id.clone(),
+                            folder_path: path.to_owned(),
+                            preset: $preset,
+                            cols: $cols,
+                            rows: $rows,
+                        },
+                    output, events, Reply::$method,
+                ).await;
+            }
+            self.local(move |host| host.$method(
+                    $run_id,
+                    $folder_path,
+                    $preset,
+                    $cols,
+                    $rows,
+                    Some(PtySubscriber { output, events }),
+                    owner_id,
+                ))
+                .await
+        }
+    };
+    (
+        #[route(folder_path)]
         TasksStart => $method:ident(
             $run_id:ident: $run_id_type:ty,
             $folder_path:ident: $folder_path_type:ty,
@@ -304,6 +351,14 @@ macro_rules! define_router_operation {
     ) => {
         pub async fn $method(&self, $run_id: $run_id_type) -> Result<$return_type, ApiError> {
             self.stop_registered($run_id, RemoteRunKind::Session).await
+        }
+    };
+    (
+        #[route(run)]
+        ShellStop => $method:ident($run_id:ident: $run_id_type:ty $(,)?) -> $return_type:ty;
+    ) => {
+        pub async fn $method(&self, $run_id: $run_id_type) -> Result<$return_type, ApiError> {
+            self.stop_registered($run_id, RemoteRunKind::Shell).await
         }
     };
     (
@@ -902,6 +957,7 @@ impl WorkspaceRouter {
     async fn stop_local(&self, kind: RemoteRunKind, run_id: String) -> Result<(), ApiError> {
         self.local(move |host| match kind {
             RemoteRunKind::Session => host.session_stop(run_id),
+            RemoteRunKind::Shell => host.shell_stop(run_id),
             RemoteRunKind::Task => host.tasks_stop(run_id),
         })
         .await

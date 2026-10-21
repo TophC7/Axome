@@ -44,6 +44,10 @@ pub struct TaskDefinition {
     /// globs, and environment expansion are supported.
     pub command: String,
 
+    /// Shell preset from `shell.presets` used to run this task. Omit to use the detected login shell.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+
     /// Working directory relative to the project root. Defaults to
     /// the project root when omitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]

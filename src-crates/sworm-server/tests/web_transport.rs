@@ -445,12 +445,10 @@ fn hello_text(value: Value) -> Message {
     Message::Text(value.to_string().into())
 }
 fn terminal_start(f: &Fixture, run: &str) -> Request {
-    Request::SessionStart {
+    Request::ShellStart {
         run_id: run.into(),
         folder_path: f.folder(),
-        harness_id: None,
         preset: None,
-        session_id: None,
         cols: 80,
         rows: 24,
     }
@@ -973,7 +971,7 @@ async fn retained_terminal_and_task(f: &Fixture) -> Result<()> {
     } = f.attach(&workbench, AttachMode::Open {}).await?;
     success(&mut control, 1, terminal_start(f, run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (mut pty, mut cursor, pid) = f.shell(&id, run).await?;
     control.close(None).await?;
@@ -1025,10 +1023,10 @@ async fn retained_terminal_and_task(f: &Fixture) -> Result<()> {
     success(
         &mut replacement,
         2,
-        Request::SessionStop { run_id: run.into() },
+        Request::ShellStop { run_id: run.into() },
     )
     .await?
-    .session_stop()
+    .shell_stop()
     .checked()?;
     assert!(!run_status(&mut replacement, run).await?);
     wait_exit(pid, "explicitly stopped terminal").await?;
@@ -1111,7 +1109,7 @@ async fn lsp_ownership(f: &Fixture) -> Result<()> {
     let pty_run = "web-lsp-surviving-pty";
     success(&mut owner, 1, terminal_start(f, pty_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let session = "web-lsp-owned";
     let mut stream = f
@@ -1200,12 +1198,12 @@ async fn lsp_ownership(f: &Fixture) -> Result<()> {
     success(
         &mut replacement,
         5,
-        Request::SessionStop {
+        Request::ShellStop {
             run_id: pty_run.into(),
         },
     )
     .await?
-    .session_stop()
+    .shell_stop()
     .checked()?;
     Ok(())
 }
@@ -1337,7 +1335,7 @@ async fn file_integrity_and_shutdown(f: Fixture) -> Result<()> {
     let run_id = "web-shutdown-terminal";
     success(&mut control, 3, terminal_start(&f, run_id))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (mut active, _, pid) = f.shell(&id, run_id).await?;
     let mut stalled = f
@@ -1611,7 +1609,7 @@ async fn quic_workbench_interop(f: &Fixture) -> Result<()> {
     client
         .call_workbench(&id, &terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let listing = client
         .call(&Request::WorkbenchList {})
@@ -1627,13 +1625,13 @@ async fn quic_workbench_interop(f: &Fixture) -> Result<()> {
             && info
                 .running
                 .iter()
-                .any(|entry| matches!(entry, WorkbenchRun::Session { .. })),
+                .any(|entry| matches!(entry, WorkbenchRun::Shell { .. })),
         "{info:?}"
     );
     let mut web = f.attach(&id, AttachMode::Takeover {}).await?;
     success(&mut web.ws, 54, terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     assert!(
         run_status(&mut web.ws, &run).await?,
@@ -1818,7 +1816,7 @@ async fn workbench_lifecycle(f: &Fixture) -> Result<()> {
     let run = new_run();
     success(&mut second.ws, 1, terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let seen = f
         .listed(&id)
@@ -1843,18 +1841,18 @@ async fn workbench_lifecycle(f: &Fixture) -> Result<()> {
     let run = new_run();
     success(&mut third.ws, 2, terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     assert!(run_status(&mut third.ws, &run).await?);
     success(
         &mut third.ws,
         3,
-        Request::SessionStop {
+        Request::ShellStop {
             run_id: run.clone(),
         },
     )
     .await?
-    .session_stop()
+    .shell_stop()
     .checked()?;
 
     // A tab keeps an otherwise empty workbench.
@@ -1917,7 +1915,7 @@ async fn takeover_and_leases(f: &Fixture) -> Result<()> {
     let (terminal_run, task_run) = (new_run(), new_run());
     success(&mut a1.ws, 2, terminal_start(f, &terminal_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     success(&mut a1.ws, 3, task_start(f, &task_run, false))
         .await?
@@ -1928,7 +1926,7 @@ async fn takeover_and_leases(f: &Fixture) -> Result<()> {
     let b_run = new_run();
     success(&mut b1.ws, 1, terminal_start(f, &b_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (mut b_pty, mut b_cursor, b_pid) = f.shell(&b1.connection, &b_run).await?;
 
@@ -2148,7 +2146,7 @@ async fn drain_races(f: &Fixture) -> Result<()> {
     let b_run = new_run();
     success(&mut b.ws, 1, terminal_start(f, &b_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (_b_pty, _, b_pid) = f
         .shell(&b.connection, &b_run)
@@ -2331,7 +2329,7 @@ async fn detach_and_close(f: &Fixture) -> Result<()> {
     let (a_term, a_task) = (new_run(), new_run());
     success(&mut a1.ws, 2, terminal_start(f, &a_term))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     success(&mut a1.ws, 3, task_start(f, &a_task, false))
         .await?
@@ -2348,7 +2346,7 @@ async fn detach_and_close(f: &Fixture) -> Result<()> {
     let b_term = new_run();
     success(&mut b1.ws, 2, terminal_start(f, &b_term))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (mut b_pty, mut b_cursor, b_pid) = f
         .shell(&b1.connection, &b_term)
@@ -2400,7 +2398,7 @@ async fn detach_and_close(f: &Fixture) -> Result<()> {
         ),
         (
             11,
-            Request::SessionStop {
+            Request::ShellStop {
                 run_id: a_term.clone(),
             },
         ),
@@ -2539,7 +2537,7 @@ async fn detach_and_close(f: &Fixture) -> Result<()> {
     let d_run = new_run();
     success(&mut d1.ws, 1, terminal_start(f, &d_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (d_pty, _, d_pid) = f.shell(&d1.connection, &d_run).await?;
     d1.ws.close(None).await?;
@@ -2579,7 +2577,7 @@ async fn close_storage_failure(f: &Fixture) -> Result<()> {
     let run = new_run();
     success(&mut e1.ws, 2, terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (_pty, _, pid) = f.shell(&e1.connection, &run).await?;
     let db = f.db()?;
@@ -2714,7 +2712,7 @@ async fn self_close(f: &Fixture) -> Result<()> {
     let (term_run, task_run) = (new_run(), new_run());
     success(&mut a1.ws, 2, terminal_start(f, &term_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     success(&mut a1.ws, 3, task_start(f, &task_run, false))
         .await?
@@ -2761,7 +2759,7 @@ async fn self_close(f: &Fixture) -> Result<()> {
     let fresh_run = new_run();
     success(&mut a2.ws, 2, terminal_start(f, &fresh_run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     assert!(run_status(&mut a2.ws, &fresh_run).await?);
     close_workbench(&mut observer, 1, &a).await?;
@@ -2845,7 +2843,7 @@ async fn self_close(f: &Fixture) -> Result<()> {
     let run = new_run();
     success(&mut e1.ws, 2, terminal_start(f, &run))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let (_pty, _, pid) = f.shell(&e1.connection, &run).await?;
     db.execute_batch(&format!(
@@ -3034,7 +3032,7 @@ async fn registry_and_restart(home: &Path) -> Result<()> {
     let archived = new_run();
     success(&mut a1.ws, 50, terminal_start(&f, &archived))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     let mut pty = f
         .stream(
@@ -3062,29 +3060,29 @@ async fn registry_and_restart(home: &Path) -> Result<()> {
     let live = new_run();
     success(&mut a1.ws, 51, terminal_start(&f, &live))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
-    let terminal = WorkbenchRun::Session {
+    let terminal = WorkbenchRun::Shell {
         folder: fs::canonicalize(&f.repo)?.to_string_lossy().into_owned(),
-        harness_id: None,
+        preset: None,
     };
     f.wait_listed(&a, "running", |info| {
         info.is_some_and(|info| info.connected && info.running == [terminal.clone()])
     })
     .await?;
-    // A stopped session leaves the running list.
+    // A stopped shell leaves the running list.
     let stopped = new_run();
     success(&mut a1.ws, 52, terminal_start(&f, &stopped))
         .await?
-        .session_start()
+        .shell_start()
         .checked()?;
     f.wait_listed(&a, "running twice", |info| {
         info.is_some_and(|info| info.running == [terminal.clone(), terminal.clone()])
     })
     .await?;
-    success(&mut a1.ws, 53, Request::SessionStop { run_id: stopped })
+    success(&mut a1.ws, 53, Request::ShellStop { run_id: stopped })
         .await?
-        .session_stop()
+        .shell_stop()
         .checked()?;
     f.wait_listed(&a, "stopped", |info| {
         info.is_some_and(|info| info.running == [terminal.clone()])

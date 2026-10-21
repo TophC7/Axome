@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use sworm_protocol::settings::{
     EffectiveSettingsPayload, FormattingSettings, HarnessConfigRecord, HarnessSettingsEntry,
     NixSettings, PatchSettingsSectionInput, SettingsFileResult, SettingsLayerKind,
-    SettingsLayerPayload, SettingsPayload, ShellSettings, TypographySettings, WindowSettings,
+    SettingsLayerPayload, SettingsPayload, ShellConfigRecord, TypographySettings, WindowSettings,
 };
 
 impl Host {
@@ -144,11 +144,19 @@ impl Host {
         Ok(settings)
     }
 
-    pub fn settings_set_shell(&self, settings: ShellSettings) -> Result<ShellSettings, ApiError> {
-        let value = serde_json::to_value(&settings)
-            .map_err(|error| ApiError::Internal(error.to_string()))?;
-        self.settings_update_global_section("shell", |_| Ok(value))?;
-        Ok(settings)
+    pub fn settings_set_shell_config(
+        &self,
+        config: ShellConfigRecord,
+    ) -> Result<ShellConfigRecord, ApiError> {
+        self.settings_update_global_section("shell", |mut shell| {
+            if !shell.is_object() {
+                shell = json!({});
+            }
+            shell["binary_path_override"] = json!(config.binary_path_override);
+            shell["extra_args"] = json!(config.extra_args);
+            Ok(shell)
+        })?;
+        Ok(config)
     }
 
     pub fn settings_set_formatting(
@@ -221,5 +229,72 @@ fn layer_payload(layer: SettingsLayerLoad) -> SettingsLayerPayload {
             value: json!({}),
             diagnostics: vec![parse_error_diagnostic(layer, &path, message)],
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{fs, process::Command, sync::Arc};
+
+    #[test]
+    fn shell_config_write_preserves_presets() {
+        const TEST: &str = "operations::settings::tests::shell_config_write_preserves_presets";
+        const MARKER: &str = "SWORM_ISOLATED_TEST";
+        if std::env::var(MARKER).as_deref() != Ok(TEST) {
+            // Keep global settings writes out of the user's config and other tests' environment.
+            let home =
+                std::env::temp_dir().join(format!("sworm-shell-settings-{}", uuid::Uuid::new_v4()));
+            fs::create_dir_all(&home).unwrap();
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", TEST, "--nocapture"])
+                .env(MARKER, TEST)
+                .env("HOME", &home)
+                .env("XDG_CONFIG_HOME", home.join("config"))
+                .env("XDG_DATA_HOME", home.join("data"))
+                .status()
+                .expect("launch isolated settings test");
+            fs::remove_dir_all(home).unwrap();
+            assert!(status.success(), "isolated settings test failed: {status}");
+            return;
+        }
+
+        let home = PathBuf::from(std::env::var_os("HOME").unwrap());
+        let host = Host::new(home.join("data.db"), Arc::new(|_| Ok(()))).unwrap();
+        let preset = json!({
+            "command": "/bin/sh",
+            "args": ["-l"],
+            "env": { "DEV": "1" },
+            "startup": "echo ready"
+        });
+        host.settings_update_global_section("shell", |_| {
+            Ok(json!({
+                "binary_path_override": "/old/shell",
+                "extra_args": ["--old"],
+                "presets": { "dev": preset },
+                "default_preset": "dev",
+                "future_key": true
+            }))
+        })
+        .unwrap();
+        for binary_path_override in [Some("/new/shell".to_string()), None] {
+            let config = ShellConfigRecord {
+                binary_path_override,
+                extra_args: vec!["--new".to_string()],
+            };
+            assert_eq!(
+                host.settings_set_shell_config(config.clone()).unwrap(),
+                config
+            );
+            let shell = host.settings_get_global_layer().unwrap().value["shell"].clone();
+            assert_eq!(shell["presets"]["dev"], preset);
+            assert_eq!(shell["default_preset"], "dev");
+            assert_eq!(shell["future_key"], true);
+            assert_eq!(
+                shell["binary_path_override"],
+                json!(config.binary_path_override)
+            );
+            assert_eq!(shell["extra_args"], json!(config.extra_args));
+        }
     }
 }

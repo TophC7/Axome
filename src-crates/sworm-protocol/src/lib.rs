@@ -18,4 +18,5 @@ pub mod rpc;
 pub mod server_config;
 pub mod session;
 pub mod settings;
+pub mod shell;
 pub mod task;

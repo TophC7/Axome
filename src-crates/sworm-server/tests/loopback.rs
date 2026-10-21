@@ -152,22 +152,19 @@ async fn run_status(client: &RemoteClient, run_id: &str) -> Result<RunStatus> {
         .await?)
 }
 
-async fn start_terminal(client: &RemoteClient, run_id: &str, folder_path: &str) -> Result<bool> {
+async fn start_terminal(client: &RemoteClient, run_id: &str, folder_path: &str) -> Result<()> {
     Ok(client
         .call_as(
-            &Request::SessionStart {
+            &Request::ShellStart {
                 run_id: run_id.to_owned(),
                 folder_path: folder_path.to_owned(),
-                harness_id: None,
                 preset: None,
-                session_id: None,
                 cols: 80,
                 rows: 24,
             },
-            Reply::session_start,
+            Reply::shell_start,
         )
-        .await?
-        .resumed)
+        .await?)
 }
 
 async fn start_task(
@@ -1161,10 +1158,20 @@ async fn explicit_folder_claims_keep_each_clients_watch_and_release_independent(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
+async fn shell_start_status_and_stop_are_idempotent() -> Result<()> {
     let fixture = Daemon::start(None).await?;
     let repo = tempfile::tempdir()?;
     init_repo(repo.path())?;
+    fs::write(
+        repo.path().join(".sworm/settings.jsonc"),
+        serde_json::json!({
+            "shell": {
+                "binary_path_override": "sh",
+                "extra_args": ["-c", "printf x >> shell-starts; exec sh"]
+            }
+        })
+        .to_string(),
+    )?;
     let client = fixture.paired_client().await?;
     let project_path = repo.path().to_string_lossy().into_owned();
     let run_id = "loopback-idempotent-session";
@@ -1176,7 +1183,9 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
             exited: None,
         }
     );
-    assert!(!start_terminal(&client, run_id, &project_path).await?);
+    start_terminal(&client, run_id, &project_path).await?;
+    let (mut original_send, mut original_recv, mut original_cursor) =
+        open_shell(&client, run_id, PtyCursor::default()).await?;
     assert_eq!(
         run_status(&client, run_id).await?,
         RunStatus {
@@ -1184,37 +1193,52 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
             exited: None,
         }
     );
-    assert!(start_terminal(&client, run_id, &project_path).await?);
+    start_terminal(&client, run_id, &project_path).await?;
+    write_raw_frame(&mut original_send, b"printf '%s\\n' 'REUSED-SHELL-9b21'\n").await?;
+    read_until_occurrences(
+        &mut original_recv,
+        &mut original_cursor,
+        b"REUSED-SHELL-9b21",
+        1,
+    )
+    .await?;
+    assert_eq!(fs::read(repo.path().join("shell-starts"))?, b"x");
 
     let concurrent_id = "loopback-concurrent-session";
     let (first, second) = tokio::join!(
         start_terminal(&client, concurrent_id, &project_path),
         start_terminal(&client, concurrent_id, &project_path),
     );
-    assert_ne!(first?, second?, "only one concurrent start can spawn");
+    first?;
+    second?;
     assert!(run_status(&client, concurrent_id).await?.live);
+    let (_concurrent_send, _concurrent_recv, _) =
+        open_shell(&client, concurrent_id, PtyCursor::default()).await?;
+    assert_eq!(
+        fs::read(repo.path().join("shell-starts"))?,
+        b"xx",
+        "only one concurrent start can spawn"
+    );
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (concurrent_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
 
     let other = tempfile::tempdir()?;
     let conflicting = client
         .call_as(
-            &Request::SessionStart {
+            &Request::ShellStart {
                 run_id: run_id.to_owned(),
                 folder_path: other.path().to_string_lossy().into_owned(),
-                harness_id: None,
                 preset: None,
-                session_id: None,
                 cols: 80,
                 rows: 24,
             },
-            Reply::session_start,
+            Reply::shell_start,
         )
         .await;
     assert!(matches!(
@@ -1258,18 +1282,18 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
 
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     assert_eq!(
@@ -1281,7 +1305,7 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
     );
 
     // A canceled lease cannot operate on a new incarnation with the same ID.
-    assert!(!start_terminal(&client, run_id, &project_path).await?);
+    start_terminal(&client, run_id, &project_path).await?;
     let (mut fresh_send, mut fresh_recv, mut fresh_cursor) =
         open_shell(&client, run_id, PtyCursor::default()).await?;
     let _ = write_raw_frame(&mut send, b"touch stale-incarnation-command\n").await;
@@ -1300,10 +1324,10 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
     assert!(!repo.path().join("stale-incarnation-command").exists());
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
 
@@ -1430,10 +1454,10 @@ async fn stalled_start_does_not_block_unrelated_rpc_or_pty_input() -> Result<()>
     timeout(
         SHORT_TIMEOUT,
         other.call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (b).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         ),
     )
     .await
@@ -1513,10 +1537,10 @@ async fn stop_during_stalled_start_invalidates_the_published_run() -> Result<()>
         .context("unrelated start blocked behind pending stop")??;
     stopper
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (b).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     stalled.unblock()?;
@@ -1581,10 +1605,10 @@ async fn pty_stream_replays_from_cursor_without_killing_run() -> Result<()> {
 
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
@@ -1653,10 +1677,10 @@ async fn folder_release_and_disconnect_preserve_session() -> Result<()> {
     );
     reconnected
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
@@ -1713,10 +1737,10 @@ async fn completed_run_replays_from_disk_after_daemon_restart() -> Result<()> {
 
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     let (_send, mut recv) = client
@@ -1771,10 +1795,10 @@ async fn pty_stream_reopen_replaces_previous_stream() -> Result<()> {
 
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
@@ -1834,10 +1858,10 @@ async fn pty_stream_survives_quic_connection_drop() -> Result<()> {
 
     reconnected
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
@@ -1931,10 +1955,10 @@ async fn slow_client_recovers_twenty_mebibytes_with_contiguous_offsets() -> Resu
     assert!(run_status(&client, run_id).await?.live);
     client
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
@@ -2126,10 +2150,10 @@ async fn connection_drop_kills_lsp_and_keeps_pty_alive() -> Result<()> {
 
     reconnected
         .call_as(
-            &Request::SessionStop {
+            &Request::ShellStop {
                 run_id: (run_id).to_owned(),
             },
-            Reply::session_stop,
+            Reply::shell_stop,
         )
         .await?;
     fixture.handle.shutdown().await;
