@@ -297,6 +297,11 @@ fn parse_bundled(asset: &BundledExtension) -> Result<PreparedExtension, String> 
 }
 
 pub fn load_catalog(installed_dir: Option<&Path>) -> LoadedExtensionCatalog {
+    // Contribution commands resolve inside the extension dir but spawn with the
+    // folder as cwd, so a relative root would point at the wrong place.
+    let installed_dir =
+        installed_dir.map(|dir| std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf()));
+    let installed_dir = installed_dir.as_deref();
     let mut list: Vec<_> = BUNDLED
         .iter()
         .map(|asset| {
@@ -329,20 +334,24 @@ pub fn load_catalog(installed_dir: Option<&Path>) -> LoadedExtensionCatalog {
                         continue;
                     }
                     let manifest_path = path.join(EXTENSION_MANIFEST_FILE);
-                    if !manifest_path.exists() {
-                        diagnostics.push(diagnostic(
-                            None,
-                            &path,
-                            format!("Extension folder {} has no extension.json", path.display()),
-                        ));
-                        continue;
-                    }
-                    let manifest = fs::read_to_string(&manifest_path)
-                        .map_err(|error| error.to_string())
-                        .and_then(|raw| {
-                            serde_json::from_str::<ExtensionManifest>(&raw)
-                                .map_err(|error| error.to_string())
-                        });
+                    let raw = match fs::read_to_string(&manifest_path) {
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                            diagnostics.push(diagnostic(
+                                None,
+                                &path,
+                                format!(
+                                    "Extension folder {} has no extension.json",
+                                    path.display()
+                                ),
+                            ));
+                            continue;
+                        }
+                        other => other,
+                    };
+                    let manifest = raw.map_err(|error| error.to_string()).and_then(|raw| {
+                        serde_json::from_str::<ExtensionManifest>(&raw)
+                            .map_err(|error| error.to_string())
+                    });
                     let manifest = match manifest {
                         Ok(manifest) => manifest,
                         Err(error) => {
@@ -394,37 +403,34 @@ pub fn load_catalog(installed_dir: Option<&Path>) -> LoadedExtensionCatalog {
         }
     }
     installed.sort_by(|left, right| left.manifest.id.cmp(&right.manifest.id));
-    for extension in installed {
-        let id = extension.manifest.id.clone();
-        let path = extension
-            .dir
-            .clone()
-            .expect("installed extension has a directory");
-        let index = list
-            .iter()
-            .position(|item| item.manifest.id == id)
-            .unwrap_or(list.len());
-        let previous = if index == list.len() {
-            list.push(extension);
-            None
-        } else {
-            Some(std::mem::replace(&mut list[index], extension))
-        };
-        match build(&list) {
-            Ok(candidate) => loaded = candidate,
-            Err(error) => {
-                if let Some(previous) = previous {
-                    list[index] = previous;
-                } else {
-                    list.pop();
+    // Retry rejects until a pass accepts nothing, so an extension may depend on
+    // one whose id sorts later; ascending-id passes keep the result deterministic.
+    let mut pending = installed;
+    let mut rejected = Vec::new();
+    loop {
+        let mut accepted_any = false;
+        for extension in std::mem::take(&mut pending) {
+            match try_add(&mut list, extension) {
+                Ok(candidate) => {
+                    loaded = candidate;
+                    accepted_any = true;
                 }
-                diagnostics.push(diagnostic(
-                    Some(id.clone()),
-                    &path,
-                    format!("Extension {id} rejected: {error}"),
-                ));
+                Err(failure) => rejected.push(failure),
             }
         }
+        if !accepted_any || rejected.is_empty() {
+            break;
+        }
+        pending = rejected.drain(..).map(|(extension, _)| extension).collect();
+    }
+    for (extension, error) in rejected {
+        let id = extension.manifest.id;
+        let path = extension.dir.expect("installed extension has a directory");
+        diagnostics.push(diagnostic(
+            Some(id.clone()),
+            &path,
+            format!("Extension {id} rejected: {error}"),
+        ));
     }
     for diagnostic in &diagnostics {
         tracing::warn!(extension_id = ?diagnostic.extension_id, path = %diagnostic.path, "{}", diagnostic.message);
@@ -542,6 +548,34 @@ fn prepare(
         dir,
         grammars,
     })
+}
+
+/// Adds `extension` (replacing a same-id entry) when the list still builds;
+/// otherwise restores `list` and hands the extension back with the error.
+fn try_add(
+    list: &mut Vec<PreparedExtension>,
+    extension: PreparedExtension,
+) -> Result<LoadedExtensionCatalog, (PreparedExtension, String)> {
+    let index = list
+        .iter()
+        .position(|item| item.manifest.id == extension.manifest.id);
+    let previous = match index {
+        Some(index) => Some(std::mem::replace(&mut list[index], extension)),
+        None => {
+            list.push(extension);
+            None
+        }
+    };
+    match build(list) {
+        Ok(candidate) => Ok(candidate),
+        Err(error) => {
+            let extension = match (index, previous) {
+                (Some(index), Some(previous)) => std::mem::replace(&mut list[index], previous),
+                _ => list.pop().expect("candidate was pushed"),
+            };
+            Err((extension, error))
+        }
+    }
 }
 
 fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
@@ -1100,26 +1134,20 @@ fn normalize_language_id(value: &str) -> String {
 }
 
 fn validate_direct_command_path(candidate: &str) -> Result<String, String> {
-    let path = Path::new(candidate);
-    if !path.exists() {
-        return Err(format!("Command not found at {}", candidate));
+    let metadata = fs::metadata(candidate).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => format!("Command not found at {candidate}"),
+        _ => format!("Failed to read command metadata {candidate}: {error}"),
+    })?;
+    if !metadata.is_file() {
+        return Err(format!("Command path is not a file: {candidate}"));
     }
-    if !path.is_file() {
-        return Err(format!("Command path is not a file: {}", candidate));
-    }
-
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-
-        let metadata = path
-            .metadata()
-            .map_err(|error| format!("Failed to read command metadata {}: {}", candidate, error))?;
         if metadata.permissions().mode() & 0o111 == 0 {
-            return Err(format!("Command is not executable: {}", candidate));
+            return Err(format!("Command is not executable: {candidate}"));
         }
     }
-
     Ok(candidate.to_string())
 }
 
@@ -1375,6 +1403,88 @@ mod tests {
             .pages
             .iter()
             .any(|page| page.id == "language:nix"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn relative_installed_dir_yields_absolute_extension_commands() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_dir();
+        install(
+            &root,
+            serde_json::json!({
+                "id": "dev.example.relfmt", "label": "Rel", "version": "1.0.0", "api": 1,
+                "contributes": {
+                    "languages": [{ "id": "relfmt", "label": "Rel", "extensions": [".relfmt"] }],
+                    "formatters": [{ "id": "fmt", "label": "Upper", "command": "./bin/fmt", "languages": ["relfmt"] }]
+                }
+            }),
+        );
+        let bin = root.join("dev.example.relfmt/bin");
+        fs::create_dir(&bin).unwrap();
+        let path = bin.join("fmt");
+        fs::write(&path, "#!/bin/sh\ntr a-z A-Z\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        let cwd = std::env::current_dir().unwrap();
+        let relative_root = PathBuf::from("../".repeat(cwd.components().count() - 1))
+            .join(root.strip_prefix("/").unwrap());
+        let loaded = load_catalog(Some(&relative_root));
+        assert!(
+            loaded.catalog.diagnostics.is_empty(),
+            "{:?}",
+            loaded.catalog.diagnostics
+        );
+        let formatter = loaded.find_formatter("dev.example.relfmt::fmt").unwrap();
+        let program = resolve_contribution_command(
+            &formatter.definition.command,
+            formatter.extension_dir.as_deref(),
+            "",
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            crate::services::formatting::FormattingService::run(
+                &program,
+                &[],
+                "/",
+                "abc",
+                &std::collections::HashMap::new(),
+            ),
+            Ok("ABC".to_string())
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn installed_extension_may_depend_on_later_sorting_extension() {
+        let root = temp_dir();
+        install(
+            &root,
+            serde_json::json!({
+                "id": "com.acme.fmt", "label": "Format", "version": "1.0.0", "api": 1,
+                "contributes": {
+                    "formatters": [{ "id": "fmt", "label": "Format", "command": "cat", "languages": ["vue"] }]
+                }
+            }),
+        );
+        install(
+            &root,
+            serde_json::json!({
+                "id": "dev.other.vue", "label": "Vue", "version": "1.0.0", "api": 1,
+                "contributes": {
+                    "languages": [{ "id": "vue", "label": "Vue", "extensions": [".vue"] }]
+                }
+            }),
+        );
+        let loaded = load_catalog(Some(&root));
+        assert!(
+            loaded.catalog.diagnostics.is_empty(),
+            "{:?}",
+            loaded.catalog.diagnostics
+        );
+        assert!(loaded.find_formatter("com.acme.fmt::fmt").is_some());
         fs::remove_dir_all(root).unwrap();
     }
 

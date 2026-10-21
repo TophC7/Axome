@@ -1,9 +1,9 @@
 // Project-config bootstrap.
 //
-// Pulls every JSON schema declared by the Rust backend and pushes it
-// into the Monaco schema registry. Called once on app boot. After this
-// runs, opening any matching config file (e.g. `.sworm/tasks.jsonc`)
-// gets autocomplete, validation, and hover docs for free.
+// Pulls every JSON schema declared by each host's Rust backend and pushes it
+// into the Monaco schema registry, scoped by folderUri. Schemas load per host
+// because settings schemas enumerate that host's extension ids. Matching config
+// files get autocomplete, validation, and hover docs.
 //
 // Adding a new config schema is a backend-only change:
 // <> define the type with `#[derive(JsonSchema)]`
@@ -12,24 +12,31 @@
 
 import { backend } from '$lib/api/backend'
 import { registerSchema } from '$lib/features/editor/schemas/registry'
+import { REMOTE_MODEL_SCHEME } from '$lib/features/editor/renderers/monaco/text/modelCache'
+import { extensionHostKey } from '$lib/features/extensions/catalog.svelte'
 
-let bootstrapped: Promise<void> | null = null
+const loads = new Map<string, Promise<void>>()
 
-export function initProjectSchemas(): Promise<void> {
-  if (bootstrapped) return bootstrapped
-  bootstrapped = (async () => {
-    const entries = await backend.configSchemas.list()
-    for (const entry of entries) {
-      registerSchema({
-        id: entry.id,
-        fileMatch: entry.fileMatch,
-        schema: entry.schema
-      })
-    }
-  })().catch((err) => {
-    // Reset so a subsequent attempt can retry on next app mount.
-    bootstrapped = null
-    throw err
-  })
-  return bootstrapped
+export function initProjectSchemas(folderPath?: string | null): Promise<void> {
+  const host = extensionHostKey(folderPath)
+  const existing = loads.get(host)
+  if (existing) return existing
+  const load = backend.configSchemas
+    .list(folderPath)
+    .then((entries) => {
+      for (const entry of entries) {
+        registerSchema({
+          id: host ? `${entry.id}@${host}` : entry.id,
+          fileMatch: entry.fileMatch,
+          folderUri: host ? `${REMOTE_MODEL_SCHEME}://${host}/` : 'file:///',
+          schema: entry.schema
+        })
+      }
+    })
+    .catch((error) => {
+      loads.delete(host)
+      throw error
+    })
+  loads.set(host, load)
+  return load
 }

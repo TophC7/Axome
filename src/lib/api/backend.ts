@@ -542,8 +542,8 @@ export const backend = {
   },
 
   configSchemas: {
-    list(): Promise<ConfigSchemaEntry[]> {
-      return invoke<ConfigSchemaEntry[]>('config_schemas_list')
+    list(folderPath?: string | null): Promise<ConfigSchemaEntry[]> {
+      return invoke<ConfigSchemaEntry[]>('config_schemas_list', { folderPath: folderPath ?? null })
     }
   },
 

@@ -1,15 +1,15 @@
 // Central registry of JSON Schemas for Sworm config files.
 //
 // Each entry pairs a schema with the glob patterns that identify the
-// file. The frontend fetches this list on boot and hands each entry to
-// Monaco so that opening a matching file gets autocomplete, validation,
+// file. The frontend fetches this list per host when Monaco first loads that host's folder
+// and hands each entry to Monaco so that opening a matching file gets autocomplete, validation,
 // and hover docs for free. Settings schemas use the current extension catalog
 // for language, LSP server, and formatter ids.
 //
 // Adding a new config file is a three-step change:
 //   <> define/extend the canonical model under sworm-protocol (schema is derived)
 //   <> append a `ConfigSchemaEntry` below
-//   <> ship it; the frontend picks it up automatically on next boot
+//   <> ship it; the frontend picks it up automatically on next load
 
 use schemars::schema_for;
 use serde_json::json;

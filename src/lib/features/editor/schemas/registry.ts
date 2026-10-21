@@ -17,6 +17,8 @@ export interface SchemaEntry {
   id: string
   /** Globs matched against model URIs, e.g. `['**\/.sworm/tasks.jsonc']`. */
   fileMatch: string[]
+  /** Model-URI prefix the schema is confined to, e.g. 'file:///' or 'sworm://<server>/'. */
+  folderUri: string
   /** JSON Schema object. */
   schema: unknown
 }
@@ -24,6 +26,7 @@ export interface SchemaEntry {
 interface JsonSchemaAssociation {
   uri: string
   fileMatch?: string[]
+  folderUri?: string
   schema: unknown
 }
 
@@ -56,6 +59,7 @@ function syncNow(): void {
     schemas: Array.from(entries.values()).map((entry) => ({
       uri: `sworm-schemas://${encodeURIComponent(entry.id)}`,
       fileMatch: entry.fileMatch,
+      folderUri: entry.folderUri,
       schema: entry.schema
     }))
   })

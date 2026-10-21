@@ -210,7 +210,7 @@ macro_rules! sworm_rpc_ops {
             ExtensionsGetGrammars => extensions_get_grammars() -> Vec<$crate::extensions::ExtensionGrammar>;
             #[route(server)]
             ExtensionsReload => extensions_reload() -> ();
-            #[route(none)]
+            #[route(server)]
             ConfigSchemasList => config_schemas_list() -> Vec<$crate::config_schemas::ConfigSchemaEntry>;
             #[route(none)]
             OmpResolveUri => omp_resolve_uri(uri: String, cwd: Option<String>) -> $crate::omp::OmpResolvedTarget;

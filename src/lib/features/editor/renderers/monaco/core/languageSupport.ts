@@ -6,6 +6,7 @@ import { ensureLspLanguageProviders } from '$lib/features/editor/lsp/registry'
 import { ensureFormattingProviders } from '$lib/features/editor/renderers/monaco/core/formatters'
 import { registerNixLanguage } from '$lib/features/editor/renderers/monaco/core/languages/nix'
 import { registerSwormTheme, SWORM_SHIKI_THEME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { initProjectSchemas } from '$lib/features/project-config/bootstrap'
 import type { ExtensionGrammar } from '$lib/types/backend'
 
 type Monaco = typeof MonacoModule
@@ -34,6 +35,7 @@ export function ensureFolderLanguageSupport(monaco: Monaco, folderPath: string |
 }
 
 async function loadFolderLanguageSupport(monaco: Monaco, folderPath: string | null): Promise<void> {
+  void initProjectSchemas(folderPath).catch((error) => console.warn('Config schema load failed', error))
   const [catalog, folderGrammars] = await Promise.all([
     loadExtensionCatalog(folderPath),
     backend.extensions.getGrammars(folderPath)
