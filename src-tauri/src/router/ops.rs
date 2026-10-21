@@ -193,8 +193,9 @@ macro_rules! define_router_operation {
         SessionStart => $method:ident(
             $run_id:ident: $run_id_type:ty,
             $folder_path:ident: $folder_path_type:ty,
-            $provider_id:ident: $provider_id_type:ty,
-            $resume_token:ident: $resume_token_type:ty,
+            $harness_id:ident: $harness_id_type:ty,
+            $preset:ident: $preset_type:ty,
+            $session_id:ident: $session_id_type:ty,
             $cols:ident: $cols_type:ty,
             $rows:ident: $rows_type:ty $(,)?
         ) -> $return_type:ty;
@@ -204,8 +205,9 @@ macro_rules! define_router_operation {
             &self,
             $run_id: $run_id_type,
             $folder_path: $folder_path_type,
-            $provider_id: $provider_id_type,
-            $resume_token: $resume_token_type,
+            $harness_id: $harness_id_type,
+            $preset: $preset_type,
+            $session_id: $session_id_type,
             $cols: $cols_type,
             $rows: $rows_type,
             output: EventSink<Vec<u8>>,
@@ -218,8 +220,9 @@ macro_rules! define_router_operation {
                         Request::SessionStart {
                             run_id: $run_id.clone(),
                             folder_path: path.to_owned(),
-                            provider_id: $provider_id,
-                            resume_token: $resume_token,
+                            harness_id: $harness_id,
+                            preset: $preset,
+                            session_id: $session_id,
                             cols: $cols,
                             rows: $rows,
                         },
@@ -229,8 +232,9 @@ macro_rules! define_router_operation {
             self.local(move |host| host.$method(
                     $run_id,
                     $folder_path,
-                    $provider_id,
-                    $resume_token,
+                    $harness_id,
+                    $preset,
+                    $session_id,
                     $cols,
                     $rows,
                     Some(PtySubscriber { output, events }),

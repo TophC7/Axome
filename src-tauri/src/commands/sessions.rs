@@ -8,8 +8,9 @@ use sworm_protocol::session::SessionStartInfo;
 pub async fn session_start(
     run_id: String,
     folder_path: String,
-    provider_id: String,
-    resume_token: Option<String>,
+    harness_id: Option<String>,
+    preset: Option<String>,
+    session_id: Option<String>,
     cols: u16,
     rows: u16,
     output: tauri::ipc::Channel<Vec<u8>>,
@@ -23,8 +24,9 @@ pub async fn session_start(
         .session_start(
             run_id.clone(),
             folder_path,
-            provider_id,
-            resume_token,
+            harness_id,
+            preset,
+            session_id,
             cols,
             rows,
             channel_sink(output),

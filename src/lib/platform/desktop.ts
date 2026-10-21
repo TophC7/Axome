@@ -47,7 +47,7 @@ function onWindowEvent<T>(name: string, handler: (payload: T) => void): Promise<
 const native: NativePlatform = {
   window: {
     create: (target) => invoke<string>('window_create', { target: target ?? null }),
-    ready: (restoredTaskRuns) => invoke<void>('window_ready', { restoredTaskRuns }),
+    ready: (restoredTaskRuns) => invoke<boolean>('window_ready', { restoredTaskRuns }),
     openTargetFinished: (target) => invoke<void>('window_open_target_finished', { target }),
     close: () => invoke<void>('window_close'),
     onCloseRequested: (handler) => getCurrentWindow().onCloseRequested(handler),

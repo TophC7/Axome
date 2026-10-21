@@ -29,7 +29,8 @@ const globalMethods: Record<string, true> = {
   settings_get: true,
   settings_set_nix: true,
   settings_set_formatting: true,
-  settings_set_provider_config: true,
+  settings_set_harness_config: true,
+  settings_set_shell: true,
   lsp_set_server_config: true,
   folder_home: true,
   folder_working_directory: true
@@ -75,7 +76,12 @@ export function normalizeWireError(value: unknown): Error | Record<string, unkno
     case 'branch_in_worktree': {
       const branch = field(value, 'branch')
       const path = field(value, 'path')
-      return { kind: 'branchInWorktree', branch, path, message: `Branch '${branch}' is checked out in the worktree at ${path}` }
+      return {
+        kind: 'branchInWorktree',
+        branch,
+        path,
+        message: `Branch '${branch}' is checked out in the worktree at ${path}`
+      }
     }
     case 'worktree_has_changes':
       return { kind: 'worktreeHasChanges', path: field(value, 'path'), message: field(value, 'message') }

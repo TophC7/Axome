@@ -448,8 +448,9 @@ fn terminal_start(f: &Fixture, run: &str) -> Request {
     Request::SessionStart {
         run_id: run.into(),
         folder_path: f.folder(),
-        provider_id: "terminal".into(),
-        resume_token: None,
+        harness_id: None,
+        preset: None,
+        session_id: None,
         cols: 80,
         rows: 24,
     }
@@ -3065,7 +3066,7 @@ async fn registry_and_restart(home: &Path) -> Result<()> {
         .checked()?;
     let terminal = WorkbenchRun::Session {
         folder: fs::canonicalize(&f.repo)?.to_string_lossy().into_owned(),
-        provider_id: "terminal".into(),
+        harness_id: None,
     };
     f.wait_listed(&a, "running", |info| {
         info.is_some_and(|info| info.connected && info.running == [terminal.clone()])

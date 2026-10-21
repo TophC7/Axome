@@ -163,8 +163,8 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         recent_folders_remove,
         folders::folder_claim,
         folders::folder_release,
-        // Provider commands
-        provider_list,
+        // Harness commands
+        harness_list,
         // Settings commands
         settings_get,
         settings_get_effective,
@@ -177,7 +177,8 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         settings_set_typography,
         settings_set_nix,
         settings_set_formatting,
-        settings_set_provider_config,
+        settings_set_harness_config,
+        settings_set_shell,
         // Shortcut commands
         shortcuts_get_global,
         shortcuts_set_global,
@@ -198,7 +199,7 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         nix_evaluate,
         nix_clear,
         nix_lint,
-        provider_list_for_folder,
+        harness_list_for_folder,
         // File commands
         app::file_reveal,
         file_read,

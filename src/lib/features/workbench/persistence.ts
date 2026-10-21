@@ -29,9 +29,10 @@ export function tabToPersisted(tab: Tab): PersistedTab | null {
         kind: 'session',
         folderPath: tab.folderPath,
         title: tab.title,
-        providerId: tab.providerId,
+        harnessId: tab.harnessId,
+        preset: tab.preset,
         runId: tab.runId,
-        resumeToken: tab.resumeToken,
+        sessionId: tab.sessionId,
         locked: tab.locked
       }
     case 'text':
@@ -129,9 +130,10 @@ export function persistedToTab(persisted: PersistedTab, id: string): Tab {
         id,
         folderPath: persisted.folderPath,
         title: persisted.title,
-        providerId: persisted.providerId,
+        harnessId: persisted.harnessId,
+        preset: persisted.preset,
         runId: persisted.runId ?? null,
-        resumeToken: persisted.resumeToken,
+        sessionId: persisted.sessionId,
         // Restored processes start lazily on first activation.
         status: 'dormant',
         locked: persisted.locked
@@ -343,6 +345,8 @@ export function parsePersistedWorkbench(value: unknown): PersistedWorkbenchV4 | 
   let activeTabIndex = snapshot.activeTabIndex < 0 ? -1 : 0
   const tabs = snapshot.tabs.filter((tab, index) => {
     if (!tab || !['session', 'task', 'text', 'diff', 'new-tab', 'issue', 'epic'].includes(tab.kind)) return false
+    // Pre-harness session tabs (no harnessId) are dropped: clean cutover.
+    if (tab.kind === 'session' && !('harnessId' in tab)) return false
     if (index < snapshot.activeTabIndex) activeTabIndex += 1
     return true
   })

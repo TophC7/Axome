@@ -888,8 +888,9 @@ impl DispatchRuntime<'_> {
         &self,
         run_id: String,
         folder_path: String,
-        provider_id: String,
-        resume_token: Option<String>,
+        harness_id: Option<String>,
+        preset: Option<String>,
+        session_id: Option<String>,
         cols: u16,
         rows: u16,
     ) -> Result<SessionStartInfo, WireError> {
@@ -909,8 +910,9 @@ impl DispatchRuntime<'_> {
                 start_host.session_start(
                     id,
                     folder_path,
-                    provider_id,
-                    resume_token,
+                    harness_id,
+                    preset,
+                    session_id,
                     cols,
                     rows,
                     None,

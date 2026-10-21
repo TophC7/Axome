@@ -1,4 +1,5 @@
-use crate::provider::{ProviderId, ProviderStatus};
+use crate::harness::HarnessStatus;
+use crate::session::SessionView;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,17 +15,9 @@ pub const GLOBAL_SETTINGS_DIR_NAME: &str = "sworm";
 /// rust toolchain); 600s leaves headroom while still catching true hangs.
 pub const DEFAULT_NIX_EVAL_TIMEOUT_SECS: u64 = 600;
 
-pub const CANONICAL_PROVIDER_IDS: &[ProviderId] = &[
-    ProviderId::ClaudeCode,
-    ProviderId::Codex,
-    ProviderId::Omp,
-    ProviderId::Antigravity,
-    ProviderId::Terminal,
-];
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ProviderConfigRecord {
-    pub provider_id: String,
+pub struct HarnessConfigRecord {
+    pub harness_id: String,
     pub enabled: bool,
     pub binary_path_override: Option<String>,
     pub extra_args: Vec<String>,
@@ -101,6 +94,8 @@ pub struct WindowSettings {
     pub external_folder_open_mode: ExternalFolderOpenMode,
     pub external_file_open_mode: ExternalFileOpenMode,
     pub tab_beam_position: TabBeamPosition,
+    /// Folder a new window or workbench opens on.
+    pub home_folder: Option<String>,
 }
 
 impl Default for WindowSettings {
@@ -110,6 +105,7 @@ impl Default for WindowSettings {
             external_folder_open_mode: ExternalFolderOpenMode::default(),
             external_file_open_mode: ExternalFileOpenMode::default(),
             tab_beam_position: TabBeamPosition::default(),
+            home_folder: None,
         }
     }
 }
@@ -207,24 +203,50 @@ pub struct GitSettings {
     pub worktree_copy: BTreeMap<String, bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(default, deny_unknown_fields)]
-pub struct ProviderSettings {
+pub struct HarnessSettings {
     pub enabled: bool,
-    /// Optional provider executable override. Project settings can change what Sworm executes.
+    /// Optional harness executable override. Project settings can change what Sworm executes.
     pub binary_path_override: Option<String>,
-    /// Additional provider CLI args. Project settings can change what Sworm executes.
+    /// Additional harness CLI args. Project settings can change what Sworm executes.
     pub extra_args: Vec<String>,
+    /// Keyed by preset name ([A-Za-z0-9_-]+).
+    pub presets: BTreeMap<String, PresetSettings>,
 }
 
-impl Default for ProviderSettings {
+impl Default for HarnessSettings {
     fn default() -> Self {
         Self {
             enabled: true,
             binary_path_override: None,
             extra_args: Vec::new(),
+            presets: BTreeMap::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct PresetSettings {
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
+    /// Default view for new tabs of this preset. Unused until Phase 3.
+    pub view: Option<SessionView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct ShellSettings {
+    pub binary_path_override: Option<String>,
+    pub extra_args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct SessionsSettings {
+    /// `<harness_id>` or `<harness_id>/<preset>`; launched by New Session and listed first.
+    pub default_preset: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -262,7 +284,7 @@ pub struct LspSettings {
 
 /// # Sworm settings
 ///
-/// Project settings can override executable paths and args for providers and LSP servers. Only trust settings from repositories you trust.
+/// Project settings can override executable paths and args for harnesses and LSP servers. Only trust settings from repositories you trust.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct EffectiveSettings {
@@ -272,8 +294,10 @@ pub struct EffectiveSettings {
     pub explorer: ExplorerSettings,
     pub git: GitSettings,
     pub formatting: FormattingSettings,
-    /// Keyed by internal provider ID.
-    pub providers: BTreeMap<String, ProviderSettings>,
+    pub sessions: SessionsSettings,
+    pub shell: ShellSettings,
+    /// Keyed by harness id.
+    pub harnesses: BTreeMap<String, HarnessSettings>,
     pub lsp: LspSettings,
     pub remotes: BTreeMap<String, RemoteSettings>,
 }
@@ -287,7 +311,9 @@ impl Default for EffectiveSettings {
             explorer: ExplorerSettings::default(),
             git: GitSettings::default(),
             formatting: FormattingSettings::default(),
-            providers: default_provider_settings(),
+            sessions: SessionsSettings::default(),
+            shell: ShellSettings::default(),
+            harnesses: BTreeMap::new(),
             lsp: LspSettings::default(),
             remotes: BTreeMap::new(),
         }
@@ -295,11 +321,12 @@ impl Default for EffectiveSettings {
 }
 
 impl EffectiveSettings {
-    /// Builds default effective settings with LSP server IDs and formatting defaults
-    /// supplied by the extension catalog (`ExtensionService`).
+    /// Builds default effective settings with LSP server IDs, formatting defaults,
+    /// and harness IDs supplied by the extension catalog (`ExtensionService`).
     pub fn with_catalog_defaults<I, S>(
         server_definition_ids: I,
         formatting_defaults: &BTreeMap<String, String>,
+        harness_ids: &[String],
     ) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -321,15 +348,12 @@ impl EffectiveSettings {
                 )
             })
             .collect();
+        settings.harnesses = harness_ids
+            .iter()
+            .map(|id| (id.clone(), HarnessSettings::default()))
+            .collect();
         settings
     }
-}
-
-fn default_provider_settings() -> BTreeMap<String, ProviderSettings> {
-    CANONICAL_PROVIDER_IDS
-        .iter()
-        .map(|provider_id| (provider_id.to_string(), ProviderSettings::default()))
-        .collect()
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -346,7 +370,7 @@ pub enum SettingsDiagnosticCode {
     ParseError,
     /// A value was rejected: wrong type, out of range, bad enum, or null.
     InvalidValue,
-    /// An unknown property, provider id, or LSP server id.
+    /// An unknown property, harness id, or LSP server id.
     UnknownKey,
 }
 
@@ -390,9 +414,9 @@ pub struct SettingsChangedEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProviderSettingsEntry {
-    pub provider: ProviderStatus,
-    pub config: ProviderConfigRecord,
+pub struct HarnessSettingsEntry {
+    pub harness: HarnessStatus,
+    pub config: HarnessConfigRecord,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,7 +426,8 @@ pub struct SettingsPayload {
     pub nix: NixSettings,
     pub formatting: FormattingSettings,
     pub lsp: LspSettings,
-    pub providers: Vec<ProviderSettingsEntry>,
+    pub harnesses: Vec<HarnessSettingsEntry>,
+    pub shell: ShellSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -441,28 +466,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn effective_defaults_include_all_provider_ids() {
-        let settings = EffectiveSettings::default();
-        let provider_ids: Vec<_> = settings.providers.keys().cloned().collect();
-
-        assert_eq!(
-            provider_ids,
-            vec!["antigravity", "claude_code", "codex", "omp", "terminal"]
-        );
-        assert_eq!(
-            settings.providers["claude_code"],
-            ProviderSettings::default()
-        );
-    }
-
-    #[test]
-    fn catalog_defaults_seed_lsp_servers_and_formatting() {
+    fn catalog_defaults_seed_lsp_servers_formatting_and_harnesses() {
         let settings = EffectiveSettings::with_catalog_defaults(
             ["dev.sworm.vtsls::vtsls"],
             &BTreeMap::from([(
                 "typescript".to_string(),
                 "dev.sworm.biome::biome".to_string(),
             )]),
+            &["omp".into()],
         );
 
         assert_eq!(
@@ -473,6 +484,7 @@ mod tests {
             settings.formatting["typescript"].formatter,
             "dev.sworm.biome::biome"
         );
+        assert!(settings.harnesses["omp"].enabled);
     }
 
     #[test]
@@ -483,6 +495,7 @@ mod tests {
                 "dev.sworm.rust-analyzer::rust-analyzer",
             ],
             &BTreeMap::new(),
+            &[],
         );
         settings
             .lsp
@@ -496,7 +509,8 @@ mod tests {
             nix: settings.nix,
             formatting: settings.formatting,
             lsp: settings.lsp,
-            providers: Vec::new(),
+            harnesses: Vec::new(),
+            shell: settings.shell,
         };
 
         let value = serde_json::to_value(&payload).unwrap();

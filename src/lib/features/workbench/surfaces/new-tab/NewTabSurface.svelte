@@ -13,9 +13,9 @@
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getNixStatus } from '$lib/features/settings/state/nix.svelte'
   import { StatusDot, statusToneText } from '$lib/components/ui/status-dot'
-  import { allProviders, directOptions, type ProviderMeta } from '$lib/features/sessions/providers/catalog'
-  import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
-  import { getConnectedProviders, getProvidersLoading } from '$lib/features/sessions/providers/state.svelte'
+  import { svgUrl, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
+  import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
+  import { getLaunchOptions, getHarnessesLoading } from '$lib/features/sessions/harnesses/state.svelte'
   import { startSession } from '$lib/features/sessions/service.svelte'
   import { openTaskTab } from '$lib/features/tasks/service.svelte'
   import { getTasksReactive } from '$lib/features/tasks/state.svelte'
@@ -32,7 +32,8 @@
     GitBranchIcon,
     MonitorIcon,
     Play,
-    ServerIcon
+    ServerIcon,
+    TerminalIcon
   } from '$lib/icons/lucideExports'
   import { platform } from '$lib/platform'
   import type { TaskDefinition } from '$lib/types/backend'
@@ -48,32 +49,43 @@
   let changedCount = $derived(git ? new Set(git.changes.map((change) => change.path)).size : 0)
   let nix = $derived(getNixStatus(folderPath))
   let tasks = $derived(getTasksReactive(folderPath))
-  let providersLoading = $derived(getProvidersLoading())
-  let providerMap = $derived(new Map(getConnectedProviders(folderPath).map((p) => [p.id, p])))
+  let harnessesLoading = $derived(getHarnessesLoading())
+  let options = $derived(getLaunchOptions(folderPath))
   // Stagger slot after the direct row; New File always reserves one so tasks never jump.
-  const tasksDelay = 0.1 + (allProviders.length + directOptions.length + 2) * 0.08
-  // New File starts no session; it wears Terminal's neutral card.
-  const newFile: ProviderMeta = {
-    id: 'new-file',
+  let tasksDelay = $derived(0.1 + (options.length + 1 + 2) * 0.08)
+
+  interface CardMeta {
+    label: string
+    icon: HarnessIconSource
+    gradientFrom: string
+    gradientTo: string
+    wordmarkUrl?: string
+    wordmarkAspect?: number
+    wordmarkFont?: string
+  }
+
+  const shell: CardMeta = {
+    label: 'Terminal',
+    icon: TerminalIcon,
+    wordmarkFont: 'var(--font-mono)',
+    gradientFrom: 'var(--color-muted)',
+    gradientTo: 'var(--color-edge-strong)'
+  }
+  const newFile: CardMeta = {
     label: 'New File',
     icon: FilePlusCornerIcon,
-    textLabel: 'New File',
-    textFont: 'var(--font-mono)',
+    wordmarkFont: 'var(--font-mono)',
     gradientFrom: 'var(--color-muted)',
     gradientTo: 'var(--color-edge-strong)'
   }
   let openShortcut = $derived(splitShortcut(getCommandShortcut('open-folder')))
-
-  function handleSelect(provider: ProviderMeta) {
-    startSession(folderPath, provider.id)
-  }
 
   function runTask(task: TaskDefinition) {
     void openTaskTab(folderPath, task).catch((error) => notify.error('Run task failed', getErrorMessage(error)))
   }
 </script>
 
-{#snippet card(option: ProviderMeta, delay: number, onselect: (() => void) | null, version: string | null)}
+{#snippet card(option: CardMeta, delay: number, onselect: (() => void) | null, detail: string | null)}
   {@const enabled = onselect !== null}
   <BlurFade {delay}>
     <MagicCard
@@ -84,12 +96,12 @@
       onclick={() => onselect?.()}
     >
       <div class="flex items-center gap-3 p-3">
-        <ProviderIcon icon={option.icon} size={32} class="text-muted" />
+        <HarnessIcon icon={option.icon} size={32} class="text-muted" />
         <div class="flex min-w-0 flex-col gap-0.5">
-          {#if option.textIcon && option.textAspect}
+          {#if option.wordmarkUrl && option.wordmarkAspect}
             <MaskIcon
-              src={option.textIcon}
-              width={Math.round(14 * option.textAspect)}
+              src={option.wordmarkUrl}
+              width={Math.round(14 * option.wordmarkAspect)}
               height={14}
               label={option.label}
               class="self-start text-fg transition-colors group-hover:text-bright"
@@ -97,23 +109,18 @@
           {:else}
             <span
               class="truncate text-md leading-tight font-medium text-fg transition-colors group-hover:text-bright"
-              style:font-family={option.textFont ?? 'inherit'}>{option.textLabel ?? option.label}</span
+              style:font-family={option.wordmarkFont ?? 'inherit'}>{option.label}</span
             >
           {/if}
           {#if !enabled}
-            <span class="text-2xs text-subtle italic">{providersLoading ? 'Detecting...' : 'Not detected'}</span>
-          {:else if version}
-            <span class="truncate font-mono text-2xs text-subtle">{version}</span>
+            <span class="text-2xs text-subtle italic">{harnessesLoading ? 'Detecting...' : 'Not detected'}</span>
+          {:else if detail}
+            <span class="truncate font-mono text-2xs text-subtle">{detail}</span>
           {/if}
         </div>
       </div>
     </MagicCard>
   </BlurFade>
-{/snippet}
-
-{#snippet providerCard(provider: ProviderMeta, delay: number)}
-  {@const status = providerMap.get(provider.id)}
-  {@render card(provider, delay, status ? () => handleSelect(provider) : null, status?.version ?? null)}
 {/snippet}
 
 {#snippet divider(label: string, delay: number)}
@@ -186,25 +193,32 @@
 
   <!-- Agent CLIs -->
   <div class="grid grid-cols-2 gap-2.5">
-    {#each allProviders as provider, i (provider.id)}
-      {@render providerCard(provider, 0.1 + i * 0.08)}
+    {#each options as { harness, preset, status }, i (`${harness.id}:${preset ?? ''}`)}
+      {@const meta = {
+        label: harness.label,
+        icon: svgUrl(harness.icon),
+        wordmarkUrl: harness.wordmark ? svgUrl(harness.wordmark) : undefined,
+        wordmarkAspect: harness.wordmark_aspect ?? undefined,
+        wordmarkFont: harness.wordmark_font ?? undefined,
+        gradientFrom: harness.gradient[0],
+        gradientTo: harness.gradient[1]
+      }}
+      {@render card(
+        meta,
+        0.1 + i * 0.08,
+        status?.status === 'connected' ? () => startSession(folderPath, harness.id, preset) : null,
+        preset ?? status?.version ?? null
+      )}
     {/each}
   </div>
 
-  {@render divider('or', 0.1 + allProviders.length * 0.08)}
+  {@render divider('or', 0.1 + options.length * 0.08)}
 
   <!-- Direct options -->
   <div class="grid grid-cols-2 gap-2.5">
-    {#each directOptions as provider, i (provider.id)}
-      {@render providerCard(provider, 0.1 + (allProviders.length + 1 + i) * 0.08)}
-    {/each}
+    {@render card(shell, 0.1 + (options.length + 1) * 0.08, () => startSession(folderPath, null, null), null)}
     {#if platform.native}
-      {@render card(
-        newFile,
-        0.1 + (allProviders.length + directOptions.length + 1) * 0.08,
-        () => createUntitledTextSurface(folderPath),
-        null
-      )}
+      {@render card(newFile, 0.1 + (options.length + 1 + 1) * 0.08, () => createUntitledTextSurface(folderPath), null)}
     {/if}
   </div>
 

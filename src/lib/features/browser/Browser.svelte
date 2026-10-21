@@ -17,6 +17,7 @@
   import { remoteTone } from '$lib/features/remotes/remoteTone'
   import { StatusDot } from '$lib/components/ui/status-dot'
   import { openRemoteManager } from '$lib/features/remotes/state.svelte'
+  import { getDesktopSettings } from '$lib/features/settings/state/settings.svelte'
   import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import {
@@ -282,6 +283,13 @@
     if (parent !== path) browse(parent, `folder:${path}`)
   }
 
+  /** The home folder when it lives on `server` (null = this host), else that host's working directory. */
+  async function startPath(server: string | null): Promise<string> {
+    const home = getDesktopSettings()?.window.home_folder
+    if (home && (splitRemotePath(home)?.server ?? null) === server) return home
+    return backend.folders.workingDirectory(server ?? undefined)
+  }
+
   async function enterServer(server: string | null): Promise<void> {
     if (selection) return
     const generation = ++navigation
@@ -289,7 +297,7 @@
     enteringServer = server ?? localHostLabel()
     pathError = null
     try {
-      const workingPath = await backend.folders.workingDirectory(server ?? undefined)
+      const workingPath = await startPath(server)
       if (generation === navigation && opening === request) browse(workingPath)
     } catch (error) {
       if (generation === navigation && opening === request) pathError = getErrorMessage(error)
@@ -396,7 +404,7 @@
       const generation = ++navigation
       const opening = request
       try {
-        const workingPath = await backend.folders.workingDirectory()
+        const workingPath = await startPath(currentServer)
         if (generation !== navigation || opening !== request || !editing) return
         search = workingPath
       } catch (error) {

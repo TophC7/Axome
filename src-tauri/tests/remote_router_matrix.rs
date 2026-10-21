@@ -304,7 +304,8 @@ async fn local_leases_follow_authority_and_transfer_identity(
         .session_start(
             "transferred-proxy".into(),
             workspace.remote.clone(),
-            "terminal".into(),
+            None,
+            None,
             None,
             80,
             24,
@@ -362,7 +363,8 @@ async fn local_leases_follow_authority_and_transfer_identity(
         .session_start(
             "transferred-proxy".into(),
             workspace.remote.clone(),
-            "terminal".into(),
+            None,
+            None,
             None,
             80,
             24,
@@ -712,7 +714,7 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
     bounded("git_watch", router.git_watch(remote.clone(), |_| true)).await?;
     router.release_folder(&remote);
 
-    // Starts name a provider, a task and a language server that exist on no
+    // Starts name a harness, a task and a language server that exist on no
     // host, so the daemon refuses each before it spawns anything: the routing
     // is proven without leaking a process.
     let discard_bytes: EventSink<Vec<u8>> = Arc::new(|_| Ok(()));
@@ -723,7 +725,8 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
         router.session_start(
             format!("{PROBE}-session"),
             remote.clone(),
-            PROBE.to_owned(),
+            Some(PROBE.to_owned()),
+            None,
             None,
             80,
             24,
@@ -735,7 +738,7 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
     .await;
     assert!(
         session.is_err(),
-        "an unknown provider must not spawn a session on the daemon"
+        "an unknown harness must not spawn a session on the daemon"
     );
     assert_routed("session_start", session);
     let task = bounded(

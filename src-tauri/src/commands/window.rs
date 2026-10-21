@@ -30,7 +30,7 @@ pub async fn window_ready(
     window: WebviewWindow,
     restored_task_runs: Vec<String>,
     state: State<'_, AppState>,
-) -> Result<(), ApiError> {
+) -> Result<bool, ApiError> {
     let host = state.host.clone();
     let owner = window.label().to_owned();
     let admission = host.admission.clone().read_owned().await;
@@ -39,10 +39,11 @@ pub async fn window_ready(
         host.release_unrestored_tasks(&owner, &restored_task_runs.into_iter().collect())
     })
     .await??;
+    let pending_groups = state.windows.has_group_transfer_for(window.label());
     state
         .windows
         .mark_ready(window.label(), window.app_handle())
-        .map(|_| ())
+        .map(|targets| !targets.is_empty() || pending_groups)
         .map_err(ApiError::Internal)
 }
 

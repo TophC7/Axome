@@ -146,6 +146,56 @@ const BUNDLED: &[BundledExtension] = &[
             ),
         ],
     },
+    BundledExtension {
+        id: "dev.sworm.claude-code",
+        manifest: include_str!("../../extensions/dev.sworm.claude-code/extension.json"),
+        payload: &[
+            (
+                "icons/claudecode.svg",
+                include_str!("../../extensions/dev.sworm.claude-code/icons/claudecode.svg"),
+            ),
+            (
+                "icons/claudecode-text.svg",
+                include_str!("../../extensions/dev.sworm.claude-code/icons/claudecode-text.svg"),
+            ),
+        ],
+    },
+    BundledExtension {
+        id: "dev.sworm.codex",
+        manifest: include_str!("../../extensions/dev.sworm.codex/extension.json"),
+        payload: &[
+            (
+                "icons/codex.svg",
+                include_str!("../../extensions/dev.sworm.codex/icons/codex.svg"),
+            ),
+            (
+                "icons/codex-text.svg",
+                include_str!("../../extensions/dev.sworm.codex/icons/codex-text.svg"),
+            ),
+        ],
+    },
+    BundledExtension {
+        id: "dev.sworm.omp",
+        manifest: include_str!("../../extensions/dev.sworm.omp/extension.json"),
+        payload: &[(
+            "icons/omp.svg",
+            include_str!("../../extensions/dev.sworm.omp/icons/omp.svg"),
+        )],
+    },
+    BundledExtension {
+        id: "dev.sworm.antigravity",
+        manifest: include_str!("../../extensions/dev.sworm.antigravity/extension.json"),
+        payload: &[
+            (
+                "icons/antigravity.svg",
+                include_str!("../../extensions/dev.sworm.antigravity/icons/antigravity.svg"),
+            ),
+            (
+                "icons/antigravity-text.svg",
+                include_str!("../../extensions/dev.sworm.antigravity/icons/antigravity-text.svg"),
+            ),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -218,10 +268,21 @@ pub struct LoadedFormatter {
 }
 
 #[derive(Debug)]
+pub struct LoadedHarness {
+    pub extension_id: String,
+    pub extension_label: String,
+    pub extension_dir: Option<PathBuf>,
+    pub requires: Vec<String>,
+    pub install_hint: String,
+    pub definition: HarnessContribution,
+}
+
+#[derive(Debug)]
 pub struct LoadedExtensionCatalog {
     pub catalog: ExtensionCatalog,
     pub lsp_servers: Vec<LoadedLspServer>,
     pub formatters: Vec<LoadedFormatter>,
+    pub harnesses: Vec<LoadedHarness>,
     pub grammars: Vec<ExtensionGrammar>,
     pub settings_ids: SettingsCatalogIds,
 }
@@ -238,12 +299,19 @@ impl LoadedExtensionCatalog {
             .iter()
             .find(|formatter| formatter.formatter_id == id)
     }
+
+    pub fn find_harness(&self, id: &str) -> Option<&LoadedHarness> {
+        self.harnesses
+            .iter()
+            .find(|harness| harness.definition.id == id)
+    }
 }
 
 struct PreparedExtension {
     manifest: ExtensionManifest,
     dir: Option<PathBuf>,
     grammars: Vec<ExtensionGrammar>,
+    harnesses: Vec<HarnessDescriptor>,
 }
 
 static INSTALLED_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
@@ -494,6 +562,10 @@ fn prepare(
                     .iter()
                     .map(|formatter| &formatter.command),
             )
+            .chain(manifest.contributes.harnesses.iter().flat_map(|harness| {
+                std::iter::once(&harness.command)
+                    .chain(harness.chat.iter().map(|chat| &chat.command))
+            }))
             .any(|command| command.trim().starts_with("./"))
     {
         return Err("bundled extension commands must not be relative".to_string());
@@ -543,10 +615,33 @@ fn prepare(
             grammar,
         });
     }
+    let mut harnesses = Vec::new();
+    for harness in &manifest.contributes.harnesses {
+        let image = |path: &str| -> Result<String, String> {
+            let raw = read_payload(dir.as_deref(), payload, path)?;
+            if !raw.trim().contains("<svg") {
+                return Err(format!("harness {} image {path} is not an SVG", harness.id));
+            }
+            Ok(raw.into_owned())
+        };
+        harnesses.push(HarnessDescriptor {
+            id: harness.id.clone(),
+            label: harness.label.clone(),
+            extension_id: manifest.id.clone(),
+            icon: image(&harness.brand.icon)?,
+            wordmark: harness.brand.wordmark.as_deref().map(image).transpose()?,
+            wordmark_aspect: harness.brand.wordmark_aspect,
+            wordmark_font: harness.brand.wordmark_font.clone(),
+            gradient: harness.brand.gradient.clone(),
+            shift_encoding: harness.terminal.shift_encoding,
+            title_prefixes: harness.terminal.title_prefixes.clone(),
+        });
+    }
     Ok(PreparedExtension {
         manifest,
         dir,
         grammars,
+        harnesses,
     })
 }
 
@@ -588,6 +683,9 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
     let mut formatters = Vec::new();
     let mut grammars = Vec::new();
     let mut grammar_owners = BTreeMap::new();
+    let mut harnesses = Vec::new();
+    let mut harness_descriptors = Vec::new();
+    let mut harness_owners: BTreeMap<&str, &str> = BTreeMap::new();
     let mut server_ids = HashSet::new();
     let mut extension_ids = HashSet::new();
     for extension in list {
@@ -656,6 +754,29 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
                 definition: definition.clone(),
             });
         }
+        for definition in &manifest.contributes.harnesses {
+            if let Some(owner) = harness_owners.insert(definition.id.as_str(), manifest.id.as_str())
+            {
+                return Err(format!(
+                    "harness {} is contributed by both {owner} and {}",
+                    definition.id, manifest.id
+                ));
+            }
+            harnesses.push(LoadedHarness {
+                extension_id: manifest.id.clone(),
+                extension_label: manifest.label.clone(),
+                extension_dir: extension.dir.clone(),
+                requires: manifest.requires.clone(),
+                install_hint: definition
+                    .install_hint
+                    .as_ref()
+                    .or(manifest.install_hint.as_ref())
+                    .cloned()
+                    .unwrap_or_default(),
+                definition: definition.clone(),
+            });
+        }
+        harness_descriptors.extend(extension.harnesses.iter().cloned());
         for grammar in &extension.grammars {
             if let Some(owner) =
                 grammar_owners.insert(grammar.language.as_str(), manifest.id.as_str())
@@ -739,6 +860,10 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
     }
     let pages = build_settings_pages(&languages, &lsp_servers);
     let settings_ids = SettingsCatalogIds {
+        harness_ids: harnesses
+            .iter()
+            .map(|harness| harness.definition.id.clone())
+            .collect(),
         lsp_server_ids: lsp_servers
             .iter()
             .map(|server| server.server_definition_id.clone())
@@ -757,12 +882,14 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
             runtime: ExtensionRuntimeCatalog {
                 languages,
                 formatter_policies,
+                harnesses: harness_descriptors,
             },
             settings: ExtensionSettingsCatalog { pages },
             diagnostics: Vec::new(),
         },
         lsp_servers,
         formatters,
+        harnesses,
         grammars,
         settings_ids,
     })
@@ -858,6 +985,105 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
             || requirement.chars().any(char::is_whitespace)
         {
             return Err(format!("invalid required command {requirement}"));
+        }
+    }
+    let mut harness_ids = HashSet::new();
+    for harness in &manifest.contributes.harnesses {
+        let id = &harness.id;
+        if !id
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+            || !id.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+            })
+        {
+            return Err(format!("harness id {id} must match [a-z0-9][a-z0-9_-]*"));
+        }
+        if !harness_ids.insert(id) {
+            return Err(format!("duplicate harness {id}"));
+        }
+        if harness.label.trim().is_empty() || harness.command.trim().is_empty() {
+            return Err(format!("harness {id} must define a label and command"));
+        }
+        for path in std::iter::once(&harness.brand.icon).chain(harness.brand.wordmark.iter()) {
+            if payload_path(path).is_err() || !path.ends_with(".svg") {
+                return Err(format!(
+                    "harness {id} brand images must be SVG payload files"
+                ));
+            }
+        }
+        if match (&harness.brand.wordmark, harness.brand.wordmark_aspect) {
+            (Some(_), Some(aspect)) => !aspect.is_finite() || aspect <= 0.0,
+            (None, None) => false,
+            _ => true,
+        } {
+            return Err(format!(
+                "harness {id} wordmark needs a positive wordmark_aspect"
+            ));
+        }
+        if harness.brand.gradient.iter().any(|color| {
+            color.len() != 7
+                || !color.starts_with('#')
+                || !color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
+        }) {
+            return Err(format!("harness {id} gradient colors must be #rrggbb"));
+        }
+        for (field, args) in [
+            ("resume_args", &harness.terminal.resume_args),
+            ("new_session_args", &harness.terminal.new_session_args),
+        ] {
+            if !args.is_empty()
+                && (!args.iter().any(|arg| arg.contains(SESSION_ID_VARIABLE))
+                    || args.iter().any(|arg| {
+                        arg.match_indices("${")
+                            .any(|(index, _)| !arg[index..].starts_with(SESSION_ID_VARIABLE))
+                    }))
+            {
+                return Err(format!(
+                    "harness {id} {field} must use {SESSION_ID_VARIABLE} and no other variable"
+                ));
+            }
+        }
+        for (field, args) in [
+            ("terminal.args", harness.terminal.args.as_slice()),
+            (
+                "chat.args",
+                harness
+                    .chat
+                    .as_ref()
+                    .map_or(&[][..], |chat| chat.args.as_slice()),
+            ),
+            (
+                "detect.version_args",
+                harness.detect.version_args.as_slice(),
+            ),
+        ] {
+            for arg in args {
+                if arg.contains("${") {
+                    return Err(format!(
+                        "harness {id} {field} uses unknown variable in {arg}"
+                    ));
+                }
+            }
+        }
+        if !harness.terminal.new_session_args.is_empty() && harness.terminal.resume_args.is_empty()
+        {
+            return Err(format!(
+                "harness {id} mints session ids but has no resume_args"
+            ));
+        }
+        if harness.terminal.title_prefixes.iter().any(String::is_empty) {
+            return Err(format!(
+                "harness {id} title_prefixes must be non-empty strings"
+            ));
+        }
+        if harness
+            .chat
+            .as_ref()
+            .is_some_and(|chat| chat.command.trim().is_empty())
+        {
+            return Err(format!("harness {id} chat must define a command"));
         }
     }
     let mut formatter_ids = HashSet::new();
@@ -1275,6 +1501,112 @@ mod tests {
             serde_json::to_vec(&manifest).unwrap(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn bundled_harnesses_reproduce_previous_providers() {
+        let loaded = load_catalog(None);
+        assert_eq!(
+            loaded
+                .harnesses
+                .iter()
+                .map(|h| h.definition.id.as_str())
+                .collect::<Vec<_>>(),
+            ["claude_code", "codex", "omp", "antigravity"]
+        );
+        assert_eq!(
+            loaded
+                .harnesses
+                .iter()
+                .map(|h| h.definition.command.as_str())
+                .collect::<Vec<_>>(),
+            ["claude", "codex", "omp", "agy"]
+        );
+        for (harness, resume) in
+            loaded
+                .harnesses
+                .iter()
+                .zip(["--resume", "resume", "--resume", "--conversation"])
+        {
+            let definition = &harness.definition;
+            assert_eq!(
+                definition.terminal.resume_args,
+                [resume, SESSION_ID_VARIABLE]
+            );
+            if definition.id == "claude_code" {
+                assert_eq!(
+                    definition.terminal.new_session_args,
+                    ["--session-id", SESSION_ID_VARIABLE]
+                );
+            } else {
+                assert!(definition.terminal.new_session_args.is_empty());
+            }
+            if definition.id == "omp" {
+                assert_eq!(
+                    definition.detect.version_stream,
+                    VersionStream::StdoutOrStderr
+                );
+                assert_eq!(definition.terminal.title_prefixes, ["π", ">"]);
+            } else {
+                assert_eq!(definition.detect.version_stream, VersionStream::Stdout);
+                assert!(definition.terminal.title_prefixes.is_empty());
+            }
+            assert_eq!(
+                definition.terminal.shift_encoding,
+                if definition.id == "antigravity" {
+                    ShiftEncoding::Kitty
+                } else {
+                    ShiftEncoding::Legacy
+                }
+            );
+        }
+        assert_eq!(
+            loaded
+                .catalog
+                .runtime
+                .harnesses
+                .iter()
+                .map(|h| h.id.as_str())
+                .collect::<Vec<_>>(),
+            ["claude_code", "codex", "omp", "antigravity"]
+        );
+        assert!(loaded
+            .catalog
+            .runtime
+            .harnesses
+            .iter()
+            .all(|h| h.icon.contains("<svg")));
+    }
+
+    #[test]
+    fn harness_with_unknown_variable_is_rejected() {
+        let root = temp_dir();
+        install(
+            &root,
+            serde_json::json!({
+                "id": "dev.example.harness", "label": "Harness", "version": "1.0.0", "api": 1,
+                "contributes": { "harnesses": [{
+                    "id": "example", "label": "Example", "command": "example",
+                    "brand": { "icon": "./icon.svg", "gradient": ["#000000", "#ffffff"] },
+                    "terminal": { "resume_args": ["--resume", "${id}"] }
+                }] }
+            }),
+        );
+        fs::write(root.join("dev.example.harness/icon.svg"), "<svg></svg>").unwrap();
+        let loaded = load_catalog(Some(&root));
+        assert_eq!(loaded.catalog.diagnostics.len(), 1);
+        assert!(loaded.catalog.diagnostics[0].message.contains("rejected"));
+        assert!(loaded.catalog.diagnostics[0]
+            .message
+            .contains("harness example resume_args must use ${session_id} and no other variable"));
+        assert!(loaded.find_harness("example").is_none());
+        assert!(!loaded
+            .catalog
+            .runtime
+            .harnesses
+            .iter()
+            .any(|h| h.id == "example"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

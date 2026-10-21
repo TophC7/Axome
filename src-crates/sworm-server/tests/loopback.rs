@@ -158,8 +158,9 @@ async fn start_terminal(client: &RemoteClient, run_id: &str, folder_path: &str) 
             &Request::SessionStart {
                 run_id: run_id.to_owned(),
                 folder_path: folder_path.to_owned(),
-                provider_id: "terminal".to_owned(),
-                resume_token: None,
+                harness_id: None,
+                preset: None,
+                session_id: None,
                 cols: 80,
                 rows: 24,
             },
@@ -1207,8 +1208,9 @@ async fn session_start_status_and_stop_are_idempotent() -> Result<()> {
             &Request::SessionStart {
                 run_id: run_id.to_owned(),
                 folder_path: other.path().to_string_lossy().into_owned(),
-                provider_id: "terminal".to_owned(),
-                resume_token: None,
+                harness_id: None,
+                preset: None,
+                session_id: None,
                 cols: 80,
                 rows: 24,
             },

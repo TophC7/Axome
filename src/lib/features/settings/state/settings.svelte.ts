@@ -6,8 +6,9 @@ import type {
   FormattingSettings,
   LspServerConfig,
   NixSettings,
-  ProviderConfig,
+  HarnessConfig,
   SettingsPayload,
+  ShellSettings,
   TypographySettings,
   WindowSettings
 } from '$lib/types/backend'
@@ -127,16 +128,24 @@ export async function saveFormattingSettings(nextSettings: FormattingSettings, h
   )
 }
 
-export async function saveProviderConfig(nextConfig: ProviderConfig, host: string | null) {
+export async function saveHarnessConfig(nextConfig: HarnessConfig, host: string | null) {
   return saveHostSection(
     host,
-    (folder) => backend.settings.setProviderConfig(nextConfig, folder),
+    (folder) => backend.settings.setHarnessConfig(nextConfig, folder),
     (current, saved) => ({
       ...current,
-      providers: current.providers.map((entry) =>
-        entry.provider.id === saved.provider_id ? { ...entry, config: saved } : entry
+      harnesses: current.harnesses.map((entry) =>
+        entry.harness.id === saved.harness_id ? { ...entry, config: saved } : entry
       )
     })
+  )
+}
+
+export async function saveShellSettings(nextSettings: ShellSettings, host: string | null) {
+  return saveHostSection(
+    host,
+    (folder) => backend.settings.setShell(nextSettings, folder),
+    (current, saved) => ({ ...current, shell: saved })
   )
 }
 

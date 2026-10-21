@@ -1,6 +1,7 @@
 import { backend } from '$lib/api/backend'
 import type { StreamHandle } from '$lib/api/transport'
-import { resolveTerminalKey } from '$lib/features/sessions/terminal/terminalKeymap'
+import { resolveTerminalKey, stripTitlePrefixes } from '$lib/features/sessions/terminal/terminalKeymap'
+import { getHarness } from '$lib/features/sessions/harnesses/catalog'
 import { TerminalTitleParser } from '$lib/features/sessions/terminal/terminalTitle'
 import { RenderBarrier } from '$lib/features/sessions/terminal/renderBarrier'
 import {
@@ -15,12 +16,18 @@ import {
   getActiveFolderPath,
   getTabs,
   persistSessionTabRunId,
-  setSessionTabResumeToken,
+  setSessionTabSessionId,
   setSessionTabRunId,
   setSessionTabStatus,
   setSessionTabTitle
 } from '$lib/features/workbench/state.svelte'
-import type { PtyEvent, SessionSpec, SessionStartInfo, TerminalTransferState } from '$lib/types/backend'
+import type {
+  HarnessDescriptor,
+  PtyEvent,
+  SessionSpec,
+  SessionStartInfo,
+  TerminalTransferState
+} from '$lib/types/backend'
 import { platform, requireNative } from '$lib/platform'
 import { FitAddon } from '@xterm/addon-fit'
 import { ImageAddon } from '@xterm/addon-image'
@@ -64,7 +71,7 @@ export class TerminalSessionManager {
   private disposed = false
   private viewportPosition = 0
   private lastError: string | null = null
-  private providerId: string | null = null
+  private harnessId: string | null = null
   private readonly barrier = new RenderBarrier()
   private transferBarrierActive = false
   // Single-flight PTY spawn: concurrent callers (mount debounce, Restart)
@@ -117,6 +124,11 @@ export class TerminalSessionManager {
 
   private getFolderPath(): string | null {
     return getTabs().find((t) => t.id === this.tabId)?.folderPath ?? getActiveFolderPath() ?? null
+  }
+
+  private harness(): HarnessDescriptor | null {
+    const folder = this.getFolderPath()
+    return this.harnessId && folder ? getHarness(folder, this.harnessId) : null
   }
 
   setInputEnabled(enabled: boolean): void {
@@ -224,7 +236,7 @@ export class TerminalSessionManager {
 
   async startPty(spec: Omit<SessionSpec, 'runId'>): Promise<SessionStartInfo> {
     if (this.disposed || this.ptyActive) {
-      return { resumed: false, resumeToken: null }
+      return { resumed: false, sessionId: null }
     }
     if (this.startPromise) {
       return this.startPromise
@@ -252,11 +264,11 @@ export class TerminalSessionManager {
 
     const terminal = this.terminal
     if (!terminal) {
-      return { resumed: false, resumeToken: null }
+      return { resumed: false, sessionId: null }
     }
 
     this.lastError = null
-    this.providerId = spec.providerId
+    this.harnessId = spec.harnessId
     const tab = getTabs().find((candidate) => candidate.id === this.tabId)
     const runId = tab?.kind === 'session' && tab.runId ? tab.runId : crypto.randomUUID()
     this.startingRunId = runId
@@ -266,7 +278,7 @@ export class TerminalSessionManager {
     this.streamRunId = runId
 
     const stream = backend.sessions.start({ ...spec, runId }, terminal.cols, terminal.rows, {
-      onOutput: (data) => this.handleOutput(runId, spec.providerId, data),
+      onOutput: (data) => this.handleOutput(runId, data),
       onEvent: (event) => this.handlePtyEvent(runId, event)
     })
     this.stream = stream
@@ -292,17 +304,15 @@ export class TerminalSessionManager {
     }
   }
 
-  private handleOutput(runId: string, providerId: string | null, bytes: Uint8Array): void {
+  private handleOutput(runId: string, bytes: Uint8Array): void {
     if (this.disposed || this.streamRunId !== runId) return
 
     const sequence = this.barrier.next()
     const text = this.textDecoder.decode(bytes, { stream: true })
-    let title = this.titleParser.push(text)
-    if (providerId === 'omp' && title?.startsWith('π')) {
-      title = title.slice(1).trimStart()
-      if (title.startsWith('>')) title = title.slice(1).trimStart()
+    const title = this.titleParser.push(text)
+    if (title !== null) {
+      setSessionTabTitle(this.tabId, stripTitlePrefixes(title, this.harness()?.title_prefixes ?? []))
     }
-    if (title) setSessionTabTitle(this.tabId, title)
 
     this.renderOutput(bytes, sequence)
   }
@@ -341,8 +351,8 @@ export class TerminalSessionManager {
         this.lastError = event.message ?? 'Unknown PTY error'
         this.emitError(this.lastError)
         setSessionTabStatus(this.tabId, 'failed')
-      } else if (event.type === 'resumeTokenBound' && event.token) {
-        setSessionTabResumeToken(this.tabId, event.token)
+      } else if (event.type === 'sessionIdBound' && event.session_id) {
+        setSessionTabSessionId(this.tabId, event.session_id)
       }
     }
   }
@@ -368,7 +378,7 @@ export class TerminalSessionManager {
       const tab = getTabs().find((tab) => tab.id === this.tabId)
       return {
         runId,
-        providerId: this.providerId ?? undefined,
+        harnessId: this.harnessId ?? undefined,
         serializedBuffer: serializeAddon.serialize(),
         cols: terminal.cols,
         rows: terminal.rows,
@@ -388,7 +398,7 @@ export class TerminalSessionManager {
     this.releaseStream()
     this.runId = state.status === 'exited' ? null : state.runId
     this.barrier.reset()
-    this.providerId = state.providerId ?? null
+    this.harnessId = state.harnessId ?? null
     await this.ensureTerminal()
     await this.remoteStatusReady
 
@@ -407,7 +417,7 @@ export class TerminalSessionManager {
     this.streamRunId = runId
 
     const stream = transfers.attach(runId, transferId, {
-      onOutput: (data) => this.handleOutput(runId, this.providerId, data),
+      onOutput: (data) => this.handleOutput(runId, data),
       onEvent: (event) => this.handlePtyEvent(runId, event)
     })
     this.stream = stream
@@ -635,9 +645,9 @@ export class TerminalSessionManager {
 
     // All key-by-key policy lives in terminalKeymap.ts. This handler
     // is a dumb dispatcher over the resolved KeyAction so adding a new
-    // provider quirk or paste mode is a one-file change.
+    // paste mode is a one-file change; harness encoding comes from its contribution.
     this.terminal.attachCustomKeyEventHandler((ev) => {
-      const action = resolveTerminalKey(ev, this.providerId)
+      const action = resolveTerminalKey(ev, this.harness()?.shift_encoding ?? 'legacy')
       switch (action.kind) {
         case 'pass':
           return true

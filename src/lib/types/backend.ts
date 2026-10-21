@@ -4,18 +4,18 @@
 import type { TextRevealTarget } from '$lib/features/workbench/surfaces/text/service.svelte'
 
 export interface PtyEvent {
-  type: 'started' | 'exit' | 'error' | 'resumeTokenBound' | 'synced'
+  type: 'started' | 'exit' | 'error' | 'sessionIdBound' | 'synced'
   run_id: string
   pid?: number | null
   code?: number | null
   message?: string
-  token?: string
+  session_id?: string
   sequence?: number
 }
 
 export interface TerminalTransferState {
   runId: string | null
-  providerId?: string
+  harnessId?: string
   serializedBuffer: string
   cols: number
   rows: number
@@ -117,7 +117,7 @@ export type WorkbenchAttached =
 
 /** A live process a workbench left running. */
 export type WorkbenchRun =
-  { kind: 'session'; folder: string; provider_id: string } | { kind: 'task'; folder: string; task_id: string }
+  { kind: 'session'; folder: string; harness_id: string | null } | { kind: 'task'; folder: string; task_id: string }
 
 /** A folder opened in Sworm, most recent first. */
 export interface RecentFolder {
@@ -127,28 +127,37 @@ export interface RecentFolder {
 
 export interface SessionStartInfo {
   resumed: boolean
-  /** Token the launched process is known to own at spawn time; null until discovery binds one. */
-  resumeToken: string | null
+  /** Session id the process is known to own at spawn time; null until discovery binds one. */
+  sessionId: string | null
 }
 
 /** Everything the backend needs to spawn a session tab's process under an ephemeral run id. */
 export interface SessionSpec {
   runId: string
   folderPath: string
-  providerId: string
-  resumeToken: string | null
+  harnessId: string | null
+  preset: string | null
+  sessionId: string | null
 }
 
-export type ProviderConnectionStatus = 'connected' | 'missing' | 'error'
+export type HarnessConnectionStatus = 'connected' | 'missing' | 'error'
 
-export interface ProviderStatus {
+export interface HarnessStatus {
   id: string
   label: string
-  status: ProviderConnectionStatus
+  status: HarnessConnectionStatus
+  enabled: boolean
+  presets: string[]
   version: string | null
   resolved_path: string | null
   message: string | null
   install_hint: string
+}
+
+/** One host's harnesses and the scope's configured default preset. */
+export interface HarnessListing {
+  harnesses: HarnessStatus[]
+  default_preset: string | null
 }
 
 export type ExternalFolderOpenMode = 'new_window' | 'focused_window'
@@ -160,6 +169,7 @@ export interface WindowSettings {
   external_folder_open_mode?: ExternalFolderOpenMode
   external_file_open_mode?: ExternalFileOpenMode
   tab_beam_position?: TabBeamPosition
+  home_folder?: string | null
 }
 
 export interface TypographySettings {
@@ -222,17 +232,37 @@ export interface FormattingLanguageSettings {
 
 export type FormattingSettings = Record<string, FormattingLanguageSettings>
 
-export interface ProviderConfig {
-  provider_id: string
+export interface HarnessConfig {
+  harness_id: string
   enabled: boolean
   binary_path_override: string | null
   extra_args: string[]
 }
 
-export interface ProviderSettings {
+export interface HarnessSettings {
   enabled: boolean
   binary_path_override: string | null
   extra_args: string[]
+  presets: Record<string, PresetSettings>
+}
+
+export type SessionView = 'chat' | 'terminal'
+
+export interface PresetSettings {
+  args: string[]
+  env: Record<string, string>
+  /** Default view for new tabs of this preset. Unused until Phase 3. */
+  view: SessionView | null
+}
+
+export interface ShellSettings {
+  binary_path_override: string | null
+  extra_args: string[]
+}
+
+export interface SessionsSettings {
+  /** `<harness_id>` or `<harness_id>/<preset>`; launched by New Session and listed first. */
+  default_preset: string | null
 }
 
 export interface RemoteSettings {
@@ -288,7 +318,9 @@ export interface EffectiveSettings {
   explorer: ExplorerSettings
   git: GitSettings
   formatting: FormattingSettings
-  providers: Record<string, ProviderSettings>
+  sessions: SessionsSettings
+  shell: ShellSettings
+  harnesses: Record<string, HarnessSettings>
   lsp: { servers: Record<string, EffectiveLspServerSettings> }
   remotes: Record<string, RemoteSettings>
 }
@@ -335,9 +367,9 @@ export interface SettingsChangedEvent {
   diagnostics: SettingsDiagnostic[]
 }
 
-export interface ProviderSettingsEntry {
-  provider: ProviderStatus
-  config: ProviderConfig
+export interface HarnessSettingsEntry {
+  harness: HarnessStatus
+  config: HarnessConfig
 }
 
 export interface SettingsPayload {
@@ -346,7 +378,8 @@ export interface SettingsPayload {
   nix: NixSettings
   formatting: FormattingSettings
   lsp: EffectiveSettings['lsp']
-  providers: ProviderSettingsEntry[]
+  harnesses: HarnessSettingsEntry[]
+  shell: ShellSettings
 }
 
 export type LspTraceLevel = 'off' | 'messages' | 'verbose'
@@ -400,9 +433,26 @@ export interface SettingsPage {
   server_definition_ids: string[]
 }
 
+export type ShiftEncoding = 'legacy' | 'kitty'
+
+export interface HarnessDescriptor {
+  id: string
+  label: string
+  extension_id: string
+  /** SVG markup. */
+  icon: string
+  wordmark: string | null
+  wordmark_aspect: number | null
+  wordmark_font: string | null
+  gradient: [string, string]
+  shift_encoding: ShiftEncoding
+  title_prefixes: string[]
+}
+
 export interface ExtensionRuntimeCatalog {
   languages: LanguageContribution[]
   formatter_policies: LanguageFormatterPolicy[]
+  harnesses: HarnessDescriptor[]
 }
 
 export interface ExtensionSettingsCatalog {
@@ -955,8 +1005,8 @@ export interface BranchSummary {
 
 // ACTIVITY MAP //
 
-export interface DiscoveredProviderActivity {
-  provider_id: string
+export interface DiscoveredHarnessActivity {
+  harness_id: string
   last_active: string
   daily_counts: [number, number, number, number, number, number, number]
 }
@@ -966,7 +1016,7 @@ export interface DiscoveredProject {
   name: string
   path_exists: boolean
   last_active: string
-  providers: DiscoveredProviderActivity[]
+  harnesses: DiscoveredHarnessActivity[]
 }
 
 // NIX ENVIRONMENT //

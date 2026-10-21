@@ -101,7 +101,6 @@ fn shortcuts_file_schema() -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::services::settings_resolution::SettingsCatalogIds;
-    use sworm_protocol::settings::CANONICAL_PROVIDER_IDS;
 
     #[test]
     fn registers_settings_jsonc_schemas() {
@@ -153,6 +152,7 @@ mod tests {
             SettingsLayerKind::Global,
             &SettingsCatalogIds {
                 lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                harness_ids: vec!["omp".into()],
                 ..SettingsCatalogIds::default()
             },
         )
@@ -166,18 +166,15 @@ mod tests {
             "exclude_gitignore",
             "compact_folders",
             "formatting",
-            "providers",
+            "harnesses",
+            "sessions",
+            "shell",
             "lsp",
             "remotes",
         ] {
             assert!(rendered.contains(section), "schema includes {section}");
         }
-        for provider_id in CANONICAL_PROVIDER_IDS {
-            assert!(
-                rendered.contains(&provider_id.to_string()),
-                "schema includes provider ID {provider_id}"
-            );
-        }
+        assert!(rendered.contains("\"omp\""));
         assert!(rendered.contains("dev.sworm.vtsls::vtsls"));
     }
 
@@ -187,6 +184,7 @@ mod tests {
             SettingsLayerKind::Global,
             &SettingsCatalogIds {
                 lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                harness_ids: vec!["omp".into()],
                 ..SettingsCatalogIds::default()
             },
         );

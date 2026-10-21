@@ -1,10 +1,10 @@
 <script lang="ts">
   import ActivityHeatmap from '$lib/features/activity-map/ActivityHeatmap.svelte'
   import AheadBehindBadge from '$lib/features/git/AheadBehindBadge.svelte'
-  import { providerById } from '$lib/features/sessions/providers/catalog'
+  import { sessionBrand } from '$lib/features/sessions/harnesses/catalog'
   import { GitBranchIcon } from '$lib/icons/lucideExports'
   import appIconUrl from '$lib/assets/sworm.svg?url'
-  import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
+  import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import type { GitBrief } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
   import { timeAgo } from '$lib/utils/date'
@@ -79,10 +79,10 @@
       alt={project.openedAt ? 'Opened in Sworm' : ''}
       class={cn('size-3.5 shrink-0', !project.openedAt && 'opacity-50 grayscale')}
     />
-    {#each project.providers as activity (activity.provider_id)}
-      {@const provider = providerById[activity.provider_id]}
-      {#if provider}
-        <ProviderIcon icon={provider.icon} size={14} alt={provider.label} class="rounded-sm" />
+    {#each project.harnesses as activity (activity.harness_id)}
+      {@const brand = sessionBrand(null, activity.harness_id)}
+      {#if brand.icon}
+        <HarnessIcon icon={brand.icon} size={14} alt={brand.label} class="rounded-sm" />
       {/if}
     {/each}
     <span class="ml-auto shrink-0 text-2xs text-subtle" title={provenance}>{timeAgo(project.lastActive)}</span>

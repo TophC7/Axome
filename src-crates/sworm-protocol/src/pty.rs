@@ -23,10 +23,9 @@ pub enum PtyEvent {
         run_id: String,
         sequence: u64,
     },
-    /// A provider-side resume identity was discovered for a run after
-    /// spawn (Codex thread id, Antigravity conversation id, OMP session id).
-    ResumeTokenBound {
+    /// A harness-owned session id was discovered for a run after spawn.
+    SessionIdBound {
         run_id: String,
-        token: String,
+        session_id: String,
     },
 }

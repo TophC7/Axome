@@ -9,8 +9,8 @@ import {
   isNotificationCenterOpen,
   setNotificationCenterOpen
 } from '$lib/features/notifications/state.svelte'
-import { allProviders } from '$lib/features/sessions/providers/catalog'
-import { getConnectedProviders } from '$lib/features/sessions/providers/state.svelte'
+import { svgUrl } from '$lib/features/sessions/harnesses/catalog'
+import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
 import { isSidebarCollapsed, toggleSidebar } from '$lib/features/app-shell/sidebar/state.svelte'
 import { zoomIn, zoomOut, zoomReset } from '$lib/features/app-shell/zoom/state.svelte'
 import { localHostLabel, openBrowser } from '$lib/features/browser/state.svelte'
@@ -27,6 +27,7 @@ import {
   closeActiveTab,
   closeCurrentWorkbench,
   createSession,
+  newDefaultSession,
   newEmptyFile,
   newTerminalSession,
   newWindow,
@@ -64,6 +65,7 @@ import {
   PaintbrushIcon,
   PanelLeftIcon,
   Play,
+  Plus,
   RefreshCwIcon,
   RotateCcwIcon,
   RotateCw,
@@ -120,10 +122,6 @@ function activeFolderVisible(): boolean {
   return getActiveFolderPath() !== null
 }
 
-function hasConnectedProvider(providerId: string): boolean {
-  return getConnectedProviders(getActiveFolderPath()).some((provider) => provider.id === providerId)
-}
-
 function lastTaskLabel(): string | null {
   const folderPath = getActiveFolderPath()
   if (!folderPath) return null
@@ -138,15 +136,15 @@ function appCommand(definition: AppCommandDefinition): AppCommandDefinition {
 }
 
 export function getAppCommandDefinitions(): AppCommandDefinition[] {
-  const providerCommands = allProviders.map((provider) =>
+  const sessionCommands = getLaunchOptions(getActiveFolderPath()).map(({ harness, preset, label, status }) =>
     appCommand({
-      id: `new-session-${provider.id}`,
-      label: `New ${provider.label} Session`,
+      id: `new-session-${harness.id}${preset === null ? '' : `:${preset}`}`,
+      label: `New ${label} Session`,
       group: 'Sessions',
-      iconSrc: provider.icon,
-      keywords: ['new', 'session', 'agent', provider.label],
-      visible: () => activeFolderVisible() && hasConnectedProvider(provider.id),
-      run: () => createSession(provider.id, provider.label)
+      iconSrc: svgUrl(harness.icon),
+      keywords: ['new', 'session', 'agent', harness.label, preset ?? ''],
+      visible: () => activeFolderVisible() && status?.status === 'connected',
+      run: () => createSession(harness.id, preset)
     })
   )
 
@@ -341,7 +339,16 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       visible: activeFolderVisible,
       run: openActiveFolderInExternalTerminal
     }),
-    ...providerCommands,
+    appCommand({
+      id: 'new-session',
+      label: 'New Session',
+      group: 'Sessions',
+      icon: Plus,
+      keywords: ['new', 'session', 'agent', 'default', 'preset'],
+      visible: activeFolderVisible,
+      run: newDefaultSession
+    }),
+    ...sessionCommands,
     appCommand({
       id: 'new-terminal',
       label: 'New Terminal',

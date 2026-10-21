@@ -1,4 +1,4 @@
-import { providerById, type ProviderIconSource } from '$lib/features/sessions/providers/catalog'
+import { sessionBrand, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
 import type { Tab } from '$lib/features/workbench/model'
 import { getDiffTabTitle } from '$lib/features/workbench/surfaces/diff/service.svelte'
 import { getEpicTabTitle } from '$lib/features/workbench/surfaces/epic/service.svelte'
@@ -9,21 +9,26 @@ import { getTextTabTitle } from '$lib/features/workbench/surfaces/text/service.s
 export interface TabPresentation {
   title: string
   preview: boolean
-  /** Session provider icon (rendered via ProviderIcon). */
-  providerIcon: ProviderIconSource | null
+  /** Session harness or shell icon (rendered via HarnessIcon). */
+  sessionIcon: HarnessIconSource | null
   /** Kebab-case Lucide icon name for task tabs (rendered via LucideIcon). */
   lucideIcon: string | null
   fileName: string | null
 }
 
 export function getTabPresentation(tab: Tab): TabPresentation {
-  const plain = { providerIcon: null, lucideIcon: null, fileName: null }
+  const plain = { sessionIcon: null, lucideIcon: null, fileName: null }
 
   switch (tab.kind) {
     case 'new-tab':
       return { ...plain, title: 'New', preview: true }
     case 'session':
-      return { ...plain, title: tab.title, preview: false, providerIcon: providerById[tab.providerId]?.icon ?? null }
+      return {
+        ...plain,
+        title: tab.title,
+        preview: false,
+        sessionIcon: sessionBrand(tab.folderPath, tab.harnessId).icon
+      }
     case 'text':
       return { ...plain, title: getTextTabTitle(tab), preview: tab.temporary, fileName: tab.fileName }
     case 'diff':

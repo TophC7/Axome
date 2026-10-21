@@ -1,6 +1,6 @@
 <!--
   @component
-  WindowView — window chrome and external-open routing preferences.
+  WindowView — startup, window chrome and external-open routing preferences.
 -->
 
 <script lang="ts" module>
@@ -9,6 +9,9 @@
 </script>
 
 <script lang="ts">
+  import { backend } from '$lib/api/backend'
+  import { Button } from '$lib/components/ui/button'
+  import { selectFolder } from '$lib/features/browser/state.svelte'
   import { Select } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
   import { getWindowControls, setWindowControls } from '$lib/features/app-shell/window-controls/state.svelte'
@@ -43,6 +46,28 @@
       })
   }
 </script>
+
+<section class="flex flex-col gap-3 border-b border-edge px-5 py-4">
+  <h3 class="text-md font-semibold text-bright">Startup</h3>
+  <div class="flex items-center gap-4">
+    <div class="min-w-0 flex-1">
+      <span class="text-sm text-fg">Home Folder</span>
+      <p class="text-xs text-subtle">New windows open a New Tab on this folder, and the folder browser starts here.</p>
+      <p class="truncate font-mono text-xs text-muted">{desktop?.window.home_folder ?? 'Not set'}</p>
+    </div>
+    <Button
+      size="sm"
+      disabled={!desktop}
+      onclick={async () => {
+        const path = await selectFolder({ path: desktop?.window.home_folder ?? (await backend.folders.home()) })
+        if (path) saveWindowSettings({ home_folder: path })
+      }}>Choose…</Button
+    >
+    {#if desktop?.window.home_folder}
+      <Button size="sm" onclick={() => saveWindowSettings({ home_folder: null })}>Clear</Button>
+    {/if}
+  </div>
+</section>
 
 <section class="flex flex-col gap-3 border-b border-edge px-5 py-4">
   <h3 class="text-md font-semibold text-bright">External Open Routing</h3>

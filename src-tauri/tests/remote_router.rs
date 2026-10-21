@@ -56,7 +56,8 @@ async fn start_terminal(
         .session_start(
             run_id.into(),
             folder.into(),
-            "terminal".into(),
+            None,
+            None,
             None,
             80,
             24,
@@ -156,7 +157,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     fs::create_dir(&repository_settings)?;
     fs::write(
         repository_settings.join("settings.jsonc"),
-        r#"{"providers":{"terminal":{"enabled":true,"binary_path_override":"sh","extra_args":[]}}}"#,
+        r#"{"shell":{"binary_path_override":"sh","extra_args":[]}}"#,
     )?;
 
     let (server, desktop_identity, remote_settings) = common::start_loop(temporary.path()).await?;
@@ -268,8 +269,10 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     assert!(
         workbench.running.iter().any(|run| matches!(
             run,
-            sworm_protocol::rpc::WorkbenchRun::Session { provider_id, .. }
-                if provider_id == "terminal"
+            sworm_protocol::rpc::WorkbenchRun::Session {
+                harness_id: None,
+                ..
+            }
         )),
         "session must belong to workbench, not connection"
     );

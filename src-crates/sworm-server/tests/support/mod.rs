@@ -108,7 +108,7 @@ pub fn init_repo(path: &Path) -> Result<()> {
     fs::write(path.join(".git/info/exclude"), ".sworm/\n")?;
     fs::write(
         path.join(".sworm/settings.jsonc"),
-        r#"{"providers":{"terminal":{"enabled":true,"binary_path_override":"sh","extra_args":[]}}}"#,
+        r#"{"shell":{"binary_path_override":"sh","extra_args":[]}}"#,
     )?;
     Ok(())
 }
@@ -195,7 +195,7 @@ done
     )?;
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755))?;
     fs::write(repo.join(".sworm/settings.jsonc"), serde_json::json!({
-        "providers": {"terminal": {"enabled": true, "binary_path_override": "sh", "extra_args": []}},
+        "shell": {"binary_path_override": "sh", "extra_args": []},
         "lsp": {"servers": {FAKE_LSP_SERVER_ID: {"enabled": true, "binary_path_override": script}}}
     }).to_string())?;
     Ok(())

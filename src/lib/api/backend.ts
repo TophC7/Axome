@@ -68,8 +68,9 @@ import type {
   FolderEntry,
   FolderInfo,
   PathRoot,
-  ProviderConfig,
-  ProviderStatus,
+  HarnessConfig,
+  HarnessListing,
+  ShellSettings,
   SessionSpec,
   SessionStartInfo,
   SettingsChangedEvent,
@@ -182,17 +183,17 @@ export const backend = {
     }
   },
 
-  providers: {
-    list(): Promise<ProviderStatus[]> {
-      return invoke<ProviderStatus[]>('provider_list')
+  harnesses: {
+    list(): Promise<HarnessListing> {
+      return invoke<HarnessListing>('harness_list')
     },
-    listForFolder(folderPath: string): Promise<ProviderStatus[]> {
-      return invoke<ProviderStatus[]>('provider_list_for_folder', { folderPath })
+    listForFolder(folderPath: string): Promise<HarnessListing> {
+      return invoke<HarnessListing>('harness_list_for_folder', { folderPath })
     }
   },
 
   sessions: {
-    /** Reattach a matching retained run, or start a new run using provider resume policy. */
+    /** Reattach a matching retained run, or start a new run using harness resume policy. */
     start(spec: SessionSpec, cols: number, rows: number, sinks: PtySinks): StreamHandle<SessionStartInfo> {
       return getHostTransport().openStream({ method: 'session_start', params: { ...spec, cols, rows } }, sinks)
     },
@@ -515,8 +516,11 @@ export const backend = {
         folderPath: folderPath ?? null
       })
     },
-    setProviderConfig(config: ProviderConfig, folderPath?: string): Promise<ProviderConfig> {
-      return invoke<ProviderConfig>('settings_set_provider_config', { config, folderPath: folderPath ?? null })
+    setHarnessConfig(config: HarnessConfig, folderPath?: string): Promise<HarnessConfig> {
+      return invoke<HarnessConfig>('settings_set_harness_config', { config, folderPath: folderPath ?? null })
+    },
+    setShell(settings: ShellSettings, folderPath?: string): Promise<ShellSettings> {
+      return invoke<ShellSettings>('settings_set_shell', { settings, folderPath: folderPath ?? null })
     }
   },
 

@@ -9,7 +9,8 @@ import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import { runNotifiedTask } from '$lib/features/notifications/runNotifiedTask'
-import { getConnectedProviders } from '$lib/features/sessions/providers/state.svelte'
+import { getLaunchOptions, resolveDefaultLaunch } from '$lib/features/sessions/harnesses/state.svelte'
+import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { startSession } from '$lib/features/sessions/service.svelte'
 import { setSettingsOpen } from '$lib/features/settings/dialog/state.svelte'
 import { getLastTaskId, rerunLastTask } from '$lib/features/tasks/service.svelte'
@@ -184,18 +185,38 @@ export function openActiveFolderInExternalTerminal(): void {
     })
 }
 
-export function createSession(providerId: string, label: string): void {
+export function createSession(harnessId: string, preset: string | null): void {
   const folderPath = getActiveFolderPath()
   if (!folderPath) return
-  if (!getConnectedProviders(folderPath).some((p) => p.id === providerId)) {
-    notify.error(`${label} unavailable`, `Connect the ${label} provider in Settings first.`)
+  const option = getLaunchOptions(folderPath).find((o) => o.harness.id === harnessId && o.preset === preset)
+  const label = option?.label ?? launchLabel(getHarness(folderPath, harnessId)?.label ?? harnessId, preset)
+  if (option?.status?.status !== 'connected') {
+    notify.error(`${label} unavailable`, `Install or enable ${label} in Settings → Harnesses first.`)
     return
   }
-  startSession(folderPath, providerId)
+  startSession(folderPath, harnessId, preset)
 }
 
 export function newTerminalSession(): void {
-  createSession('terminal', 'Terminal')
+  const folderPath = getActiveFolderPath()
+  if (!folderPath) return
+  startSession(folderPath, null, null)
+}
+
+export function newDefaultSession(): void {
+  const folderPath = getActiveFolderPath()
+  if (!folderPath) return
+  const { option, configured } = resolveDefaultLaunch(folderPath)
+  if (configured !== null && option === null) {
+    notify.error('Default preset unavailable', `${configured} is not a connected harness preset in this folder.`)
+    return
+  }
+  const launch = option ?? getLaunchOptions(folderPath).find((o) => o.status?.status === 'connected')
+  if (!launch) {
+    notify.error('No harness available', 'Install a harness or enable one in Settings → Harnesses.')
+    return
+  }
+  startSession(folderPath, launch.harness.id, launch.preset)
 }
 
 export function showTasks(): void {

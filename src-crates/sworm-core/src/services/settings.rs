@@ -209,7 +209,9 @@ impl SettingsService {
                 | "explorer"
                 | "git"
                 | "formatting"
-                | "providers"
+                | "harnesses"
+                | "sessions"
+                | "shell"
                 | "lsp"
                 | "remotes"
         ) {
@@ -378,8 +380,8 @@ mod tests {
     #[test]
     fn patch_preserves_unknown_keys_and_untouched_comments() {
         let original = r#"{
-  // Provider comment must stay.
-  "providers": {
+  // Harness comment must stay.
+  "harnesses": {
     "claude_code": { "enabled": true }
   },
   "future_top": { "keep": true },
@@ -400,7 +402,7 @@ mod tests {
         )
         .expect("patch succeeds");
 
-        assert!(patched.contains("Provider comment must stay"));
+        assert!(patched.contains("Harness comment must stay"));
         assert!(patched.contains("future_top"));
         assert!(patched.contains("Iosevka"));
         assert!(patched.contains("terminal_font_size"));
@@ -524,7 +526,9 @@ mod tests {
             "explorer",
             "git",
             "formatting",
-            "providers",
+            "harnesses",
+            "sessions",
+            "shell",
             "lsp",
             "remotes",
         ] {
@@ -567,30 +571,30 @@ mod tests {
 
     #[test]
     fn object_property_update_preserves_sibling_entries() {
-        let root = temp_root("patch-provider");
+        let root = temp_root("patch-harness");
         fs::create_dir_all(&root).expect("temp dir created");
         let path = root.join("settings.jsonc");
         fs::write(
             &path,
-            "{\n  \"providers\": {\n    \"codex\": { \"enabled\": false }\n  }\n}\n",
+            "{\n  \"harnesses\": {\n    \"codex\": { \"enabled\": false }\n  }\n}\n",
         )
         .expect("settings file written");
-        SettingsService::update_section(&path, "providers", |providers| {
-            let mut root = json!({ "providers": providers });
-            let entries = SettingsService::object_property(&mut root, "providers")?;
+        SettingsService::update_section(&path, "harnesses", |harnesses| {
+            let mut root = json!({ "harnesses": harnesses });
+            let entries = SettingsService::object_property(&mut root, "harnesses")?;
             entries.insert(
                 "claude_code".to_string(),
                 json!({ "binary_path_override": "/bin/claude" }),
             );
             Ok(Value::Object(std::mem::take(entries)))
         })
-        .expect("provider patched");
+        .expect("harness patched");
         let patched = fs::read_to_string(&path).expect("patched file read");
         let parsed = jsonc_parser::parse_to_serde_value::<Value>(&patched, &Default::default())
             .expect("patched parses");
-        assert_eq!(parsed["providers"]["codex"]["enabled"], json!(false));
+        assert_eq!(parsed["harnesses"]["codex"]["enabled"], json!(false));
         assert_eq!(
-            parsed["providers"]["claude_code"]["binary_path_override"],
+            parsed["harnesses"]["claude_code"]["binary_path_override"],
             json!("/bin/claude")
         );
         fs::remove_dir_all(root).expect("temp dir removed");

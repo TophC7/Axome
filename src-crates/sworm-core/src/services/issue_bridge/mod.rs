@@ -4,7 +4,7 @@
 //! issue memory without sharing the SQLite handle.
 //!
 //! The bridge is started lazily by [`crate::Host::session_start`] when a
-//! session is launched for a provider that should see issue memory, and torn
+//! harness session is launched, and torn
 //! down when [`IssueBridgeService`] is dropped or [`Self::stop`] is called.
 //!
 //! Submodules:

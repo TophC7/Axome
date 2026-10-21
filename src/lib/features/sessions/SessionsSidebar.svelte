@@ -2,8 +2,8 @@
   @component
   SessionsSidebar — the folder's sessions (agents and terminals) as
   shortcuts. Open ones focus their tab; recently closed ones (this launch)
-  reopen as a tab, resuming the provider conversation when a resume token
-  was captured, otherwise starting fresh. The header's + starts a new one.
+  reopen as a tab, resuming the harness session when a session id was captured,
+  otherwise starting fresh. The header's + starts a new one.
 -->
 
 <script lang="ts">
@@ -11,7 +11,15 @@
   import { IconButton, iconButtonVariants } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { SidebarRow } from '$lib/components/ui/sidebar-row'
-  import { AlertTriangle, ChevronDown, ChevronRight, HistoryIcon, Plus, X } from '$lib/icons/lucideExports'
+  import {
+    AlertTriangle,
+    ChevronDown,
+    ChevronRight,
+    HistoryIcon,
+    Plus,
+    TerminalIcon,
+    X
+  } from '$lib/icons/lucideExports'
   import type { SessionStatus, SessionTab } from '$lib/features/workbench/model'
   import {
     getActiveTabId,
@@ -22,9 +30,9 @@
   } from '$lib/features/workbench/state.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import { countLiveAgents, startSession } from '$lib/features/sessions/service.svelte'
-  import { allProviders, directOptions, providerById } from '$lib/features/sessions/providers/catalog'
-  import { getConnectedProviders } from '$lib/features/sessions/providers/state.svelte'
-  import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
+  import { sessionBrand, svgUrl } from '$lib/features/sessions/harnesses/catalog'
+  import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
+  import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import * as Alert from '$lib/components/ui/alert'
   import { StatusDot, type StatusTone } from '$lib/components/ui/status-dot'
   import { notify } from '$lib/features/notifications/state.svelte'
@@ -44,10 +52,18 @@
   let closed = $derived(getClosedSessions(folderPath))
   let activeTabId = $derived(getActiveTabId())
   let liveAgents = $derived(countLiveAgents(folderPath))
-  let launchers = $derived.by(() => {
-    const connected = new Set(getConnectedProviders(folderPath).map((p) => p.id as string))
-    return [...allProviders, ...directOptions].filter((p) => connected.has(p.id))
-  })
+  let launchers = $derived([
+    ...getLaunchOptions(folderPath)
+      .filter((option) => option.status?.status === 'connected')
+      .map(({ harness, preset, label }) => ({
+        id: `${harness.id}:${preset ?? ''}`,
+        harnessId: harness.id,
+        preset,
+        label,
+        icon: svgUrl(harness.icon)
+      })),
+    { id: 'shell', harnessId: null, preset: null, label: 'Terminal', icon: TerminalIcon }
+  ])
 
   let openCollapsed = $state(false)
   let closedCollapsed = $state(false)
@@ -60,13 +76,11 @@
         <Plus size={12} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
-        {#each launchers as provider (provider.id)}
-          <DropdownMenu.Item onSelect={() => startSession(folderPath, provider.id)}>
-            <ProviderIcon icon={provider.icon} size={14} />
-            <span>{provider.label}</span>
+        {#each launchers as launcher (launcher.id)}
+          <DropdownMenu.Item onSelect={() => startSession(folderPath, launcher.harnessId, launcher.preset)}>
+            <HarnessIcon icon={launcher.icon} size={14} />
+            <span>{launcher.label}</span>
           </DropdownMenu.Item>
-        {:else}
-          <DropdownMenu.Item disabled>No agent CLIs detected</DropdownMenu.Item>
         {/each}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -81,10 +95,14 @@
     {/if}
     {#if open.length === 0 && closed.length === 0}
       <SidebarRow variant="info" divider={false}>No sessions in this folder yet</SidebarRow>
-      {#each launchers as provider (provider.id)}
-        <SidebarRow variant="action" divider={false} onclick={() => startSession(folderPath, provider.id)}>
-          <ProviderIcon icon={provider.icon} size={12} />
-          <span class="min-w-0 flex-1 truncate">Start {provider.label}</span>
+      {#each launchers as launcher (launcher.id)}
+        <SidebarRow
+          variant="action"
+          divider={false}
+          onclick={() => startSession(folderPath, launcher.harnessId, launcher.preset)}
+        >
+          <HarnessIcon icon={launcher.icon} size={12} />
+          <span class="min-w-0 flex-1 truncate">Start {launcher.label}</span>
           <Plus size={12} class="shrink-0" />
         </SidebarRow>
       {/each}
@@ -95,7 +113,7 @@
       {#if !openCollapsed}
         <div class="border-t border-edge/30 bg-surface py-1">
           {#each open as session (session.id)}
-            {@const meta = providerById[session.providerId]}
+            {@const meta = sessionBrand(session.folderPath, session.harnessId)}
             <div class="group/row relative">
               <SidebarRow
                 variant="leaf"
@@ -106,7 +124,7 @@
                 title="{session.title} — {session.status}"
                 onclick={() => setActiveTab(session.id)}
               >
-                {#if meta}<ProviderIcon icon={meta.icon} size={12} />{/if}
+                {#if meta.icon}<HarnessIcon icon={meta.icon} size={12} />{/if}
                 <span class="min-w-0 flex-1 truncate {session.id === activeTabId ? 'text-bright' : 'text-fg'}">
                   {session.title}
                 </span>
@@ -136,20 +154,20 @@
       {#if !closedCollapsed}
         <div class="border-t border-edge/30 bg-surface py-1">
           {#each closed as snapshot (snapshot)}
-            {@const meta = providerById[snapshot.providerId]}
+            {@const meta = sessionBrand(snapshot.folderPath, snapshot.harnessId)}
             <SidebarRow
               variant="leaf"
               on="surface"
               divider={false}
-              title={snapshot.resumeToken ? 'Reopen and resume this conversation' : 'Reopen (starts fresh)'}
+              title={snapshot.sessionId ? 'Reopen and resume this conversation' : 'Reopen (starts fresh)'}
               onclick={() =>
                 void reopenClosedTab(snapshot).catch((error) =>
                   notify.error('Reopen session failed', getErrorMessage(error))
                 )}
             >
-              {#if meta}<ProviderIcon icon={meta.icon} size={12} class="opacity-60" />{/if}
+              {#if meta.icon}<HarnessIcon icon={meta.icon} size={12} class="opacity-60" />{/if}
               <span class="min-w-0 flex-1 truncate text-muted">{snapshot.title}</span>
-              {#if snapshot.resumeToken}
+              {#if snapshot.sessionId}
                 <HistoryIcon size={11} class="shrink-0 text-subtle" />
               {/if}
             </SidebarRow>

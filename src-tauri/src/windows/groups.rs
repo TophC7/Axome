@@ -64,6 +64,13 @@ impl GroupTransfer {
 }
 
 impl WindowCoordinatorService {
+    pub fn has_group_transfer_for(&self, label: &str) -> bool {
+        self.group_transfers
+            .lock()
+            .values()
+            .any(|transfer| transfer.handoff.target_window == label)
+    }
+
     pub async fn group_handoff(
         &self,
         app: &tauri::AppHandle,

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Button, iconButtonVariants } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
-  import { providerById, type ProviderIconSource } from '$lib/features/sessions/providers/catalog'
-  import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
+  import { sessionBrand, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
+  import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { MoreHorizontalIcon, Play } from '$lib/icons/lucideExports'
   import type { WorkbenchInfo } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
@@ -45,7 +45,7 @@
 
   interface RunChip {
     label: string
-    icon: ProviderIconSource | null
+    icon: HarnessIconSource | null
     task: boolean
     count: number
   }
@@ -54,15 +54,15 @@
   let chips = $derived.by(() => {
     const byKey = new Map<string, RunChip>()
     for (const run of workbench.running) {
-      const key = run.kind === 'session' ? `session:${run.provider_id}` : `task:${run.task_id}`
+      const key = run.kind === 'session' ? `session:${run.harness_id ?? 'shell'}` : `task:${run.task_id}`
       const chip = byKey.get(key)
       if (chip) {
         chip.count += 1
       } else if (run.kind === 'session') {
-        const provider = providerById[run.provider_id]
+        const brand = sessionBrand(null, run.harness_id)
         byKey.set(key, {
-          label: provider?.label ?? run.provider_id,
-          icon: provider?.icon ?? null,
+          label: brand.label,
+          icon: brand.icon,
           task: false,
           count: 1
         })
@@ -82,7 +82,7 @@
       {#each chips as chip (chip.label + chip.task)}
         <span class="flex shrink-0 items-center gap-1">
           {#if chip.icon}
-            <ProviderIcon icon={chip.icon} size={12} />
+            <HarnessIcon icon={chip.icon} size={12} />
           {:else if chip.task}
             <Play size={10} class="text-subtle" />
           {/if}

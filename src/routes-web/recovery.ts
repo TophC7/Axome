@@ -5,7 +5,7 @@ import { ensureGitWatch } from '$lib/features/git/state.svelte'
 import { refreshIssuesForFolder } from '$lib/features/issues/state.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
-import { loadProviders, loadProvidersForFolder } from '$lib/features/sessions/providers/state.svelte'
+import { loadHarnesses, loadHarnessesForFolder } from '$lib/features/sessions/harnesses/state.svelte'
 import { detectNix, getNixDetection } from '$lib/features/settings/state/nix.svelte'
 import { loadSettings } from '$lib/features/settings/state/settings.svelte'
 import { refreshTasks } from '$lib/features/tasks/state.svelte'
@@ -81,8 +81,8 @@ export function createWebRecovery() {
       { label: 'workbench layout', run: () => flushWorkbench() }
     ]
 
-    // Provider discovery is opportunistic and logs failures; the cache reset is synchronous.
-    void loadProviders().catch(() => {})
+    // Harness discovery is opportunistic and logs failures; the cache reset is synchronous.
+    void loadHarnesses().catch(() => {})
     invalidateLspServerEntries()
 
     for (const folder of folders) {
@@ -97,11 +97,11 @@ export function createWebRecovery() {
         },
         { label: `tasks for ${folder}`, run: () => (open() ? refreshTasks(folder) : undefined) },
         {
-          label: `environment and providers for ${folder}`,
+          label: `environment and harnesses for ${folder}`,
           run: async () => {
             if (!open()) return
             if (getNixDetection(folder)) await detectNix(folder)
-            if (open()) await loadProvidersForFolder(folder, open)
+            if (open()) await loadHarnessesForFolder(folder, open)
           }
         },
         {

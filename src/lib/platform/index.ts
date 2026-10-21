@@ -74,7 +74,7 @@ export type OsDropEvent =
 export interface NativePlatform {
   window: {
     create(target?: OpenTarget): Promise<string>
-    ready(restoredTaskRuns: string[]): Promise<void>
+    ready(restoredTaskRuns: string[]): Promise<boolean>
     openTargetFinished(target: OpenTarget): Promise<void>
     close(): Promise<void>
     onCloseRequested(handler: (event: { preventDefault(): void }) => void): Promise<Unsubscribe>

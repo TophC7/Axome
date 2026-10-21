@@ -1,3 +1,4 @@
+import type { ShiftEncoding } from '$lib/types/backend'
 import { logicalKey } from '$lib/utils/keyboardEvent'
 
 // Terminal keymap — single source of truth for keys consumed inside a
@@ -17,9 +18,7 @@ import { logicalKey } from '$lib/utils/keyboardEvent'
 // returned `KeyAction` tells `TerminalSessionManager` exactly what to
 // do — never split the decision between the keymap and the manager.
 //
-// Per-CLI quirks live in PROVIDER_PROFILES below. Adding a new agent
-// or changing how an existing one expects Shift+Tab is a one-line
-// table edit; the manager stays untouched.
+// Harness contributions declare their Shift encoding; the manager stays untouched.
 
 /**
  * Outcome of inspecting a single keydown event. The terminal manager
@@ -32,35 +31,6 @@ export type KeyAction =
   | { kind: 'paste-text-or-image' }
   | { kind: 'paste-text-only' }
   | { kind: 'copy-or-sigint' }
-
-/**
- * Per-provider behaviour. Add an entry only when an agent is known to
- * misbehave with the default; otherwise it falls through to
- * DEFAULT_PROFILE.
- */
-interface ProviderProfile {
-  /**
-   * How to encode shift-modified Tab and Enter.
-   *   'legacy' — `\x1b[Z` and `\x1b\r`. Default; expected by classic
-   *              terminfo agents (Claude Code, Codex).
-   *   'kitty'  — `\x1b[9;2u` and `\x1b[13;2u`. Required by agents that
-   *              negotiate the kitty keyboard protocol and reject the
-   *              legacy bytes (Antigravity).
-   */
-  shiftEncoding: 'legacy' | 'kitty'
-}
-
-const DEFAULT_PROFILE: ProviderProfile = { shiftEncoding: 'legacy' }
-
-const PROVIDER_PROFILES: Record<string, ProviderProfile> = {
-  antigravity: { shiftEncoding: 'kitty' }
-  // claude_code, codex, omp, terminal: legacy default.
-}
-
-function profileFor(providerId: string | null): ProviderProfile {
-  if (!providerId) return DEFAULT_PROFILE
-  return PROVIDER_PROFILES[providerId] ?? DEFAULT_PROFILE
-}
 
 const PASS: KeyAction = { kind: 'pass' }
 const BROWSER: KeyAction = { kind: 'browser' }
@@ -76,8 +46,7 @@ const BROWSER: KeyAction = { kind: 'browser' }
  *      let xterm send SIGINT. Manager inspects the terminal state.
  *   4. Ctrl/Cmd+V        → clipboard paste, with image-fallback.
  *      Ctrl/Cmd+Shift+V  → clipboard paste, text only.
- *   5. Shift+Tab / Shift+Enter → encoded per the active provider
- *      profile.
+ *   5. Shift+Tab / Shift+Enter → encoded per the harness's `shift_encoding`.
  *   6. Anything else passes through to xterm's default handling.
  *
  * Tier 1 skipShell shortcuts (Ctrl+Shift+P, zoom, …) never reach this
@@ -85,8 +54,12 @@ const BROWSER: KeyAction = { kind: 'browser' }
  * non-skipShell shortcuts (Ctrl+W, Ctrl+N, Ctrl+T) DO reach here when
  * the terminal is focused, fall through to `PASS`, and xterm forwards
  * the native bytes to the PTY so readline/tmux see them.
+ *
+ * @param shiftEncoding How to encode shift-modified Tab and Enter:
+ * 'legacy' — `\x1b[Z` and `\x1b\r` for classic terminfo agents;
+ * 'kitty' — `\x1b[9;2u` and `\x1b[13;2u` for agents negotiating the kitty keyboard protocol.
  */
-export function resolveTerminalKey(ev: KeyboardEvent, providerId: string | null): KeyAction {
+export function resolveTerminalKey(ev: KeyboardEvent, shiftEncoding: ShiftEncoding): KeyAction {
   if (ev.type !== 'keydown') return PASS
 
   // Match on `ev.code` (physical key) instead of `ev.key` (produced
@@ -109,8 +82,6 @@ export function resolveTerminalKey(ev: KeyboardEvent, providerId: string | null)
     return ev.shiftKey ? { kind: 'paste-text-only' } : { kind: 'paste-text-or-image' }
   }
 
-  const p = profileFor(providerId)
-
   // Match Shift+Tab / Shift+Enter via `logicalKey`: WebKitGTK regresses
   // `event.key` to `'Unidentified'` when Shift is held with non-character
   // keys, so a naive `ev.key === 'Tab'` check whiffs and the keystroke
@@ -119,14 +90,22 @@ export function resolveTerminalKey(ev: KeyboardEvent, providerId: string | null)
   const key = logicalKey(ev)
 
   if (key === 'Tab' && ev.shiftKey && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
-    if (p.shiftEncoding === 'kitty') return { kind: 'send-pty', bytes: '\x1b[9;2u' }
+    if (shiftEncoding === 'kitty') return { kind: 'send-pty', bytes: '\x1b[9;2u' }
     return { kind: 'send-pty', bytes: '\x1b[Z' }
   }
 
   if (key === 'Enter' && ev.shiftKey && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
-    if (p.shiftEncoding === 'kitty') return { kind: 'send-pty', bytes: '\x1b[13;2u' }
+    if (shiftEncoding === 'kitty') return { kind: 'send-pty', bytes: '\x1b[13;2u' }
     return { kind: 'send-pty', bytes: '\x1b\r' }
   }
 
   return PASS
+}
+
+export function stripTitlePrefixes(title: string, prefixes: readonly string[]): string {
+  for (const prefix of prefixes) {
+    if (!title.startsWith(prefix)) break
+    title = title.slice(prefix.length).trimStart()
+  }
+  return title
 }

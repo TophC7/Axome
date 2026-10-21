@@ -12,7 +12,7 @@ use tracing::warn;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RunKind {
-    Session { provider_id: String },
+    Session { harness_id: Option<String> },
     Task { task_id: String },
 }
 
@@ -252,7 +252,7 @@ impl RunCoordinator {
         state.completed = Some(store);
     }
 
-    pub(crate) fn resume_token(&self, run_id: &str) -> Option<String> {
+    pub(crate) fn session_id(&self, run_id: &str) -> Option<String> {
         let token = self
             .state
             .lock()
@@ -869,7 +869,7 @@ mod tests {
         fs::write(
             fixture.folder.join(".sworm/settings.jsonc"),
             serde_json::json!({
-                "providers": {
+                "harnesses": {
                     "omp": {
                         "enabled": true,
                         "binary_path_override": "/bin/sh",
@@ -885,7 +885,8 @@ mod tests {
             host.session_start(
                 "discarded".into(),
                 fixture.path(),
-                "omp".into(),
+                Some("omp".into()),
+                None,
                 None,
                 80,
                 24,
@@ -896,7 +897,7 @@ mod tests {
         let first = start().unwrap();
         wait_until(|| fs::read(fixture.folder.join("spawned")).is_ok_and(|bytes| bytes == b"x"));
         assert!(!first.resumed);
-        assert_eq!(first.resume_token, None);
+        assert_eq!(first.session_id, None);
         assert!(host.run_status("discarded").unwrap().live);
         assert!(host.runs.state.lock().records.contains_key("discarded"));
         assert!(host.resume_discovery.has_pending("discarded"));
@@ -910,7 +911,7 @@ mod tests {
 
         let restarted = start().expect("discarded id must spawn, not reuse a missing transcript");
         assert!(!restarted.resumed);
-        assert_eq!(restarted.resume_token, None);
+        assert_eq!(restarted.session_id, None);
         wait_until(|| fs::read(fixture.folder.join("spawned")).is_ok_and(|bytes| bytes == b"xx"));
         assert!(host.run_status("discarded").unwrap().live);
         assert!(host.resume_discovery.has_pending("discarded"));
@@ -927,7 +928,8 @@ mod tests {
             .session_start(
                 "terminal-run".into(),
                 folder.clone(),
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,
@@ -947,7 +949,8 @@ mod tests {
             .session_start(
                 "terminal-run".into(),
                 folder.clone(),
-                "terminal".into(),
+                None,
+                None,
                 None,
                 90,
                 30,
@@ -977,7 +980,8 @@ mod tests {
             fixture.host.session_start(
                 "terminal-run".into(),
                 folder,
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,
@@ -1014,7 +1018,8 @@ mod tests {
                 host.session_start(
                     "slow".into(),
                     folder,
-                    "terminal".into(),
+                    None,
+                    None,
                     None,
                     80,
                     24,
@@ -1034,7 +1039,8 @@ mod tests {
                 let result = host.session_start(
                     "other".into(),
                     folder,
-                    "terminal".into(),
+                    None,
+                    None,
                     None,
                     80,
                     24,
@@ -1080,7 +1086,8 @@ mod tests {
             host.session_start(
                 "first".into(),
                 folder,
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,
@@ -1098,7 +1105,8 @@ mod tests {
             host.session_start(
                 "same-owner".into(),
                 folder,
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,
@@ -1124,7 +1132,8 @@ mod tests {
             host.session_start(
                 "second".into(),
                 folder,
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,
@@ -1153,7 +1162,8 @@ mod tests {
             fixture.host.session_start(
                 "late".into(),
                 fixture.path(),
-                "terminal".into(),
+                None,
+                None,
                 None,
                 80,
                 24,

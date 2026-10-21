@@ -101,10 +101,10 @@ pub enum WorkbenchAttached {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WorkbenchRun {
-    /// `provider_id` is `"terminal"` for shells.
     Session {
         folder: String,
-        provider_id: String,
+        /// `None` for shells.
+        harness_id: Option<String>,
     },
     Task {
         folder: String,
@@ -199,7 +199,7 @@ macro_rules! sworm_rpc_ops {
             #[route(server)]
             FolderWorkingDirectory => folder_working_directory() -> String;
             #[route(none)]
-            ProviderList => provider_list() -> Vec<$crate::provider::ProviderStatus>;
+            HarnessList => harness_list() -> $crate::harness::HarnessListing;
             #[route(none)]
             ActivityMapGet => activity_map_get() -> Vec<$crate::activity_map::DiscoveredProject>;
             #[route(none)]
@@ -597,9 +597,9 @@ macro_rules! sworm_rpc_ops {
                 file_path: String,
             ) -> Vec<$crate::nix_env::NixDiagnostic>;
             #[route(folder_path)]
-            ProviderListForFolder => provider_list_for_folder(
+            HarnessListForFolder => harness_list_for_folder(
                 folder_path: String,
-            ) -> Vec<$crate::provider::ProviderStatus>;
+            ) -> $crate::harness::HarnessListing;
             #[route(folder_path)]
             FormattingFormat => formatting_format(
                 folder_path: String,
@@ -630,9 +630,13 @@ macro_rules! sworm_rpc_ops {
                 formatting: $crate::settings::FormattingSettings,
             ) -> $crate::settings::FormattingSettings;
             #[route(server)]
-            SettingsSetProviderConfig => settings_set_provider_config(
-                config: $crate::settings::ProviderConfigRecord,
-            ) -> $crate::settings::ProviderConfigRecord;
+            SettingsSetHarnessConfig => settings_set_harness_config(
+                config: $crate::settings::HarnessConfigRecord,
+            ) -> $crate::settings::HarnessConfigRecord;
+            #[route(server)]
+            SettingsSetShell => settings_set_shell(
+                settings: $crate::settings::ShellSettings,
+            ) -> $crate::settings::ShellSettings;
             #[route(folder_path)]
             SettingsOpenFolderFile => settings_open_folder_file(
                 folder_path: String,
@@ -664,8 +668,9 @@ macro_rules! sworm_rpc_ops {
             SessionStart => session_start(
                 run_id: String,
                 folder_path: String,
-                provider_id: String,
-                resume_token: Option<String>,
+                harness_id: Option<String>,
+                preset: Option<String>,
+                session_id: Option<String>,
                 cols: u16,
                 rows: u16,
             ) -> $crate::session::SessionStartInfo;

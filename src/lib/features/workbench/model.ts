@@ -20,14 +20,14 @@ export type SessionStatus = 'dormant' | 'starting' | 'running' | 'exited' | 'fai
 export interface SessionTab extends TabBase {
   kind: 'session'
   title: string
-  providerId: string
+  /** null = raw shell. */
+  harnessId: string | null
+  /** null = bare harness. */
+  preset: string | null
   /** Frontend-generated UUID used as the PTY key; retained while the run may still be live. */
   runId: string | null
-  /**
-   * Provider-owned conversation identity (Claude session uuid, Codex thread
-   * id, Antigravity conversation id, OMP session id); null until known.
-   */
-  resumeToken: string | null
+  /** Harness-owned session id; null until known. */
+  sessionId: string | null
   status: SessionStatus
 }
 
@@ -176,10 +176,14 @@ export type PersistedTab = { folderPath: string } & (
   | {
       kind: 'session'
       title: string
-      providerId: string
+      /** null = raw shell. */
+      harnessId: string | null
+      /** null = bare harness. */
+      preset: string | null
       /** Absent in legacy blobs; hydrate as null. */
       runId?: string | null
-      resumeToken: string | null
+      /** Harness-owned session id; null until known. */
+      sessionId: string | null
       locked: boolean
     }
   | {

@@ -2228,7 +2228,7 @@ mod tests {
             PtyEvent::Exit { .. } => "exit",
             PtyEvent::Error { .. } => "error",
             PtyEvent::Synced { .. } => "synced",
-            PtyEvent::ResumeTokenBound { .. } => "resumeTokenBound",
+            PtyEvent::SessionIdBound { .. } => "sessionIdBound",
         }
     }
 
@@ -2832,9 +2832,9 @@ mod tests {
     #[test]
     fn detached_retained_lifecycle_event_replays_without_subscriber() {
         let sink = PtyEventSink::new("run".to_string(), None, RunRetention::Retained);
-        sink.emit(PtyEvent::ResumeTokenBound {
+        sink.emit(PtyEvent::SessionIdBound {
             run_id: "run".to_string(),
-            token: "provider-token".to_string(),
+            session_id: "harness-session".to_string(),
         });
         let replay = Arc::new(Mutex::new(Vec::new()));
         sink.attach_from(replay_sink(Arc::clone(&replay)), PtyCursor::default())
@@ -2842,7 +2842,7 @@ mod tests {
         assert_eq!(
             *replay.lock(),
             vec![
-                ReplayDelivery::Event(1, "resumeTokenBound"),
+                ReplayDelivery::Event(1, "sessionIdBound"),
                 ReplayDelivery::Event(1, "synced"),
             ]
         );

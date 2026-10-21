@@ -241,7 +241,7 @@ function updateTab(tabId: TabId, update: (tab: Tab) => Tab): void {
 
 function pushClosedTab(snapshot: PersistedTab): void {
   // Separate caps: editor and diff churn must not evict a conversation's
-  // resume token from the Sessions view.
+  // session id from the Sessions view.
   let sessions = 0
   let others = 0
   closedTabs = [snapshot, ...closedTabs].filter((tab) =>
@@ -439,12 +439,26 @@ export async function openFolder(path: string, replaceTabId?: TabId): Promise<vo
   openNewTab(folderPath)
 }
 
+/** Open `window.home_folder` as a New Tab; warns and leaves Home showing when it fails. */
+export async function openHomeFolder(): Promise<void> {
+  try {
+    const home = (await backend.settings.getEffective()).settings.window.home_folder
+    if (!home) return
+    const folder = (await backend.folders.resolve(home)).path
+    await openFolder(folder)
+  } catch (error) {
+    notify.warning('Home folder unavailable', getErrorMessage(error))
+  }
+}
+
 // RESTORE //
 /**
  * Hydrate the persisted tab list. Tabs whose folder no longer resolves are
  * dropped; session tabs come back dormant and start on first activation.
+ * Returns true when there was nothing to restore: no snapshot, or an empty
+ * one (the web server seeds every new workbench with an empty snapshot).
  */
-export async function restoreWorkbench(): Promise<void> {
+export async function restoreWorkbench(): Promise<boolean> {
   const native = platform.native
   try {
     await ensureTextFileSyncListeners()
@@ -501,8 +515,10 @@ export async function restoreWorkbench(): Promise<void> {
         }
       }
     }
+    return persisted === null || (persisted.tabs.length === 0 && !persisted.groups?.length)
   } catch (error) {
     console.warn('Workbench restore failed, starting empty:', error)
+    return false
   } finally {
     restored = true
     syncGroups()
@@ -512,9 +528,10 @@ export async function restoreWorkbench(): Promise<void> {
 
 // SESSION TABS //
 export interface SessionTabInit {
-  providerId: string
+  harnessId: string | null
+  preset: string | null
   title: string
-  resumeToken: string | null
+  sessionId: string | null
 }
 
 /** Add a dormant session tab; the mounted surface spawns its process. */
@@ -524,9 +541,10 @@ export function addSessionTab(folderPath: string, init: SessionTabInit): TabId {
     id: generateTabId(),
     folderPath,
     title: init.title,
-    providerId: init.providerId,
+    harnessId: init.harnessId,
+    preset: init.preset,
     runId: null,
-    resumeToken: init.resumeToken,
+    sessionId: init.sessionId,
     status: 'dormant',
     locked: false
   })
@@ -553,13 +571,13 @@ export async function persistSessionTabRunId(tabId: TabId, runId: string): Promi
   await flushWorkbench().catch((error) => console.warn('Failed to persist session run id:', error))
 }
 
-export function setSessionTabResumeToken(tabId: TabId, resumeToken: string | null): void {
-  updateTab(tabId, (t) => (t.kind === 'session' && t.resumeToken !== resumeToken ? { ...t, resumeToken } : t))
+export function setSessionTabSessionId(tabId: TabId, sessionId: string | null): void {
+  updateTab(tabId, (t) => (t.kind === 'session' && t.sessionId !== sessionId ? { ...t, sessionId } : t))
 }
 
-/** Drop the tab's token only if it still equals `expectedToken`; a token bound meanwhile wins. */
-export function clearSessionTabResumeToken(tabId: TabId, expectedToken: string): void {
-  updateTab(tabId, (t) => (t.kind === 'session' && t.resumeToken === expectedToken ? { ...t, resumeToken: null } : t))
+/** Drop the tab's session id only if it still equals `expectedId`; a session id bound meanwhile wins. */
+export function clearSessionTabSessionId(tabId: TabId, expectedId: string): void {
+  updateTab(tabId, (t) => (t.kind === 'session' && t.sessionId === expectedId ? { ...t, sessionId: null } : t))
 }
 
 // TASK TABS //
@@ -1064,12 +1082,13 @@ export async function reopenClosedTab(snapshot: PersistedTab): Promise<TabId | n
 
   try {
     switch (snapshot.kind) {
-      // Closing killed this run. Reopen resumes provider history under a fresh PTY id.
+      // Closing killed this run. Reopen resumes harness history under a fresh PTY id.
       case 'session':
         return addSessionTab(snapshot.folderPath, {
-          providerId: snapshot.providerId,
+          harnessId: snapshot.harnessId,
+          preset: snapshot.preset,
           title: snapshot.title,
-          resumeToken: snapshot.resumeToken
+          sessionId: snapshot.sessionId
         })
       case 'task':
         // Task snapshots never enter closedTabs; keep the persisted union exhaustive.

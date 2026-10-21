@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-/// Activity from a single provider in a discovered project.
+/// Activity from a single harness in a discovered project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscoveredProviderActivity {
-    /// Provider slug: "claude_code", "codex", "omp"
-    pub provider_id: String,
-    /// ISO 8601 timestamp of most recent activity from this provider.
+pub struct DiscoveredHarnessActivity {
+    /// Harness identifier.
+    pub harness_id: String,
+    /// ISO 8601 timestamp of most recent activity from this harness.
     pub last_active: String,
     /// Per-day session counts for the trailing 7 days.
     /// Index 0 = 6 days ago, index 6 = today.
@@ -21,8 +21,8 @@ pub struct DiscoveredProject {
     pub name: String,
     /// Whether the path exists on disk (deleted projects get greyed out).
     pub path_exists: bool,
-    /// ISO 8601 timestamp of most recent activity across all providers.
+    /// ISO 8601 timestamp of most recent activity across all harnesses.
     pub last_active: String,
-    /// Per-provider activity data.
-    pub providers: Vec<DiscoveredProviderActivity>,
+    /// Per-harness activity data.
+    pub harnesses: Vec<DiscoveredHarnessActivity>,
 }

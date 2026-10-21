@@ -56,7 +56,7 @@
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
   import { dropFromOtherWindow, isTabTransferring } from '$lib/features/workbench/transferService.svelte'
   import { restartSessionProcess, stopSessionProcess } from '$lib/features/sessions/service.svelte'
-  import ProviderIcon from '$lib/features/sessions/providers/ProviderIcon.svelte'
+  import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import { findTask } from '$lib/features/tasks/state.svelte'
   import { openTaskTab, stopTaskProcess } from '$lib/features/tasks/service.svelte'
@@ -335,8 +335,8 @@
             {:else}
               <TerminalIcon size={14} class="shrink-0 text-accent" />
             {/if}
-          {:else if presentation.providerIcon}
-            <ProviderIcon icon={presentation.providerIcon} size={14} />
+          {:else if presentation.sessionIcon}
+            <HarnessIcon icon={presentation.sessionIcon} size={14} />
           {/if}
           {#if tab.locked}
             <Lock size={11} class="shrink-0 text-muted" />

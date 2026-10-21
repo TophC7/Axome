@@ -1,11 +1,12 @@
 <!--
   @component
-  ProvidersView — coding-agent CLI roster.
+  HarnessesView — coding-agent harness roster and shell settings.
 
   Flat, IDE-style row list. Each row: switch + name/status/version
   + resolved path + chevron toggle. Expanding reveals inline rows
-  for binary-path override and extra-args. Writes debounce through
-  a shared autoSaver so fast typing collapses into one flush.
+  for binary-path override and extra-args. The Shell section edits
+  the login-shell override and args without an enable switch.
+  Writes debounce through a shared autoSaver.
 
   @param onSaving - flagged when the autoSaver goes busy
   @param onSaved - flagged when it goes idle
@@ -17,10 +18,14 @@
   import { Input } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
   import { notify } from '$lib/features/notifications/state.svelte'
-  import { loadProviders } from '$lib/features/sessions/providers/state.svelte'
-  import { getSettings, getSettingsHost, saveProviderConfig } from '$lib/features/settings/state/settings.svelte'
+  import {
+    getSettings,
+    getSettingsHost,
+    saveHarnessConfig,
+    saveShellSettings
+  } from '$lib/features/settings/state/settings.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
-  import type { ProviderConfig } from '$lib/types/backend'
+  import type { HarnessConfig, ShellSettings } from '$lib/types/backend'
   import { onDestroy } from 'svelte'
   import { createAutoSaver } from './autoSaver'
 
@@ -33,21 +38,30 @@
   type Draft = { enabled: boolean; binaryPath: string; extraArgs: string }
   let drafts = $state<Record<string, Draft>>({})
   let expanded = $state<Record<string, boolean>>({})
+  let shellDraft = $state({ binaryPath: '', extraArgs: '' })
+  let shellSeeded = false
 
-  // Seed drafts once per provider id. Subsequent backend refreshes
+  // Seed drafts once per harness id. Subsequent backend refreshes
   // must not clobber in-progress edits, so we only populate ids we
   // haven't seen before.
   const seeded = new Set<string>()
   $effect(() => {
     if (!settings) return
-    for (const entry of settings.providers) {
-      const id = entry.provider.id
+    for (const entry of settings.harnesses) {
+      const id = entry.harness.id
       if (seeded.has(id)) continue
       seeded.add(id)
       drafts[id] = {
         enabled: entry.config.enabled,
         binaryPath: entry.config.binary_path_override ?? '',
         extraArgs: entry.config.extra_args.join(' ')
+      }
+    }
+    if (!shellSeeded) {
+      shellSeeded = true
+      shellDraft = {
+        binaryPath: settings.shell.binary_path_override ?? '',
+        extraArgs: settings.shell.extra_args.join(' ')
       }
     }
   })
@@ -58,29 +72,39 @@
 
   onDestroy(() => saver.dispose())
 
-  async function flush(next: ProviderConfig) {
+  async function flush(next: HarnessConfig) {
     try {
-      await saveProviderConfig(next, host)
-      // NOTE: a binary_path_override change can flip resolved detection;
-      // loadProviders picks up the new status/version. The settings
-      // store itself was already patched by saveProviderConfig, so no
-      // full settings refetch is needed here.
-      await loadProviders()
+      await saveHarnessConfig(next, host)
     } catch (error) {
-      notify.error('Save provider failed', getErrorMessage(error))
+      notify.error('Save harness failed', getErrorMessage(error))
     }
   }
 
   function update(id: string, key: keyof Draft, value: boolean | string) {
     const draft = { ...drafts[id], [key]: value }
     drafts = { ...drafts, [id]: draft }
-    const next: ProviderConfig = {
-      provider_id: id,
+    const next: HarnessConfig = {
+      harness_id: id,
       enabled: draft.enabled,
       binary_path_override: draft.binaryPath.trim() || null,
       extra_args: draft.extraArgs.split(/\s+/).filter(Boolean)
     }
-    saver.schedule(id, () => flush(next))
+    saver.schedule(`harness:${id}`, () => flush(next))
+  }
+
+  function updateShell(key: keyof typeof shellDraft, value: string) {
+    shellDraft = { ...shellDraft, [key]: value }
+    const next: ShellSettings = {
+      binary_path_override: shellDraft.binaryPath.trim() || null,
+      extra_args: shellDraft.extraArgs.split(/\s+/).filter(Boolean)
+    }
+    saver.schedule('shell', async () => {
+      try {
+        await saveShellSettings(next, host)
+      } catch (error) {
+        notify.error('Save shell failed', getErrorMessage(error))
+      }
+    })
   }
 
   function toggleExpanded(id: string) {
@@ -96,14 +120,17 @@
 </script>
 
 <section class="flex flex-col gap-1 px-5 py-4">
-  <h3 class="text-md font-semibold text-bright">Coding agent CLIs</h3>
-  <p class="pb-2 text-xs text-subtle">Enabled providers appear in New Session.</p>
+  <h3 class="text-md font-semibold text-bright">Coding agent harnesses</h3>
+  <p class="pb-2 text-xs text-subtle">
+    Enabled harnesses appear in New Session. Add presets under
+    <code>harnesses.&lt;id&gt;.presets</code> in settings.jsonc.
+  </p>
 </section>
 
 {#if settings}
   <div class="flex flex-col">
-    {#each settings.providers as entry (entry.provider.id)}
-      {@const id = entry.provider.id}
+    {#each settings.harnesses as entry (entry.harness.id)}
+      {@const id = entry.harness.id}
       {@const d = drafts[id]}
       {@const open = expanded[id] ?? false}
 
@@ -121,23 +148,23 @@
           class="group flex cursor-pointer items-center gap-3 px-5 py-3 hover:bg-surface/40"
         >
           <!-- Switch owns its own click; stop propagation so toggling the
-               provider doesn't also expand the row. -->
+               harness doesn't also expand the row. -->
           <div role="presentation" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
             <Switch checked={d?.enabled ?? true} onCheckedChange={(v) => update(id, 'enabled', v)} />
           </div>
 
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-bright">{entry.provider.label}</span>
-              <Badge variant={statusVariant(entry.provider.status)}>
-                {entry.provider.status}
+              <span class="text-sm font-semibold text-bright">{entry.harness.label}</span>
+              <Badge variant={statusVariant(entry.harness.status)}>
+                {entry.harness.status}
               </Badge>
-              {#if entry.provider.version}
-                <span class="font-mono text-xs text-subtle">{entry.provider.version}</span>
+              {#if entry.harness.version}
+                <span class="font-mono text-xs text-subtle">{entry.harness.version}</span>
               {/if}
             </div>
             <span class="truncate font-mono text-xs text-muted">
-              {entry.provider.resolved_path ?? entry.provider.install_hint}
+              {entry.harness.resolved_path ?? entry.harness.install_hint}
             </span>
           </div>
 
@@ -147,12 +174,12 @@
           />
         </div>
 
-        {#if entry.provider.message}
+        {#if entry.harness.message}
           <div
             class="flex items-center gap-2 border-t border-danger/30 bg-danger-bg px-5 py-2 text-sm text-danger-bright"
           >
             <CircleAlert size={14} />
-            <span>{entry.provider.message}</span>
+            <span>{entry.harness.message}</span>
           </div>
         {/if}
 
@@ -182,6 +209,29 @@
       </div>
     {/each}
   </div>
+  <section class="border-t border-edge">
+    <h3 class="px-5 py-4 text-md font-semibold text-bright">Shell</h3>
+    <div class="flex flex-col gap-3 border-t border-edge bg-surface/40 px-5 py-4">
+      <label class="flex items-center">
+        <span class="w-32 shrink-0 text-sm text-muted">Shell path</span>
+        <Input
+          class="flex-1 py-2"
+          value={shellDraft.binaryPath}
+          oninput={(e: Event) => updateShell('binaryPath', (e.currentTarget as HTMLInputElement).value)}
+          placeholder="Detected login shell"
+        />
+      </label>
+      <label class="flex items-center">
+        <span class="w-32 shrink-0 text-sm text-muted">Shell args</span>
+        <Input
+          class="flex-1 py-2"
+          value={shellDraft.extraArgs}
+          oninput={(e: Event) => updateShell('extraArgs', (e.currentTarget as HTMLInputElement).value)}
+          placeholder="--flag value"
+        />
+      </label>
+    </div>
+  </section>
 {:else}
-  <div class="px-5 py-8 text-sm text-muted">Loading providers&hellip;</div>
+  <div class="px-5 py-8 text-sm text-muted">Loading harnesses&hellip;</div>
 {/if}

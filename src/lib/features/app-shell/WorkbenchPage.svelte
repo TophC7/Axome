@@ -4,8 +4,8 @@
   import { loadExtensionCatalog } from '$lib/features/extensions/catalog.svelte'
   import WorkbenchView from '$lib/features/app-shell/WorkbenchView.svelte'
   import { loadRecentFolders } from '$lib/features/folders/state.svelte'
-  import { loadProviders } from '$lib/features/sessions/providers/state.svelte'
-  import { getTabs, openFolder, restoreWorkbench } from '$lib/features/workbench/state.svelte'
+  import { loadHarnesses } from '$lib/features/sessions/harnesses/state.svelte'
+  import { getTabs, openFolder, openHomeFolder, restoreWorkbench } from '$lib/features/workbench/state.svelte'
   import { openTextFile } from '$lib/features/workbench/surfaces/text/service.svelte'
   import { initGroupService, openWorkbench } from '$lib/features/workbench/groups.svelte'
   import type { OpenTarget } from '$lib/types/backend'
@@ -30,7 +30,7 @@
     let disposed = false
     let unlisten: (() => void) | undefined
 
-    void loadProviders().catch(() => {})
+    void loadHarnesses().catch(() => {})
     void loadExtensionCatalog().catch((error) => {
       logClientError('extension catalog preload failed', { error })
     })
@@ -45,11 +45,14 @@
           else unlisten = cleanup
         }
 
-        await Promise.all([loadRecentFolders(), restoreWorkbench()])
+        const [, fresh] = await Promise.all([loadRecentFolders(), restoreWorkbench()])
         if (native) {
           await initGroupService()
-          await native.window.ready(getTabs().flatMap((tab) => (tab.kind === 'task' ? [tab.runId] : [])))
-        }
+          const pendingHandoff = await native.window.ready(
+            getTabs().flatMap((tab) => (tab.kind === 'task' ? [tab.runId] : []))
+          )
+          if (fresh && !pendingHandoff) await openHomeFolder()
+        } else if (fresh) await openHomeFolder()
         if (!disposed && native) markDeepLinksReady()
         if (disposed) return
         bootstrapping = false

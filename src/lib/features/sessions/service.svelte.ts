@@ -2,14 +2,14 @@ import { backend } from '$lib/api/backend'
 import { notify } from '$lib/features/notifications/state.svelte'
 import * as sessionRegistry from '$lib/features/sessions/terminal/sessionRegistry'
 import type { TerminalSessionManager } from '$lib/features/sessions/terminal/TerminalSessionManager'
-import { providerById } from '$lib/features/sessions/providers/catalog'
+import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { isProcessLive, type SessionTab, type TabId } from '$lib/features/workbench/model'
 import {
   addSessionTab,
-  clearSessionTabResumeToken,
+  clearSessionTabSessionId,
   getTabs,
   setSessionTabRunId,
-  setSessionTabResumeToken,
+  setSessionTabSessionId,
   setSessionTabStatus
 } from '$lib/features/workbench/state.svelte'
 
@@ -18,37 +18,41 @@ import {
  * SessionSurface spawns the process; nothing is persisted beyond the
  * tab itself.
  */
-export function startSession(folderPath: string, providerId: string): TabId {
-  const title = providerId === 'terminal' ? 'Terminal' : `${providerById[providerId]?.label ?? providerId} session`
-  return addSessionTab(folderPath, { providerId, title, resumeToken: null })
+export function startSession(folderPath: string, harnessId: string | null, preset: string | null): TabId {
+  const title =
+    harnessId === null
+      ? 'Terminal'
+      : launchLabel(getHarness(folderPath, harnessId)?.label ?? harnessId, preset) + (preset === null ? ' session' : '')
+  return addSessionTab(folderPath, { harnessId, preset, title, sessionId: null })
 }
 
 /** Live agent sessions (terminals excluded) in `folderPath`; above one, they share its working tree. */
 export function countLiveAgents(folderPath: string): number {
   return getTabs().filter(
-    (t) => t.kind === 'session' && t.folderPath === folderPath && t.providerId !== 'terminal' && isProcessLive(t.status)
+    (t) => t.kind === 'session' && t.folderPath === folderPath && t.harnessId !== null && isProcessLive(t.status)
   ).length
 }
 
 /**
- * Spawn the process behind a session tab. Snapshot the resume token
- * *before* spawning: the backend may bind a token during start, so
- * reading `tab.resumeToken` afterwards can't tell "resumed" from "just
- * bound". `clearSessionTabResumeToken` no-ops when discovery has
- * meanwhile set a different token.
+ * Spawn the process behind a session tab. Snapshot the session id
+ * *before* spawning: the backend may bind a session id during start, so
+ * reading `tab.sessionId` afterwards can't tell "resumed" from "just
+ * bound". `clearSessionTabSessionId` no-ops when discovery has
+ * meanwhile set a different session id.
  */
 export async function startSessionProcess(manager: TerminalSessionManager, tab: SessionTab): Promise<void> {
-  const supplied = tab.resumeToken
+  const supplied = tab.sessionId
   setSessionTabStatus(tab.id, 'starting')
   const info = await manager.startPty({
     folderPath: tab.folderPath,
-    providerId: tab.providerId,
-    resumeToken: supplied
+    harnessId: tab.harnessId,
+    preset: tab.preset,
+    sessionId: supplied
   })
-  if (info.resumeToken) {
-    setSessionTabResumeToken(tab.id, info.resumeToken)
+  if (info.sessionId) {
+    setSessionTabSessionId(tab.id, info.sessionId)
   } else if (supplied !== null) {
-    clearSessionTabResumeToken(tab.id, supplied)
+    clearSessionTabSessionId(tab.id, supplied)
     notify.info('Started a new conversation', 'The previous one no longer exists.')
   }
 }

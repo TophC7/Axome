@@ -1,4 +1,4 @@
-import type { DiscoveredProject, DiscoveredProviderActivity, RecentFolder } from '$lib/types/backend'
+import type { DiscoveredProject, DiscoveredHarnessActivity, RecentFolder } from '$lib/types/backend'
 import { basename } from '$lib/utils/paths'
 
 /** One Home card: a folder recent to Sworm, to agent CLIs, or both. */
@@ -10,8 +10,8 @@ export interface HomeProject {
   openedAt: string | null
   /** Last agent CLI activity; null when only Sworm knows the folder. */
   agentAt: string | null
-  providers: DiscoveredProviderActivity[]
-  /** Agent sessions per day across providers, oldest first. */
+  harnesses: DiscoveredHarnessActivity[]
+  /** Agent sessions per day across harnesses, oldest first. */
   dailyCounts: number[]
   /** Latest of `openedAt` and `agentAt`; ranks the grid. */
   lastActive: string
@@ -22,8 +22,8 @@ export function mergeProjects(recent: RecentFolder[], discovered: DiscoveredProj
   const byPath = new Map<string, HomeProject>()
   for (const project of discovered) {
     const dailyCounts = [0, 0, 0, 0, 0, 0, 0]
-    for (const provider of project.providers) {
-      provider.daily_counts.forEach((count, day) => (dailyCounts[day] += count))
+    for (const harness of project.harnesses) {
+      harness.daily_counts.forEach((count, day) => (dailyCounts[day] += count))
     }
     byPath.set(project.path, {
       path: project.path,
@@ -31,7 +31,7 @@ export function mergeProjects(recent: RecentFolder[], discovered: DiscoveredProj
       exists: project.path_exists,
       openedAt: null,
       agentAt: project.last_active,
-      providers: project.providers,
+      harnesses: project.harnesses,
       dailyCounts,
       lastActive: project.last_active
     })
@@ -50,7 +50,7 @@ export function mergeProjects(recent: RecentFolder[], discovered: DiscoveredProj
         exists: true,
         openedAt: opened_at,
         agentAt: null,
-        providers: [],
+        harnesses: [],
         dailyCounts: [0, 0, 0, 0, 0, 0, 0],
         lastActive: opened_at
       })

@@ -1,10 +1,10 @@
 <!--
   @component
-  ProviderIcon — a provider's brand mark image, or its Lucide icon in the current text color.
+  HarnessIcon — a harness's brand mark image, or its Lucide icon in the current text color.
 -->
 
 <script lang="ts">
-  import type { ProviderIconSource } from '$lib/features/sessions/providers/catalog'
+  import type { HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
   import { cn } from '$lib/utils/cn'
 
   let {
@@ -12,7 +12,7 @@
     size,
     alt = '',
     class: className
-  }: { icon: ProviderIconSource; size: number; alt?: string; class?: string } = $props()
+  }: { icon: HarnessIconSource; size: number; alt?: string; class?: string } = $props()
 </script>
 
 {#if typeof icon === 'string'}

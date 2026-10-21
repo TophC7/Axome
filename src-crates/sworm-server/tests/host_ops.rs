@@ -8,7 +8,7 @@ use support::Daemon;
 use sworm_core::services::settings::SettingsService;
 use sworm_protocol::{
     folder::PathRootKind,
-    provider::{ProviderConnectionStatus, ProviderId},
+    harness::HarnessConnectionStatus,
     rpc::{HostEventWire, Open, RecentFolder, Reply, Request, WireError},
     settings::{
         EffectiveSettings, ExternalFileOpenMode, ExternalFolderOpenMode, PatchSettingsSectionInput,
@@ -483,7 +483,7 @@ async fn shortcuts(client: &RemoteClient, home: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn catalogs_and_providers(client: &RemoteClient, home: &Path) -> Result<()> {
+async fn catalogs_and_harnesses(client: &RemoteClient, home: &Path) -> Result<()> {
     let catalog = client
         .call_as(
             &Request::ExtensionsGetCatalog {},
@@ -499,6 +499,15 @@ async fn catalogs_and_providers(client: &RemoteClient, home: &Path) -> Result<()
         .server_definition_ids
         .iter()
         .any(|id| id == "dev.sworm.nix::nil")));
+    assert_eq!(
+        catalog
+            .runtime
+            .harnesses
+            .iter()
+            .map(|harness| harness.id.as_str())
+            .collect::<Vec<_>>(),
+        ["claude_code", "codex", "omp", "antigravity"]
+    );
 
     let binary = home.join("test-omp");
     fs::write(&binary, "#!/bin/sh\nprintf 'test-omp 1.0\\n'\n")?;
@@ -516,7 +525,7 @@ async fn catalogs_and_providers(client: &RemoteClient, home: &Path) -> Result<()
         .call_as(
             &Request::SettingsPatchGlobalSection {
                 input: PatchSettingsSectionInput {
-                    section: "providers".into(),
+                    section: "harnesses".into(),
                     value: config,
                 },
             },
@@ -524,26 +533,23 @@ async fn catalogs_and_providers(client: &RemoteClient, home: &Path) -> Result<()
         )
         .await?;
     let statuses = client
-        .call_as(&Request::ProviderList {}, Reply::provider_list)
-        .await?;
+        .call_as(&Request::HarnessList {}, Reply::harness_list)
+        .await?
+        .harnesses;
     let omp = statuses
         .iter()
-        .find(|status| status.id == ProviderId::Omp)
-        .context("missing OMP provider")?;
-    assert!(matches!(omp.status, ProviderConnectionStatus::Connected));
+        .find(|status| status.id == "omp")
+        .context("missing OMP harness")?;
+    assert!(matches!(omp.status, HarnessConnectionStatus::Connected));
     assert_eq!(omp.version.as_deref(), Some("test-omp 1.0"));
     assert_eq!(omp.resolved_path.as_deref(), Some(binary.to_str().unwrap()));
-    for provider_id in [
-        ProviderId::ClaudeCode,
-        ProviderId::Codex,
-        ProviderId::Antigravity,
-    ] {
-        let provider = statuses
+    for harness_id in ["claude_code", "codex", "antigravity"] {
+        let harness = statuses
             .iter()
-            .find(|status| status.id == provider_id)
-            .context("missing provider")?;
-        assert!(matches!(provider.status, ProviderConnectionStatus::Error));
-        assert_eq!(provider.resolved_path.as_deref(), Some(absent.as_str()));
+            .find(|status| status.id == harness_id)
+            .context("missing harness")?;
+        assert!(matches!(harness.status, HarnessConnectionStatus::Error));
+        assert_eq!(harness.resolved_path.as_deref(), Some(absent.as_str()));
     }
     Ok(())
 }
@@ -576,8 +582,8 @@ async fn activity_and_root(client: &RemoteClient, home: &Path) -> Result<()> {
     assert_eq!(projects[0].path, path_string(&project));
     assert_eq!(projects[0].name, "project");
     assert!(projects[0].path_exists);
-    assert_eq!(projects[0].providers.len(), 1);
-    assert_eq!(projects[0].providers[0].provider_id, "omp");
+    assert_eq!(projects[0].harnesses.len(), 1);
+    assert_eq!(projects[0].harnesses[0].harness_id, "omp");
 
     let target = client
         .call_as(
@@ -680,7 +686,7 @@ fn workbench_operations_over_paired_quic() -> Result<()> {
         );
         assert_ne!(actual_working_directory, actual_home);
         shortcuts(&client, home.as_path()).await?;
-        catalogs_and_providers(&client, home.as_path()).await?;
+        catalogs_and_harnesses(&client, home.as_path()).await?;
         activity_and_root(&client, home.as_path()).await?;
         client.close();
         daemon.handle.shutdown().await;
@@ -757,6 +763,7 @@ async fn settings_scenarios() -> Result<()> {
         external_folder_open_mode: ExternalFolderOpenMode::FocusedWindow,
         external_file_open_mode: ExternalFileOpenMode::NewWindow,
         tab_beam_position: TabBeamPosition::Bottom,
+        home_folder: Some("/tmp/home-folder".to_owned()),
     };
     let set_window = client
         .call_as(
@@ -801,7 +808,8 @@ async fn settings_scenarios() -> Result<()> {
         "theme": "patched-theme",
         "external_folder_open_mode": "new_window",
         "external_file_open_mode": "focused_window",
-        "tab_beam_position": "top"
+        "tab_beam_position": "top",
+        "home_folder": "/tmp/patched-home"
     });
     let result = client
         .call_as(

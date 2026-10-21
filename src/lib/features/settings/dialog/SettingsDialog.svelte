@@ -36,7 +36,7 @@
   import KeyboardShortcutsView from '$lib/features/settings/views/KeyboardShortcutsView.svelte'
   import LanguageSettingsView from '$lib/features/settings/views/LanguageSettingsView.svelte'
   import NixView from '$lib/features/settings/views/NixView.svelte'
-  import ProvidersView from '$lib/features/settings/views/ProvidersView.svelte'
+  import HarnessesView from '$lib/features/settings/views/HarnessesView.svelte'
   import WindowView from '$lib/features/settings/views/WindowView.svelte'
   import RemoteServersView from '$lib/features/settings/views/RemoteServersView.svelte'
   import { getSettingsPage, setSettingsPage } from './state.svelte'
@@ -51,7 +51,7 @@
   const GENERAL_ITEMS: NavItem[] = [
     { id: 'appearance', label: 'Appearance', icon: { kind: 'lucide', icon: PaintbrushIcon } },
     { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: { kind: 'lucide', icon: KeyboardIcon } },
-    { id: 'providers', label: 'Providers', icon: { kind: 'lucide', icon: PackageIcon } },
+    { id: 'harnesses', label: 'Harnesses', icon: { kind: 'lucide', icon: PackageIcon } },
     { id: 'window', label: 'Window', icon: { kind: 'lucide', icon: AppWindow }, native: true },
     {
       id: 'remote-servers',
@@ -85,7 +85,7 @@
 
   // Host sections show the loaded owner's values and save to the host captured
   // by each editor, even if the active folder moves before a write flushes.
-  let hostSectionServer = $derived(active === 'providers' || activeLanguagePage ? getSettingsServer() : null)
+  let hostSectionServer = $derived(active === 'harnesses' || activeLanguagePage ? getSettingsServer() : null)
 
   // Host-section editors seed drafts from the loaded owner's values, so they
   // re-mount when ownership moves rather than flushing stale drafts to a new
@@ -116,7 +116,7 @@
   // SETTINGS LOAD //
 
   // The dialog stays mounted, so only refresh while it is open: host-section
-  // reads probe provider binaries on the owning machine. Reloading on every
+  // reads probe harness binaries on the owning machine. Reloading on every
   // active-folder change keeps the values, the caption and the file a save
   // lands in on the same host.
   $effect(() => {
@@ -208,9 +208,9 @@
             <GeneralView {onSaving} {onSaved} />
           {:else if active === 'keyboard-shortcuts'}
             <KeyboardShortcutsView />
-          {:else if active === 'providers'}
+          {:else if active === 'harnesses'}
             {#key hostKey}
-              <ProvidersView {onSaving} {onSaved} />
+              <HarnessesView {onSaving} {onSaved} />
             {/key}
           {:else if active === 'window'}
             <WindowView />

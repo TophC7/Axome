@@ -6,6 +6,7 @@
   import { backend } from '$lib/api/backend'
   import { refreshIssuesForFolder } from '$lib/features/issues/state.svelte'
   import { refreshNixForFolder } from '$lib/features/settings/state/nix.svelte'
+  import { refreshHarnessListings } from '$lib/features/sessions/harnesses/state.svelte'
   import CommandCenter from '$lib/features/command-palette/CommandCenter.svelte'
   import ConfirmHost from '$lib/features/confirm/ConfirmHost.svelte'
   import GitDialogHost from '$lib/features/git/dialogs/GitDialogHost.svelte'
@@ -113,6 +114,7 @@
     const listeners = [
       backend.settings.onChanged((event) => {
         if (event.layer === 'global') void loadSettings()
+        refreshHarnessListings(event)
       }),
       backend.issues.onChanged(({ folderPath }) => void refreshIssuesForFolder(folderPath)),
       backend.nix.onChanged(({ folderPath }) => refreshNixForFolder(folderPath)),

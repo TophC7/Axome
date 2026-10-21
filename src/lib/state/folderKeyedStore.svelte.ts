@@ -23,6 +23,10 @@ export function createFolderKeyedStore<T extends object>() {
     return entries.has(folderPath)
   }
 
+  function keys() {
+    return entries.keys()
+  }
+
   function set(folderPath: string, entry: T) {
     if (entries.get(folderPath) === entry) return
     const next = new Map(entries)
@@ -81,6 +85,7 @@ export function createFolderKeyedStore<T extends object>() {
   return {
     get,
     has,
+    keys,
     set,
     generation,
     patch,

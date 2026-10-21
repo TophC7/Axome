@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use sworm_protocol::activity_map::{DiscoveredProject, DiscoveredProviderActivity};
+use sworm_protocol::activity_map::{DiscoveredHarnessActivity, DiscoveredProject};
 
 /// Maximum number of discovered projects to return.
 const MAX_RESULTS: usize = 50;
@@ -14,9 +14,9 @@ const MAX_RESULTS: usize = 50;
 /// Number of trailing days to track in daily_counts.
 const WINDOW_DAYS: usize = 7;
 
-const PROVIDER_CLAUDE_CODE: &str = "claude_code";
-const PROVIDER_CODEX: &str = "codex";
-const PROVIDER_OMP: &str = "omp";
+const HARNESS_CLAUDE_CODE: &str = "claude_code";
+const HARNESS_CODEX: &str = "codex";
+const HARNESS_OMP: &str = "omp";
 
 #[derive(Default)]
 struct Tally {
@@ -32,9 +32,9 @@ impl Tally {
         }
     }
 
-    fn into_activity(self, provider: &str) -> DiscoveredProviderActivity {
-        DiscoveredProviderActivity {
-            provider_id: provider.into(),
+    fn into_activity(self, harness: &str) -> DiscoveredHarnessActivity {
+        DiscoveredHarnessActivity {
+            harness_id: harness.into(),
             last_active: ts_to_iso(self.last),
             daily_counts: self.daily,
         }
@@ -49,10 +49,10 @@ impl ActivityMapService {
     pub fn scan() -> Vec<DiscoveredProject> {
         let day_starts = day_boundaries();
 
-        // Collect (path, activity) pairs from each provider
-        let mut by_path: HashMap<String, Vec<DiscoveredProviderActivity>> = HashMap::new();
+        // Collect (path, activity) pairs from each harness
+        let mut by_path: HashMap<String, Vec<DiscoveredHarnessActivity>> = HashMap::new();
 
-        let scanners: [fn(&[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProviderActivity)>; 3] =
+        let scanners: [fn(&[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)>; 3] =
             [scan_claude_code, scan_codex, scan_omp];
         for scanner in scanners {
             for (path, activity) in scanner(&day_starts) {
@@ -63,8 +63,8 @@ impl ActivityMapService {
         // Build DiscoveredProject for each unique path
         let mut results: Vec<DiscoveredProject> = by_path
             .into_iter()
-            .map(|(path, providers)| {
-                let last_active = providers
+            .map(|(path, harnesses)| {
+                let last_active = harnesses
                     .iter()
                     .map(|p| p.last_active.as_str())
                     .max()
@@ -80,7 +80,7 @@ impl ActivityMapService {
                     name,
                     path_exists,
                     last_active,
-                    providers,
+                    harnesses,
                 }
             })
             .collect();
@@ -122,11 +122,11 @@ fn ts_to_iso(ts: i64) -> String {
         .unwrap_or_default()
 }
 
-// -- Per-provider scanners --
+// -- Per-harness scanners --
 // Each returns Vec<(canonical_path, activity)> and never panics.
 
-fn scan_claude_code(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProviderActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredProviderActivity)>> {
+fn scan_claude_code(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
+    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
         let projects_dir = home_dir()?.join(".claude/projects");
         if !projects_dir.is_dir() {
             return None;
@@ -172,7 +172,7 @@ fn scan_claude_code(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredP
             }
 
             if tally.last > 0 {
-                results.push((path, tally.into_activity(PROVIDER_CLAUDE_CODE)));
+                results.push((path, tally.into_activity(HARNESS_CLAUDE_CODE)));
             }
         }
 
@@ -267,8 +267,8 @@ fn unmunge_claude_path(dir_name: &str) -> Option<String> {
     candidates.into_iter().next()
 }
 
-fn scan_codex(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProviderActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredProviderActivity)>> {
+fn scan_codex(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
+    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
         let db_path = CodexStateReader::db_path()?;
 
         let conn = Connection::open_with_flags(
@@ -305,7 +305,7 @@ fn scan_codex(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProvide
         let results = by_cwd
             .into_iter()
             .filter(|(_, tally)| tally.last > 0)
-            .map(|(cwd, tally)| (cwd, tally.into_activity(PROVIDER_CODEX)))
+            .map(|(cwd, tally)| (cwd, tally.into_activity(HARNESS_CODEX)))
             .collect();
 
         Some(results)
@@ -314,8 +314,8 @@ fn scan_codex(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProvide
     inner().unwrap_or_default()
 }
 
-fn scan_omp(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProviderActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredProviderActivity)>> {
+fn scan_omp(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
+    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
         let home = home_dir()?;
         let sessions_dir = home.join(".omp/agent/sessions");
 
@@ -360,7 +360,7 @@ fn scan_omp(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredProviderA
         let results = by_cwd
             .into_iter()
             .filter(|(_, tally)| tally.last > 0)
-            .map(|(cwd, tally)| (cwd, tally.into_activity(PROVIDER_OMP)))
+            .map(|(cwd, tally)| (cwd, tally.into_activity(HARNESS_OMP)))
             .collect();
 
         Some(results)

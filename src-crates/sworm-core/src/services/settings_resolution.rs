@@ -6,14 +6,14 @@ use jsonschema::{error::ValidationErrorKind, Validator};
 use schemars::schema_for;
 use serde_json::{json, Value};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
 };
 use sworm_protocol::extensions::{FORMATTER_DISABLED, FORMATTER_LSP};
 use sworm_protocol::settings::{
-    EffectiveSettings, LspServerConfigRecord, LspServerSettings, ProviderConfigRecord,
-    ProviderSettings, SettingsDiagnostic, SettingsDiagnosticCode, SettingsDiagnosticSeverity,
-    SettingsLayerKind, SettingsOrigin, CANONICAL_PROVIDER_IDS,
+    EffectiveSettings, HarnessConfigRecord, HarnessSettings, LspServerConfigRecord,
+    LspServerSettings, SettingsDiagnostic, SettingsDiagnosticCode, SettingsDiagnosticSeverity,
+    SettingsLayerKind, SettingsOrigin,
 };
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -21,6 +21,7 @@ pub struct SettingsCatalogIds {
     pub lsp_server_ids: Vec<String>,
     pub formatter_ids: Vec<String>,
     pub formatting_defaults: BTreeMap<String, String>,
+    pub harness_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,20 +59,6 @@ pub fn resolve_effective_settings_for_folder_path(
     ))
 }
 
-pub fn provider_binary_overrides(settings: &EffectiveSettings) -> HashMap<String, String> {
-    settings
-        .providers
-        .iter()
-        .filter_map(|(provider_id, config)| {
-            config
-                .binary_path_override
-                .as_ref()
-                .filter(|path| !path.trim().is_empty())
-                .map(|path| (provider_id.clone(), path.clone()))
-        })
-        .collect()
-}
-
 pub fn lsp_config_record(settings: &EffectiveSettings, server_id: &str) -> LspServerConfigRecord {
     let config = settings
         .lsp
@@ -89,17 +76,17 @@ pub fn lsp_config_record(settings: &EffectiveSettings, server_id: &str) -> LspSe
     }
 }
 
-pub fn provider_config_record(
+pub fn harness_config_record(
     settings: &EffectiveSettings,
-    provider_id: &str,
-) -> ProviderConfigRecord {
+    harness_id: &str,
+) -> HarnessConfigRecord {
     let config = settings
-        .providers
-        .get(provider_id)
+        .harnesses
+        .get(harness_id)
         .cloned()
-        .unwrap_or_else(ProviderSettings::default);
-    ProviderConfigRecord {
-        provider_id: provider_id.to_string(),
+        .unwrap_or_else(HarnessSettings::default);
+    HarnessConfigRecord {
+        harness_id: harness_id.to_string(),
         enabled: config.enabled,
         binary_path_override: config.binary_path_override,
         extra_args: config.extra_args,
@@ -151,6 +138,7 @@ pub fn resolve_effective_settings(
     let mut merged = serde_json::to_value(EffectiveSettings::with_catalog_defaults(
         &ids.lsp_server_ids,
         &ids.formatting_defaults,
+        &ids.harness_ids,
     ))
     .expect("default settings serialize");
 
@@ -184,7 +172,11 @@ pub fn resolve_effective_settings(
             Path::new(""),
             format!("Settings model rejected validated layers: {error}"),
         ));
-        EffectiveSettings::with_catalog_defaults(&ids.lsp_server_ids, &ids.formatting_defaults)
+        EffectiveSettings::with_catalog_defaults(
+            &ids.lsp_server_ids,
+            &ids.formatting_defaults,
+            &ids.harness_ids,
+        )
     });
 
     ResolvedSettings {
@@ -234,12 +226,20 @@ fn validate_layer(
                     (pointer, SettingsDiagnosticCode::UnknownKey, message)
                 }));
             }
-            // Rejected map key: providers, lsp.servers, and formatting are keyed
-            // by runtime catalog ids, pinned in the schema as `propertyNames`.
+            // Harnesses, lsp.servers, and formatting use catalog ids; presets
+            // use a name pattern, all pinned in the schema as `propertyNames`.
             ValidationErrorKind::PropertyNames { error: inner } => {
                 let key = inner.instance().as_str().unwrap_or_default().to_string();
-                let noun = if at == "/providers" {
-                    "provider"
+                if at.ends_with("/presets") {
+                    rejected.push((
+                        format!("{at}{}", json_pointer(&[&key])),
+                        SettingsDiagnosticCode::InvalidValue,
+                        format!("Invalid preset name `{key}`: use letters, digits, '-' and '_'"),
+                    ));
+                    continue;
+                }
+                let noun = if at == "/harnesses" {
+                    "harness"
                 } else if at == "/formatting" {
                     "formatting language"
                 } else {
@@ -287,7 +287,7 @@ fn validate_layer(
 
 /// Drops the node at `pointer`. An invalid element invalidates the list that
 /// holds it, so the walk stops at the deepest object ancestor: an error at
-/// `/providers/codex/extra_args/1` removes `extra_args`.
+/// `/harnesses/codex/extra_args/1` removes `extra_args`.
 fn remove_at(value: &mut Value, pointer: &str) {
     let segments = pointer
         .split('/')
@@ -355,14 +355,16 @@ pub(crate) fn is_global_only_pointer(pointer: &str) -> bool {
 pub(crate) fn settings_layer_schema(layer: SettingsLayerKind, ids: &SettingsCatalogIds) -> Value {
     let mut schema =
         serde_json::to_value(schema_for!(EffectiveSettings)).expect("settings schema serializes");
-    restrict_map_keys(
-        &mut schema,
-        &["providers"],
-        CANONICAL_PROVIDER_IDS
-            .iter()
-            .map(|provider_id| provider_id.to_string())
-            .collect(),
-    );
+    restrict_map_keys(&mut schema, &["harnesses"], ids.harness_ids.clone());
+    let presets_pointer = "/definitions/HarnessSettings/properties/presets";
+    schema
+        .pointer_mut(presets_pointer)
+        .and_then(Value::as_object_mut)
+        .unwrap_or_else(|| panic!("settings schema exposes {presets_pointer}"))
+        .insert(
+            "propertyNames".to_string(),
+            json!({ "pattern": "^[A-Za-z0-9_-]+$" }),
+        );
     restrict_map_keys(&mut schema, &["lsp", "servers"], ids.lsp_server_ids.clone());
     restrict_map_keys(
         &mut schema,
@@ -495,6 +497,7 @@ mod tests {
             project,
             &SettingsCatalogIds {
                 lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+                harness_ids: vec!["claude_code".into()],
                 formatter_ids: vec![
                     "dev.sworm.biome::biome".to_string(),
                     "dev.sworm.nix::nixfmt".to_string(),
@@ -662,7 +665,7 @@ mod tests {
                 SettingsLayerKind::Global,
                 "global",
                 json!({
-                    "providers": {
+                    "harnesses": {
                         "claude_code": { "extra_args": ["--global"] }
                     },
                     "lsp": {
@@ -681,7 +684,7 @@ mod tests {
                 SettingsLayerKind::Folder,
                 "folder",
                 json!({
-                    "providers": {
+                    "harnesses": {
                         "claude_code": { "extra_args": ["--project"] }
                     },
                     "lsp": {
@@ -699,7 +702,7 @@ mod tests {
         );
 
         assert_eq!(
-            resolved.settings.providers["claude_code"].extra_args,
+            resolved.settings.harnesses["claude_code"].extra_args,
             vec!["--project"]
         );
         let lsp_settings = resolved.settings.lsp.servers["dev.sworm.vtsls::vtsls"]
@@ -725,7 +728,7 @@ mod tests {
                 SettingsLayerKind::Global,
                 "global",
                 json!({
-                    "providers": {
+                    "harnesses": {
                         "claude_code": {
                             "enabled": null,
                             "binary_path_override": "/bin/claude"
@@ -737,7 +740,7 @@ mod tests {
                 SettingsLayerKind::Folder,
                 "folder",
                 json!({
-                    "providers": {
+                    "harnesses": {
                         "claude_code": {
                             "binary_path_override": null
                         }
@@ -746,40 +749,37 @@ mod tests {
             )),
         );
 
-        let provider = &resolved.settings.providers["claude_code"];
-        assert!(provider.enabled);
-        assert_eq!(provider.binary_path_override, None);
+        let harness = &resolved.settings.harnesses["claude_code"];
+        assert!(harness.enabled);
+        assert_eq!(harness.binary_path_override, None);
         assert!(resolved.diagnostics.iter().any(|diagnostic| diagnostic.code
             == SettingsDiagnosticCode::InvalidValue
-            && diagnostic.pointer == "/providers/claude_code/enabled"));
+            && diagnostic.pointer == "/harnesses/claude_code/enabled"));
     }
 
     #[test]
-    fn unknown_provider_and_lsp_ids_emit_diagnostics_and_are_ignored() {
+    fn unknown_harness_and_lsp_ids_emit_diagnostics_and_are_ignored() {
         let resolved = resolve(
             loaded(
                 SettingsLayerKind::Global,
                 "global",
                 json!({
-                    "providers": { "missing_provider": { "enabled": false } },
+                    "harnesses": { "missing_harness": { "enabled": false } },
                     "lsp": { "servers": { "missing::server": { "enabled": false } } }
                 }),
             ),
             None,
         );
 
-        assert!(resolved.settings.providers["claude_code"].enabled);
+        assert!(resolved.settings.harnesses["claude_code"].enabled);
         assert!(resolved.settings.lsp.servers["dev.sworm.vtsls::vtsls"].enabled);
-        assert!(!resolved.settings.providers.contains_key("missing_provider"));
+        assert!(!resolved.settings.harnesses.contains_key("missing_harness"));
         assert!(!resolved
             .settings
             .lsp
             .servers
             .contains_key("missing::server"));
-        for pointer in [
-            "/providers/missing_provider",
-            "/lsp/servers/missing::server",
-        ] {
+        for pointer in ["/harnesses/missing_harness", "/lsp/servers/missing::server"] {
             assert!(
                 resolved.diagnostics.iter().any(|diagnostic| {
                     diagnostic.code == SettingsDiagnosticCode::UnknownKey
@@ -924,5 +924,37 @@ mod tests {
         assert!(resolved.diagnostics.iter().any(|diagnostic| diagnostic.code
             == SettingsDiagnosticCode::InvalidValue
             && diagnostic.pointer == "/explorer/exclude/**~1vendor"));
+    }
+    #[test]
+    fn invalid_preset_name_is_rejected() {
+        let resolved = resolve_effective_settings(
+            missing(SettingsLayerKind::Global, "global"),
+            Some(loaded(
+                SettingsLayerKind::Folder,
+                "folder",
+                json!({ "harnesses": { "omp": { "presets": {
+                    "bad name": {},
+                    "web": { "args": ["--profile", "web"] }
+                } } } }),
+            )),
+            &SettingsCatalogIds {
+                harness_ids: vec!["omp".into()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(resolved.diagnostics.len(), 1);
+        let diagnostic = &resolved.diagnostics[0];
+        assert_eq!(diagnostic.code, SettingsDiagnosticCode::InvalidValue);
+        assert_eq!(
+            diagnostic.pointer,
+            json_pointer(&["harnesses", "omp", "presets", "bad name"])
+        );
+        assert_eq!(
+            diagnostic.message,
+            "Invalid preset name `bad name`: use letters, digits, '-' and '_'"
+        );
+        let presets = &resolved.settings.harnesses["omp"].presets;
+        assert!(!presets.contains_key("bad name"));
+        assert_eq!(presets["web"].args, vec!["--profile", "web"]);
     }
 }

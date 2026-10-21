@@ -10,7 +10,6 @@ use crate::services::{
     issue_bridge::IssueBridgeService,
     issues::IssueService,
     lsp::LspService,
-    providers::ProviderService,
     pty::PtyService,
     resume_discovery::ResumeDiscoveryService,
     runs::{RunCoordinator, RunKind},
@@ -30,7 +29,6 @@ pub struct Host {
     // ponytail: host-wide destructive-operation gate; shard by affected roots if contention matters
     pub admission: Arc<tokio::sync::RwLock<()>>,
     pub db: Arc<DatabaseService>,
-    pub(crate) providers: ProviderService,
     pub pty: PtyService,
     pub(crate) runs: RunCoordinator,
     pub(crate) git: Arc<GitService>,
@@ -59,7 +57,6 @@ impl Host {
         Ok(Self {
             admission: Arc::new(tokio::sync::RwLock::new(())),
             db,
-            providers: ProviderService,
             pty: PtyService::new(),
             runs: RunCoordinator::default(),
             git: Arc::clone(&git),
@@ -231,10 +228,9 @@ impl Host {
                     .map(|(folder, kind)| {
                         let folder = folder.to_string_lossy().into_owned();
                         match kind {
-                            RunKind::Session { provider_id } => WorkbenchRun::Session {
-                                folder,
-                                provider_id,
-                            },
+                            RunKind::Session { harness_id } => {
+                                WorkbenchRun::Session { folder, harness_id }
+                            }
                             RunKind::Task { task_id } => WorkbenchRun::Task { folder, task_id },
                         }
                     })

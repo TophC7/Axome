@@ -2,9 +2,10 @@ use crate::{
     errors::ApiError,
     services::{
         extensions::ExtensionService,
+        harnesses,
         settings::SettingsService,
         settings_resolution::{
-            parse_error_diagnostic, provider_binary_overrides, provider_config_record,
+            harness_config_record, parse_error_diagnostic,
             resolve_effective_settings_for_folder_path, SettingsLayerLoad,
         },
     },
@@ -13,9 +14,9 @@ use crate::{
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use sworm_protocol::settings::{
-    EffectiveSettingsPayload, FormattingSettings, NixSettings, PatchSettingsSectionInput,
-    ProviderConfigRecord, ProviderSettingsEntry, SettingsFileResult, SettingsLayerKind,
-    SettingsLayerPayload, SettingsPayload, TypographySettings, WindowSettings,
+    EffectiveSettingsPayload, FormattingSettings, HarnessConfigRecord, HarnessSettingsEntry,
+    NixSettings, PatchSettingsSectionInput, SettingsFileResult, SettingsLayerKind,
+    SettingsLayerPayload, SettingsPayload, ShellSettings, TypographySettings, WindowSettings,
 };
 
 impl Host {
@@ -23,16 +24,17 @@ impl Host {
         self.watch_settings_paths(None);
         let resolved =
             resolve_effective_settings_for_folder_path(None).map_err(ApiError::Internal)?;
-        let overrides = provider_binary_overrides(&resolved.settings);
-        let providers = self
-            .providers
-            .detect_all(self.env.path(), &overrides, Some(&self.env.detected_shell))
-            .into_iter()
-            .map(|provider| {
-                let config = provider_config_record(&resolved.settings, &provider.id.to_string());
-                ProviderSettingsEntry { provider, config }
-            })
-            .collect();
+        let harnesses = harnesses::detect_all(
+            &ExtensionService::current(),
+            &resolved.settings,
+            self.env.path(),
+        )
+        .into_iter()
+        .map(|harness| {
+            let config = harness_config_record(&resolved.settings, &harness.id);
+            HarnessSettingsEntry { harness, config }
+        })
+        .collect();
         let mut lsp = resolved.settings.lsp;
         let extensions = ExtensionService::current();
         for server in &extensions.lsp_servers {
@@ -47,7 +49,8 @@ impl Host {
             nix: resolved.settings.nix,
             formatting: resolved.settings.formatting,
             lsp,
-            providers,
+            harnesses,
+            shell: resolved.settings.shell,
         })
     }
 
@@ -140,6 +143,13 @@ impl Host {
         Ok(settings)
     }
 
+    pub fn settings_set_shell(&self, settings: ShellSettings) -> Result<ShellSettings, ApiError> {
+        let value = serde_json::to_value(&settings)
+            .map_err(|error| ApiError::Internal(error.to_string()))?;
+        self.settings_update_global_section("shell", |_| Ok(value))?;
+        Ok(settings)
+    }
+
     pub fn settings_set_formatting(
         &self,
         formatting: FormattingSettings,
@@ -150,22 +160,21 @@ impl Host {
         Ok(formatting)
     }
 
-    pub fn settings_set_provider_config(
+    pub fn settings_set_harness_config(
         &self,
-        config: ProviderConfigRecord,
-    ) -> Result<ProviderConfigRecord, ApiError> {
-        self.settings_update_global_section("providers", |providers| {
-            let mut root = json!({ "providers": providers });
-            let providers = SettingsService::object_property(&mut root, "providers")?;
-            providers.insert(
-                config.provider_id.clone(),
-                json!({
-                    "enabled": config.enabled,
-                    "binary_path_override": config.binary_path_override,
-                    "extra_args": config.extra_args,
-                }),
-            );
-            Ok(Value::Object(std::mem::take(providers)))
+        config: HarnessConfigRecord,
+    ) -> Result<HarnessConfigRecord, ApiError> {
+        self.settings_update_global_section("harnesses", |harnesses| {
+            let mut root = json!({ "harnesses": harnesses });
+            let map = SettingsService::object_property(&mut root, "harnesses")?;
+            let entry = map.entry(config.harness_id.clone()).or_insert(json!({}));
+            if !entry.is_object() {
+                *entry = json!({});
+            }
+            entry["enabled"] = json!(config.enabled);
+            entry["binary_path_override"] = json!(config.binary_path_override);
+            entry["extra_args"] = json!(config.extra_args);
+            Ok(Value::Object(std::mem::take(map)))
         })?;
         Ok(config)
     }
@@ -211,38 +220,5 @@ fn layer_payload(layer: SettingsLayerLoad) -> SettingsLayerPayload {
             value: json!({}),
             diagnostics: vec![parse_error_diagnostic(layer, &path, message)],
         },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use sworm_protocol::settings::{EffectiveSettings, ProviderSettings};
-
-    #[test]
-    fn binary_overrides_skip_empty_paths() {
-        let mut settings = EffectiveSettings::default();
-        settings.providers.insert(
-            "claude_code".to_string(),
-            ProviderSettings {
-                enabled: true,
-                binary_path_override: Some("/bin/claude".to_string()),
-                extra_args: Vec::new(),
-            },
-        );
-        settings.providers.insert(
-            "codex".to_string(),
-            ProviderSettings {
-                enabled: true,
-                binary_path_override: Some(" ".to_string()),
-                extra_args: Vec::new(),
-            },
-        );
-        let overrides = provider_binary_overrides(&settings);
-        assert_eq!(
-            overrides.get("claude_code"),
-            Some(&"/bin/claude".to_string())
-        );
-        assert!(!overrides.contains_key("codex"));
     }
 }
