@@ -2,8 +2,9 @@
   import type { HTMLAttributes } from 'svelte/elements'
   import * as Dialog from '$lib/components/ui/dialog'
   import { IconButton } from '$lib/components/ui/button'
-  import { X } from '$lib/icons/lucideExports'
+  import { CopyIcon, X } from '$lib/icons/lucideExports'
   import type { ChatContent } from '$lib/types/backend'
+  import { copyToClipboard } from '$lib/utils/clipboard'
   import { cn } from '$lib/utils/cn'
 
   let { content, class: className, ...rest }: HTMLAttributes<HTMLDivElement> & { content: ChatContent[] } = $props()
@@ -25,35 +26,46 @@
     }
     return result
   })
+  const text = $derived(content.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n'))
   let selected = $state<Image | null>(null)
 </script>
 
-<div
-  data-slot="message-user"
-  class={cn(
-    'border-l-2 border-accent bg-surface px-3 py-2 text-base break-words whitespace-pre-wrap text-fg',
-    className
-  )}
-  {...rest}
->
-  {#each parts as part}
-    {#if part.type === 'text'}
-      {part.text}
-    {:else}
-      <div class="flex flex-wrap gap-1.5">
-        {#each part.images as image}
-          <button
-            type="button"
-            aria-label="Open Attached Image"
-            class="size-16 overflow-hidden rounded-md border border-edge focus-visible:shadow-focus-ring focus-visible:outline-none"
-            onclick={() => (selected = image)}
-          >
-            <img src={`data:${image.mime_type};base64,${image.data}`} alt="Attachment" class="size-full object-cover" />
-          </button>
-        {/each}
-      </div>
-    {/if}
-  {/each}
+<div data-slot="message-user" class={cn('group', className)} {...rest}>
+  <div
+    class="ml-auto max-w-[85%] rounded-lg border border-edge bg-raised px-3 py-2 text-base break-words whitespace-pre-wrap text-fg"
+  >
+    {#each parts as part}
+      {#if part.type === 'text'}
+        {part.text}
+      {:else}
+        <div class="flex flex-wrap gap-1.5">
+          {#each part.images as image}
+            <button
+              type="button"
+              aria-label="Open Attached Image"
+              class="size-16 overflow-hidden rounded-md border border-edge focus-visible:shadow-focus-ring focus-visible:outline-none"
+              onclick={() => (selected = image)}
+            >
+              <img
+                src={`data:${image.mime_type};base64,${image.data}`}
+                alt="Attachment"
+                class="size-full object-cover"
+              />
+            </button>
+          {/each}
+        </div>
+      {/if}
+    {/each}
+  </div>
+  {#if text}
+    <div
+      class="duration-fast flex h-6 items-center justify-end opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+    >
+      <IconButton tooltip="Copy Message" onclick={() => copyToClipboard(text, 'Copy message failed')}>
+        <CopyIcon size={12} />
+      </IconButton>
+    </div>
+  {/if}
 </div>
 
 <Dialog.Root

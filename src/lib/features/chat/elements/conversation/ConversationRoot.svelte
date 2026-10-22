@@ -28,12 +28,13 @@
 <div data-slot="conversation" class={cn('relative flex min-h-0 flex-1 flex-col', className)} {...rest}>
   <div
     bind:this={viewport}
-    class="min-h-0 flex-1 overflow-y-auto"
-    onscroll={() => {
+    class="min-h-0 flex-1 overflow-y-auto px-4"
+    onscroll={(event) => {
+      const viewport = event.currentTarget
       atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32
     }}
   >
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4" {@attach observeContent}>
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-4 py-4" {@attach observeContent}>
       {#if children}{@render children()}{/if}
     </div>
   </div>

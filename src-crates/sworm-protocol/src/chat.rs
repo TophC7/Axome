@@ -10,6 +10,14 @@ pub struct ChatStartInfo {
     pub resumed: bool,
 }
 
+/// Result of `chat_fork`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatForkInfo {
+    /// New session holding a copy of the forked session's history.
+    pub session_id: String,
+}
+
 /// ACP-independent updates for one chat run.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -68,7 +76,16 @@ pub struct ChatState {
     pub commands: Vec<ChatCommand>,
     pub usage: Option<ChatUsage>,
     pub requests: Vec<ChatRequest>,
-    pub accepts_images: bool,
+    pub capabilities: ChatCapabilities,
+}
+
+/// What the agent supports for this run, as it advertised at initialize.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ChatCapabilities {
+    /// Prompts may include images (ACP `promptCapabilities.image`).
+    pub images: bool,
+    /// Whole sessions can be forked (ACP `sessionCapabilities.fork`).
+    pub fork: bool,
 }
 
 /// Current chat run activity.
@@ -99,9 +116,13 @@ pub enum ChatEntry {
     },
     Tool {
         id: String,
+        /// Programmatic tool name (ACP `name`), when the agent reports one.
+        name: Option<String>,
         title: String,
         tool_kind: String,
         status: ChatToolStatus,
+        /// Raw tool arguments (ACP `rawInput`).
+        input: Option<serde_json::Value>,
         content: Vec<ChatToolContent>,
         locations: Vec<ChatLocation>,
     },
@@ -109,6 +130,35 @@ pub enum ChatEntry {
         id: String,
         items: Vec<ChatPlanItem>,
     },
+    /// One per prompted turn, from the `session/prompt` result. Absent for replayed turns.
+    TurnEnd {
+        id: String,
+        stop_reason: ChatStopReason,
+        usage: Option<ChatTokenUsage>,
+        error: Option<String>,
+    },
+}
+
+/// Why a prompted turn ended.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatStopReason {
+    EndTurn,
+    Cancelled,
+    Refusal,
+    MaxTokens,
+    MaxTurnRequests,
+    /// The prompt request failed; `error` carries the message.
+    Error,
+}
+
+/// Token usage the agent reported for one prompt turn.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ChatTokenUsage {
+    pub input: u64,
+    pub output: u64,
+    pub cache_read: Option<u64>,
+    pub cache_write: Option<u64>,
 }
 
 /// Execution status of a tool call.

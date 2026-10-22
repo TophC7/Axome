@@ -138,6 +138,10 @@ export interface ChatStartInfo {
   resumed: boolean
 }
 
+export interface ChatForkInfo {
+  sessionId: string
+}
+
 export type ChatEvent =
   | { type: 'snapshot'; state: ChatState }
   | { type: 'turnState'; turn: ChatTurn }
@@ -160,7 +164,12 @@ export interface ChatState {
   commands: ChatCommand[]
   usage: ChatUsage | null
   requests: ChatRequest[]
-  accepts_images: boolean
+  capabilities: ChatCapabilities
+}
+
+export interface ChatCapabilities {
+  images: boolean
+  fork: boolean
 }
 
 export type ChatTurn = 'starting' | 'idle' | 'running' | 'reconnecting'
@@ -172,13 +181,31 @@ export type ChatEntry =
   | {
       kind: 'tool'
       id: string
+      name: string | null
       title: string
       tool_kind: string
       status: ChatToolStatus
+      input: unknown
       content: ChatToolContent[]
       locations: ChatLocation[]
     }
   | { kind: 'plan'; id: string; items: ChatPlanItem[] }
+  | {
+      kind: 'turn_end'
+      id: string
+      stop_reason: ChatStopReason
+      usage: ChatTokenUsage | null
+      error: string | null
+    }
+
+export type ChatStopReason = 'end_turn' | 'cancelled' | 'refusal' | 'max_tokens' | 'max_turn_requests' | 'error'
+
+export interface ChatTokenUsage {
+  input: number
+  output: number
+  cache_read: number | null
+  cache_write: number | null
+}
 
 export type ChatToolStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
 

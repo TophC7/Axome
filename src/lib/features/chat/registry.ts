@@ -3,6 +3,7 @@ import type { ChatSessionTab, TabId } from '$lib/features/workbench/model'
 import { setRunTabRunId, setRunTabStatus } from '$lib/features/workbench/state.svelte'
 import { ChatController } from './controller.svelte'
 
+// getOrCreate runs inside a surface $derived; only controller state may be reactive.
 const controllers = new Map<TabId, ChatController>()
 
 export function getOrCreate(tab: ChatSessionTab): ChatController {

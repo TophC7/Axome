@@ -40,6 +40,7 @@ pub(crate) struct AgentCapabilities {
     pub load_session: bool,
     pub close_session: bool,
     pub images: bool,
+    pub fork: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -550,6 +551,7 @@ pub(crate) async fn spawn(key: AgentKey, label: &str) -> Result<Arc<AgentProcess
         load_session: capabilities["loadSession"] == true,
         close_session: capabilities["sessionCapabilities"].get("close").is_some(),
         images: capabilities["promptCapabilities"]["image"] == true,
+        fork: capabilities["sessionCapabilities"]["fork"].is_object(),
     });
     Ok(agent)
 }

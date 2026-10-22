@@ -1,64 +1,47 @@
 import type { StatusTone } from '$lib/components/ui/status-dot'
-import type { ChatToolStatus } from '$lib/types/backend'
-import {
-  ArrowRightLeftIcon,
-  BrainIcon,
-  FileTextIcon,
-  GlobeIcon,
-  PencilIcon,
-  SearchIcon,
-  SparklesIcon,
-  SquareTerminalIcon,
-  Trash2,
-  WrenchIcon
-} from '$lib/icons/lucideExports'
+import type { ChatEntry, ChatToolStatus } from '$lib/types/backend'
+import { isPathWithin, splitRemotePath } from '$lib/utils/paths'
 
-export function toolKindIcon(kind: string) {
+export type ToolEntry = Extract<ChatEntry, { kind: 'tool' }>
+
+export function kindLabel(kind: string): string {
   switch (kind) {
-    case 'read':
-      return FileTextIcon
-    case 'edit':
-      return PencilIcon
-    case 'delete':
-      return Trash2
-    case 'move':
-      return ArrowRightLeftIcon
-    case 'search':
-      return SearchIcon
     case 'execute':
-      return SquareTerminalIcon
-    case 'fetch':
-      return GlobeIcon
-    case 'think':
-      return BrainIcon
+      return 'run'
     case 'switch_mode':
-      return SparklesIcon
+      return 'switch mode'
+    case 'read':
+    case 'edit':
+    case 'delete':
+    case 'move':
+    case 'search':
+    case 'fetch':
+    case 'think':
+      return kind
     default:
-      return WrenchIcon
+      return 'tool'
   }
 }
 
-export function toolKindVerb(kind: string): string {
-  switch (kind) {
-    case 'read':
-      return 'Read'
-    case 'edit':
-      return 'Edit'
-    case 'delete':
-      return 'Delete'
-    case 'move':
-      return 'Move'
-    case 'search':
-      return 'Search'
-    case 'execute':
-      return 'Run'
-    case 'fetch':
-      return 'Fetch'
-    case 'think':
-      return 'Think'
-    default:
-      return 'Tool'
+const previewKeys = ['command', 'cmd', 'path', 'file_path', 'filePath', 'pattern', 'query', 'url'] as const
+
+export function toolPreviewField(input: unknown): { key: string; value: string } | null {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return null
+  for (const key of previewKeys) {
+    if (!Object.hasOwn(input, key)) continue
+    const value: unknown = Reflect.get(input, key)
+    if (typeof value === 'string' && value.trim()) return { key, value }
   }
+  return null
+}
+
+export function toolPreview(entry: ToolEntry, folderPath: string): string {
+  const field = toolPreviewField(entry.input)
+  if (!field) return entry.title
+  // ACP locations and arguments use host paths even for a remote project.
+  const root = field.value.startsWith('sworm://') ? folderPath : (splitRemotePath(folderPath)?.path ?? folderPath)
+  if (!isPathWithin(root, field.value)) return field.value
+  return field.value.slice(root.replace(/\/+$/, '').length + 1) || '.'
 }
 
 export function toolStatusTone(

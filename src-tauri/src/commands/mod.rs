@@ -273,6 +273,7 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         chat_cancel,
         chat_set_config,
         chat_respond,
+        chat_fork,
         chat_stop,
         // Shell commands
         shells::shell_start,

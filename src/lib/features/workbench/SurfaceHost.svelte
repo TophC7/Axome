@@ -27,7 +27,10 @@
 {:else if activeTab.kind === 'new-tab'}
   <NewTabSurface folderPath={activeTab.folderPath} />
 {:else if isChatTab(activeTab)}
-  <ChatSurface tab={activeTab} />
+  <!-- Chat subscriptions belong to a tab; keep its reactive graph separate from the previous chat. -->
+  {#key activeTab.id}
+    <ChatSurface tab={activeTab} />
+  {/key}
 {:else if isTerminalTab(activeTab)}
   <TerminalSurface tab={activeTab} />
 {:else if activeTab.kind === 'text'}

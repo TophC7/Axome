@@ -1,16 +1,16 @@
 <script lang="ts">
   import { Button, IconButton } from '$lib/components/ui/button'
-  import { StatusDot, type StatusTone } from '$lib/components/ui/status-dot'
+  import { StatusDot } from '$lib/components/ui/status-dot'
   import { ToggleChip } from '$lib/components/ui/toggle-chip'
   import { InfoTooltip } from '$lib/components/ui/tooltip'
   import * as chats from '$lib/features/chat/registry'
-  import { transcriptBlocks } from '$lib/features/chat/transcriptBlocks'
+  import { transcriptTurns, turnFoldOpen, turnSummary } from '$lib/features/chat/turns'
   import * as Conversation from '$lib/features/chat/elements/conversation'
   import * as Message from '$lib/features/chat/elements/message'
   import { Reasoning } from '$lib/features/chat/elements/reasoning'
   import { Plan } from '$lib/features/chat/elements/plan'
   import * as Tool from '$lib/features/chat/elements/tool'
-  import { toolKindVerb } from '$lib/features/chat/elements/tool/kinds'
+  import * as Turn from '$lib/features/chat/elements/turn'
   import { ElicitationForm } from '$lib/features/chat/elements/elicitation'
   import * as PromptInput from '$lib/features/chat/elements/prompt-input'
   import { ConfigPicker } from '$lib/features/chat/elements/model-picker'
@@ -34,7 +34,7 @@
   const locked = $derived(tab.locked)
   const disabled = $derived(locked || tab.status !== 'running')
   const ended = $derived(tab.status === 'exited' || tab.status === 'failed')
-  const blocks = $derived(transcriptBlocks(s.entries))
+  const turns = $derived(transcriptTurns(s.entries, s.turn))
   const lastEntryId = $derived(s.entries.at(-1)?.id)
   const canSend = $derived(
     s.turn === 'idle' && !disabled && (controller.draft.text.trim() !== '' || controller.draft.images.length > 0)
@@ -62,34 +62,13 @@
     )
   }
 
-  function toolGroup(entries: ChatEntry[]) {
-    const counts = new Map<string, number>()
-    let count = 0
-    let tone: StatusTone = 'success'
-    let awaiting = false
-    for (const entry of entries) {
-      if (entry.kind !== 'tool') continue
-      count++
-      counts.set(entry.tool_kind, (counts.get(entry.tool_kind) ?? 0) + 1)
-      if (entry.status === 'failed') tone = 'danger'
-      else if (tone !== 'danger' && (entry.status === 'pending' || entry.status === 'in_progress')) tone = 'working'
-      if (permissionFor(entry.id)) awaiting = true
-    }
-    return {
-      count,
-      tone,
-      awaiting,
-      summary: Array.from(counts, ([kind, n]) => `${toolKindVerb(kind)} ${n}`).join(' · ')
-    }
-  }
-
   function onSubmit() {
     if (canSend) void controller.send().then(() => conversation?.scrollToBottom())
   }
 
   function onAddImages(files: File[]) {
     if (disabled) return
-    if (!s.accepts_images) {
+    if (!s.capabilities.images) {
       notify.warning('Images not supported', `${label} does not accept images.`)
       return
     }
@@ -129,10 +108,7 @@
   {#if entry.kind === 'user'}
     <Message.User content={entry.content} />
   {:else if entry.kind === 'message'}
-    <div class="group">
-      <Message.Response text={entry.text} {streaming} folderPath={tab.folderPath} />
-      {#if !streaming}<Message.Actions text={entry.text} />{/if}
-    </div>
+    <Message.Response text={entry.text} {streaming} folderPath={tab.folderPath} />
   {:else if entry.kind === 'thought'}
     <Reasoning
       text={entry.text}
@@ -144,11 +120,7 @@
   {:else if entry.kind === 'tool'}
     {@const permission = permissionFor(entry.id)}
     <Tool.Row
-      title={entry.title}
-      tool_kind={entry.tool_kind}
-      status={entry.status}
-      content={entry.content}
-      locations={entry.locations}
+      {entry}
       folderPath={tab.folderPath}
       awaiting={!!permission}
       open={controller.disclosure.get(entry.id) ?? (entry.status === 'failed' || !!permission)}
@@ -207,22 +179,28 @@
         </Conversation.EmptyState>
       {/if}
     {/if}
-    {#each blocks as block, index (block.kind === 'tools' ? block.id : block.entry.id)}
-      {#if block.kind === 'tools'}
-        {@const group = toolGroup(block.entries)}
-        <Tool.Group
-          count={group.count}
-          summary={group.summary}
-          tone={group.tone}
-          open={controller.disclosure.get(block.id) ??
-            ((index === blocks.length - 1 && s.turn === 'running') || group.awaiting)}
-          onOpenChange={(open) => controller.disclosure.set(block.id, open)}
-        >
-          {#each block.entries as entry (entry.id)}{@render renderEntry(entry)}{/each}
-        </Tool.Group>
-      {:else}
-        {@render renderEntry(block.entry)}
-      {/if}
+    {#each turns as turn (turn.id)}
+      <div class="group/turn flex min-w-0 flex-col gap-3">
+        {#if turn.user}<Message.User content={turn.user.content} />{/if}
+        {#if turn.steps.length}
+          <Turn.Fold
+            summary={turnSummary(turn)}
+            open={controller.disclosure.get(`fold:${turn.id}`) ?? turnFoldOpen(turn)}
+            onOpenChange={(open) => controller.disclosure.set(`fold:${turn.id}`, open)}
+          >
+            {#each turn.steps as entry (entry.id)}{@render renderEntry(entry)}{/each}
+          </Turn.Fold>
+        {/if}
+        {#each turn.plans as entry (entry.id)}{@render renderEntry(entry)}{/each}
+        {#if turn.answer}{@render renderEntry(turn.answer)}{/if}
+        <Turn.Files
+          steps={turn.steps}
+          folderPath={tab.folderPath}
+          onOpenLocation={(path, line) => void openLink(line ? `${path}:${line}` : path, tab.folderPath)}
+        />
+        <Turn.Notice end={turn.end} />
+        <Turn.Footer end={turn.end} answer={turn.answer} />
+      </div>
     {/each}
     {#each s.requests as request (request.request_id)}
       {#if request.kind === 'permission'}
@@ -251,7 +229,7 @@
   <PromptInput.Root
     bind:text={controller.draft.text}
     images={controller.draft.images}
-    acceptsImages={s.accepts_images}
+    acceptsImages={s.capabilities.images}
     commands={s.commands}
     {disabled}
     placeholder={`Message ${label}…`}
@@ -264,7 +242,7 @@
     {#snippet toolbar()}
       <PromptInput.Toolbar>
         {#snippet start()}
-          {#if s.accepts_images}
+          {#if s.capabilities.images}
             <IconButton tooltip="Attach Image" {disabled} onclick={() => fileInput?.click()}>
               <PaperclipIcon size={14} />
             </IconButton>

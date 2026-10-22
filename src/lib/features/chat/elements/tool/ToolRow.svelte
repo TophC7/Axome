@@ -1,20 +1,15 @@
 <script lang="ts">
   import type { ComponentProps, Snippet } from 'svelte'
-  import type { ChatToolContent, ChatToolStatus, ChatLocation } from '$lib/types/backend'
   import * as Collapsible from '$lib/components/ui/collapsible'
-  import { StatusDot } from '$lib/components/ui/status-dot'
+  import { statusToneText } from '$lib/components/ui/status-dot'
   import { ChevronRight } from '$lib/icons/lucideExports'
-  import { basename } from '$lib/utils/paths'
   import { cn } from '$lib/utils/cn'
-  import { toolKindIcon, toolStatusTone } from './kinds'
+  import { kindLabel, toolPreview, toolStatusTone, type ToolEntry } from './kinds'
   import ToolDiff from './ToolDiff.svelte'
+  import ToolFields from './ToolFields.svelte'
 
   let {
-    title,
-    tool_kind,
-    status,
-    content,
-    locations,
+    entry,
     awaiting,
     open,
     onOpenChange,
@@ -23,12 +18,8 @@
     children,
     class: className,
     ...rest
-  }: Omit<ComponentProps<typeof Collapsible.Root>, 'child' | 'children' | 'content'> & {
-    title: string
-    tool_kind: string
-    status: ChatToolStatus
-    content: ChatToolContent[]
-    locations: ChatLocation[]
+  }: Omit<ComponentProps<typeof Collapsible.Root>, 'child' | 'children'> & {
+    entry: ToolEntry
     awaiting: boolean
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -36,61 +27,54 @@
     folderPath: string
     children?: Snippet
   } = $props()
-  const Icon = $derived(toolKindIcon(tool_kind))
-  const state = $derived(toolStatusTone(status, awaiting))
-  const expandable = $derived(content.length > 0 || locations.length > 0)
-  const firstLocation = $derived(locations[0])
+  const label = $derived(entry.name ?? kindLabel(entry.tool_kind))
+  const preview = $derived(toolPreview(entry, folderPath))
+  const state = $derived(toolStatusTone(entry.status, awaiting))
 </script>
 
-{#snippet row()}
-  <span class="w-3 shrink-0">
-    {#if expandable}<ChevronRight
-        size={12}
-        class={cn('duration-fast text-muted transition-transform', open && 'rotate-90')}
-      />{/if}
-  </span>
-  <Icon size={14} class="shrink-0 text-muted" />
-  <span class="truncate text-fg">{title}</span>
-  {#if firstLocation}
-    <span class="truncate font-mono text-xs text-subtle"
-      >{basename(firstLocation.path)}{firstLocation.line != null ? `:${firstLocation.line}` : ''}</span
-    >
-  {/if}
-  <StatusDot tone={state.tone} label={state.label} class={cn('ms-auto', state.pulse && 'animate-pulse')} />
-{/snippet}
-
-<Collapsible.Root data-slot="tool-row" {open} {onOpenChange} class={cn('flex min-w-0 flex-col', className)} {...rest}>
-  {#if expandable}
-    <Collapsible.Trigger
-      class="flex h-7 items-center gap-2 px-1.5 text-sm hover:bg-surface focus-visible:shadow-focus-ring focus-visible:outline-none"
-      >{@render row()}</Collapsible.Trigger
-    >
-    <Collapsible.Content class="ml-5 flex flex-col gap-2 border-l border-edge py-1.5 pl-3">
-      {#each content as part}
-        {#if part.type === 'text'}
-          <pre
-            class="max-h-64 overflow-auto rounded-md bg-surface p-2 font-mono text-xs whitespace-pre-wrap text-fg">{part.text}</pre>
-        {:else if part.type === 'diff'}
-          <ToolDiff
-            path={part.path}
-            oldText={part.old_text}
-            newText={part.new_text}
-            {folderPath}
-            onOpen={() => onOpenLocation(part.path)}
-          />
-        {/if}
-      {/each}
-      {#each locations as location}
-        <button
-          type="button"
-          class="self-start text-left font-mono text-xs text-accent hover:underline focus-visible:shadow-focus-ring focus-visible:outline-none"
-          onclick={() => onOpenLocation(location.path, location.line ?? undefined)}
-          >{location.path}{location.line != null ? `:${location.line}` : ''}</button
-        >
-      {/each}
-    </Collapsible.Content>
-  {:else}
-    <div class="flex h-7 items-center gap-2 px-1.5 text-sm hover:bg-surface">{@render row()}</div>
-  {/if}
+<Collapsible.Root
+  data-slot="tool-row"
+  {open}
+  {onOpenChange}
+  class={cn('flex min-w-0 flex-col rounded-md border border-edge bg-surface', className)}
+  {...rest}
+>
+  <Collapsible.Trigger
+    class="flex min-h-7 min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-raised focus-visible:shadow-focus-ring focus-visible:outline-none"
+  >
+    <span class={cn('shrink-0 font-mono text-xs font-semibold', statusToneText[state.tone])}>{label}</span>
+    <span class="min-w-0 flex-1 truncate font-mono text-xs text-muted" title={preview}>{preview}</span>
+    <span class="shrink-0 text-xs text-subtle">{state.label}</span>
+    <ChevronRight
+      size={12}
+      aria-hidden="true"
+      class={cn('duration-fast shrink-0 text-muted transition-transform ease-out-quart', open && 'rotate-90')}
+    />
+  </Collapsible.Trigger>
+  <Collapsible.Content class="flex min-w-0 flex-col gap-2 border-t border-edge p-2.5">
+    <ToolFields input={entry.input} />
+    {#each entry.content as part}
+      {#if part.type === 'text'}
+        <pre
+          class="max-h-96 overflow-auto rounded-md bg-ground p-2 font-mono text-xs whitespace-pre-wrap text-fg">{part.text}</pre>
+      {:else if part.type === 'diff'}
+        <ToolDiff
+          path={part.path}
+          oldText={part.old_text}
+          newText={part.new_text}
+          {folderPath}
+          onOpen={() => onOpenLocation(part.path)}
+        />
+      {/if}
+    {/each}
+    {#each entry.locations as location}
+      <button
+        type="button"
+        class="self-start text-left font-mono text-xs break-all text-accent hover:underline focus-visible:shadow-focus-ring focus-visible:outline-none"
+        onclick={() => onOpenLocation(location.path, location.line ?? undefined)}
+        >{location.path}{location.line != null ? `:${location.line}` : ''}</button
+      >
+    {/each}
+  </Collapsible.Content>
   {#if children}{@render children()}{/if}
 </Collapsible.Root>

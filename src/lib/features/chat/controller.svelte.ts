@@ -37,7 +37,7 @@ export function emptyChatState(): ChatState {
     commands: [],
     usage: null,
     requests: [],
-    accepts_images: false
+    capabilities: { images: false, fork: false }
   }
 }
 

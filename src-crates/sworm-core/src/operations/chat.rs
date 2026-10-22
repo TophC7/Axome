@@ -167,7 +167,10 @@ impl Host {
                 }
                 self.resume_discovery
                     .claim(state.acp_session_id.as_deref().expect("session opened"));
-                state.accepts_images = agent.capabilities().images;
+                state.capabilities = ChatCapabilities {
+                    images: agent.capabilities().images,
+                    fork: agent.capabilities().fork,
+                };
                 state.turn = ChatTurn::Idle;
                 run.emit_snapshot(&mut state);
                 for notice in notices {
@@ -197,7 +200,7 @@ impl Host {
                 "A turn is already running".into(),
             ));
         }
-        if !state.accepts_images
+        if !state.capabilities.images
             && prompt
                 .iter()
                 .any(|item| matches!(item, ChatContent::Image { .. }))
@@ -259,6 +262,33 @@ impl Host {
             if state.ended || state.stopping || state.turn != ChatTurn::Running {
                 return;
             }
+            let (stop_reason, usage, error) = match result {
+                Ok(result) => {
+                    let stop_reason = result
+                        .get("stopReason")
+                        .cloned()
+                        .ok_or_else(|| "Agent returned no stopReason".to_owned())
+                        .and_then(|value| {
+                            serde_json::from_value::<ChatStopReason>(value)
+                                .map_err(|error| format!("Invalid agent stopReason: {error}"))
+                        });
+                    let usage = result.get("usage").and_then(|usage| {
+                        Some(ChatTokenUsage {
+                            input: usage.get("inputTokens")?.as_u64()?,
+                            output: usage.get("outputTokens")?.as_u64()?,
+                            cache_read: usage.get("cachedReadTokens").and_then(Value::as_u64),
+                            cache_write: usage.get("cachedWriteTokens").and_then(Value::as_u64),
+                        })
+                    });
+                    match stop_reason {
+                        Ok(stop_reason) => (stop_reason, usage, None),
+                        Err(error) => (ChatStopReason::Error, usage, Some(error)),
+                    }
+                }
+                Err(error) => (ChatStopReason::Error, None, Some(error.message)),
+            };
+            let end = state.transcript.end_turn(stop_reason, usage, error);
+            run.emit(&mut state, end);
             state.turn = ChatTurn::Idle;
             run.emit(
                 &mut state,
@@ -266,28 +296,6 @@ impl Host {
                     turn: ChatTurn::Idle,
                 },
             );
-            let notice = match result {
-                Ok(result) => match result["stopReason"].as_str() {
-                    Some("refusal") => Some((
-                        ChatNoticeLevel::Warning,
-                        "The agent refused this prompt.".into(),
-                    )),
-                    Some("max_tokens") => Some((
-                        ChatNoticeLevel::Info,
-                        "The turn stopped at the token limit.".into(),
-                    )),
-                    Some("max_turn_requests") => Some((
-                        ChatNoticeLevel::Info,
-                        "The turn stopped at the request limit.".into(),
-                    )),
-                    _ => None,
-                },
-                Err(error) if error.message == "agent exited" => None,
-                Err(error) => Some((ChatNoticeLevel::Error, error.message)),
-            };
-            if let Some((level, message)) = notice {
-                run.emit(&mut state, ChatEvent::Notice { level, message });
-            }
             run.cancel_requests(&mut state);
         });
         Ok(())
@@ -365,6 +373,73 @@ impl Host {
             run.emit(&mut state, ChatEvent::ConfigOptions { options });
         }
         Ok(())
+    }
+
+    pub fn chat_fork(&self, run_id: String) -> Result<ChatForkInfo, ApiError> {
+        let run = self.chat.get(&run_id)?;
+        let (agent, session_id) = {
+            let current = run.agent.lock();
+            let state = run.state.lock();
+            if state.ended || state.stopping {
+                return Err(ApiError::NotFound(format!("Chat run not found: {run_id}")));
+            }
+            if !state.bound {
+                return Err(ApiError::InvalidArgument(
+                    "Chat session is not bound".into(),
+                ));
+            }
+            if state.turn != ChatTurn::Idle {
+                return Err(ApiError::InvalidArgument(
+                    "Chat must be idle to fork".into(),
+                ));
+            }
+            if !state.capabilities.fork {
+                return Err(ApiError::InvalidArgument(
+                    "This agent does not support session forks".into(),
+                ));
+            }
+            (
+                current
+                    .clone()
+                    .ok_or_else(|| ApiError::Internal("Chat agent unavailable".into()))?,
+                state
+                    .acp_session_id
+                    .clone()
+                    .ok_or_else(|| ApiError::Internal("Chat session unavailable".into()))?,
+            )
+        };
+        self.chat.runtime().block_on(async {
+            let result = agent
+                .request(
+                    "session/fork",
+                    json!({
+                        "sessionId": session_id, "cwd": run.folder, "mcpServers": run.mcp_servers,
+                    }),
+                    Some(Duration::from_secs(120)),
+                )
+                .await
+                .map_err(|error| ApiError::Internal(error.message))?;
+            let session_id = result["sessionId"]
+                .as_str()
+                .ok_or_else(|| ApiError::Internal("Agent returned no fork sessionId".into()))?
+                .to_owned();
+            // omp keeps forks registered; load can reuse them and replay history.
+            // Close when supported so an unopened fork retains no live resources.
+            if agent.capabilities().close_session {
+                if let Err(error) = agent
+                    .request(
+                        "session/close",
+                        json!({"sessionId": session_id}),
+                        Some(Duration::from_secs(5)),
+                    )
+                    .await
+                {
+                    tracing::warn!(%run_id, %session_id, %error, "Failed to close forked ACP session");
+                }
+            }
+            agent.unregister_session(&session_id);
+            Ok(ChatForkInfo { session_id })
+        })
     }
 
     pub fn chat_respond(

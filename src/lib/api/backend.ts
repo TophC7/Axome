@@ -13,6 +13,7 @@ import type {
   BranchSummary,
   ChatConfigValue,
   ChatContent,
+  ChatForkInfo,
   ChatResponse,
   ChatStartInfo,
   ExtensionCatalog,
@@ -232,6 +233,9 @@ export const backend = {
     },
     respond(runId: string, requestId: string, response: ChatResponse): Promise<void> {
       return invoke<void>('chat_respond', { runId, requestId, response })
+    },
+    fork(runId: string): Promise<ChatForkInfo> {
+      return invoke<ChatForkInfo>('chat_fork', { runId })
     },
     stop(runId: string): Promise<void> {
       return invoke<void>('chat_stop', { runId })

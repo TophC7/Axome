@@ -59,7 +59,7 @@
   import { restartTerminalProcess, stopTerminalProcess } from '$lib/features/terminal/lifecycle'
   import { restartTabRun, stopTabRun } from '$lib/features/workbench/runLifecycle'
   import { getHarness } from '$lib/features/sessions/harnesses/catalog'
-  import { switchSessionView } from '$lib/features/sessions/service.svelte'
+  import { canForkSession, forkSession, switchSessionView } from '$lib/features/sessions/service.svelte'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import { FileDiff, Layers, Lock, Plus, CircleDot, TerminalIcon, ServerIcon } from '$lib/icons/lucideExports'
@@ -358,6 +358,11 @@
       {#if tab.kind === 'session' && getHarness(tab.folderPath, tab.harnessId)?.chat}
         <ContextMenu.Item disabled={tab.locked || transferring} onSelect={() => void switchSessionView(tab.id)}>
           {tab.view === 'chat' ? 'Switch to Terminal' : 'Switch to Chat'}
+        </ContextMenu.Item>
+      {/if}
+      {#if tab.kind === 'session'}
+        <ContextMenu.Item disabled={!canForkSession(tab)} onSelect={() => void forkSession(tab.id)}>
+          Fork Session
         </ContextMenu.Item>
       {/if}
       {#if tab.kind === 'task'}

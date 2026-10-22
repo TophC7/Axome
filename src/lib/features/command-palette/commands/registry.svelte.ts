@@ -11,7 +11,7 @@ import {
 } from '$lib/features/notifications/state.svelte'
 import { svgUrl } from '$lib/features/sessions/harnesses/catalog'
 import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
-import { canSwitchView, switchSessionView } from '$lib/features/sessions/service.svelte'
+import { canForkSession, canSwitchView, forkSession, switchSessionView } from '$lib/features/sessions/service.svelte'
 import { getShellListing } from '$lib/features/shells/state.svelte'
 import { isSidebarCollapsed, toggleSidebar } from '$lib/features/app-shell/sidebar/state.svelte'
 import { zoomIn, zoomOut, zoomReset } from '$lib/features/app-shell/zoom/state.svelte'
@@ -384,6 +384,17 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       visible: () => canSwitchView(activeTab),
       run: () => {
         if (activeTab) return switchSessionView(activeTab.id)
+      }
+    }),
+    appCommand({
+      id: 'session.fork',
+      label: 'Fork Session',
+      group: 'Sessions',
+      icon: MessageSquare,
+      keywords: ['fork', 'copy', 'session', 'chat', 'acp'],
+      visible: () => canForkSession(activeTab),
+      run: () => {
+        if (activeTab) return forkSession(activeTab.id)
       }
     }),
     appCommand({

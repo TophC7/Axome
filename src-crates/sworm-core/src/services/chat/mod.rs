@@ -54,7 +54,7 @@ pub(crate) struct RunState {
     pub(crate) commands: Vec<ChatCommand>,
     pub(crate) usage: Option<ChatUsage>,
     pub(crate) requests: Vec<(ChatRequest, Value, Arc<AgentProcess>)>,
-    pub(crate) accepts_images: bool,
+    pub(crate) capabilities: ChatCapabilities,
     pub(crate) subscriber: Option<(u64, EventSink<ChatEvent>)>,
     pub(crate) next_attachment: u64,
     notices: VecDeque<ChatEvent>,
@@ -74,7 +74,7 @@ impl RunState {
             commands: Vec::new(),
             usage: None,
             requests: Vec::new(),
-            accepts_images: false,
+            capabilities: ChatCapabilities::default(),
             subscriber: None,
             next_attachment: 0,
             notices: VecDeque::new(),
@@ -223,7 +223,7 @@ impl ChatRun {
                 .iter()
                 .map(|(request, _, _)| request.clone())
                 .collect(),
-            accepts_images: state.accepts_images,
+            capabilities: state.capabilities.clone(),
         }
     }
 
@@ -584,7 +584,10 @@ impl ChatInner {
         run.open_session(&agent, load, false).await?;
         let mut state = run.state.lock();
         if !state.ended && !state.stopping {
-            state.accepts_images = agent.capabilities().images;
+            state.capabilities = ChatCapabilities {
+                images: agent.capabilities().images,
+                fork: agent.capabilities().fork,
+            };
             state.turn = ChatTurn::Idle;
             run.emit_snapshot(&mut state);
         }

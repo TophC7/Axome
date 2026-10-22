@@ -64,6 +64,8 @@ pub(crate) enum ContentWire {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ToolCallWire {
     pub(crate) tool_call_id: String,
+    pub(crate) name: Option<String>,
+    pub(crate) raw_input: Option<Value>,
     pub(crate) title: Option<String>,
     pub(crate) kind: Option<String>,
     pub(crate) status: Option<String>,
@@ -290,6 +292,25 @@ impl Transcript {
         self.store(id.clone(), ChatEntry::User { id, content })
     }
 
+    pub(crate) fn end_turn(
+        &mut self,
+        stop_reason: ChatStopReason,
+        usage: Option<ChatTokenUsage>,
+        error: Option<String>,
+    ) -> ChatEvent {
+        self.open = None;
+        let id = format!("end:{}", self.turn);
+        self.store(
+            id.clone(),
+            ChatEntry::TurnEnd {
+                id,
+                stop_reason,
+                usage,
+                error,
+            },
+        )
+    }
+
     fn chunk_id(&self, role: Role, message_id: Option<String>) -> String {
         if let Some(message_id) = message_id {
             return format!("{}:{message_id}", role.prefix());
@@ -377,6 +398,8 @@ impl Transcript {
             let index = self.entries.len();
             self.entries.push(ChatEntry::Tool {
                 id,
+                name: None,
+                input: None,
                 title: tool.tool_call_id,
                 tool_kind: "other".to_owned(),
                 status: ChatToolStatus::Pending,
@@ -386,6 +409,8 @@ impl Transcript {
             index
         });
         let ChatEntry::Tool {
+            name,
+            input,
             title,
             tool_kind,
             status,
@@ -396,6 +421,12 @@ impl Transcript {
         else {
             unreachable!("tool ids are namespaced by role");
         };
+        if let Some(value) = tool.name {
+            *name = Some(value);
+        }
+        if let Some(value) = tool.raw_input {
+            *input = Some(value);
+        }
         if let Some(value) = tool.title {
             *title = value;
         }
@@ -541,12 +572,20 @@ mod tests {
             json!({
                 "sessionUpdate": "tool_call", "toolCallId": "read-1", "title": "Read README",
                 "kind": "read", "status": "pending", "rawInput": {"path": "README.md"},
+                "name": "read",
                 "content": [{"type": "content", "content": {"type": "text", "text": "Reading"}}],
                 "locations": [{"path": "README.md"}]
             }),
         );
+        assert!(matches!(
+            &transcript.entries()[0],
+            ChatEntry::Tool { name: Some(name), input: Some(input), .. }
+                if name == "read" && input == &json!({"path": "README.md"})
+        ));
         let expected = ChatEntry::Tool {
             id: "tool:read-1".into(),
+            name: Some("read_file".into()),
+            input: Some(json!({"path": "CHANGELOG.md"})),
             title: "Read README".into(),
             tool_kind: "read".into(),
             status: ChatToolStatus::Completed,
@@ -563,6 +602,7 @@ mod tests {
                 &mut transcript,
                 json!({
                     "sessionUpdate": "tool_call_update", "toolCallId": "read-1", "status": "completed",
+                    "name": "read_file", "rawInput": {"path": "CHANGELOG.md"},
                     "content": [{"type": "content", "content": {"type": "text", "text": "Finished"}}]
                 })
             ),
@@ -570,7 +610,62 @@ mod tests {
                 entry: expected.clone()
             }]
         );
-        assert_eq!(transcript.entries(), &[expected]);
+        assert_eq!(transcript.entries(), &[expected.clone()]);
+        assert_eq!(
+            apply(
+                &mut transcript,
+                json!({"sessionUpdate": "tool_call_update", "toolCallId": "read-1"})
+            ),
+            vec![ChatEvent::Entry { entry: expected }]
+        );
+    }
+
+    #[test]
+    fn turn_end_stores_reported_usage_and_never_comes_from_replay() {
+        let mut transcript = Transcript::new();
+        apply(
+            &mut transcript,
+            json!({
+                "sessionUpdate": "user_message_chunk",
+                "content": {"type": "text", "text": "Replayed"}
+            }),
+        );
+        assert!(!transcript
+            .entries()
+            .iter()
+            .any(|entry| matches!(entry, ChatEntry::TurnEnd { .. })));
+        for (turn, cache_read, cache_write) in [(2, None, None), (3, Some(30), Some(40))] {
+            transcript.push_user(vec![ChatContent::Text {
+                text: "Prompt".into(),
+            }]);
+            let expected = ChatEntry::TurnEnd {
+                id: format!("end:{turn}"),
+                stop_reason: ChatStopReason::EndTurn,
+                usage: Some(ChatTokenUsage {
+                    input: 100,
+                    output: 20,
+                    cache_read,
+                    cache_write,
+                }),
+                error: None,
+            };
+            assert_eq!(
+                transcript.end_turn(
+                    ChatStopReason::EndTurn,
+                    Some(ChatTokenUsage {
+                        input: 100,
+                        output: 20,
+                        cache_read,
+                        cache_write
+                    }),
+                    None,
+                ),
+                ChatEvent::Entry {
+                    entry: expected.clone()
+                }
+            );
+            assert_eq!(transcript.entries().last(), Some(&expected));
+        }
     }
 
     #[test]

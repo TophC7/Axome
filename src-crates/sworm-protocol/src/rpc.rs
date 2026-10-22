@@ -747,6 +747,10 @@ macro_rules! sworm_rpc_ops {
                 response: $crate::chat::ChatResponse,
             ) -> ();
             #[route(chat)]
+            ChatFork => chat_fork(
+                run_id: String,
+            ) -> $crate::chat::ChatForkInfo;
+            #[route(chat)]
             ChatStop => chat_stop(
                 run_id: String,
             ) -> ();

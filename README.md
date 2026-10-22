@@ -192,6 +192,8 @@ A task in `.sworm/tasks.jsonc` can run inside a preset with `"shell": "dev"`: th
 
 Harnesses with an ACP agent (omp today) can run a session tab as a **Chat** view instead of the terminal TUI: streamed markdown replies, compact tool-call rows with inline permission prompts and diffs, forms for the agent's questions, and model/mode/thinking pickers in the composer. **Switch to Terminal** (tab context menu, palette, or the composer button) stops the chat and resumes the same conversation in the TUI, and back again. Set `"view": "chat"` on a harness preset to open it in Chat by default. Chat tabs with the same preset in the same folder environment share one agent process, which exits a minute after its last chat closes.
 
+**Fork Session** (tab context menu or palette) copies the whole conversation into a new Chat tab, leaving the source tab unchanged; it is available when the agent supports forking and the session is idle. Each completed prompt turn shows a token footer with input, output, and cache counts when reported by the agent; replayed history has no token counts.
+
 Chat sessions get MCP servers only from Sworm: add stdio servers under `sessions.mcp_servers` in your global settings, and extensions can contribute more.
 
 ```jsonc

@@ -4,6 +4,7 @@
   import { buttonVariants } from '$lib/components/ui/button'
   import { ProgressRing } from '$lib/components/ui/progress'
   import type { ChatUsage } from '$lib/types/backend'
+  import { formatCost, formatTokens } from '$lib/features/chat/format'
   import { cn } from '$lib/utils/cn'
 
   let {
@@ -11,12 +12,6 @@
     class: className,
     ...rest
   }: Omit<ComponentProps<typeof Popover.Trigger>, 'child' | 'children'> & { usage: ChatUsage | null } = $props()
-
-  function fmt(n: number): string {
-    if (n < 1000) return String(n)
-    if (n < 1e6) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
-    return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
-  }
 </script>
 
 {#if usage && usage.size !== 0}
@@ -34,14 +29,14 @@
       <h3 class="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Context</h3>
       <dl class="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
         <dt class="text-muted">Used</dt>
-        <dd class="font-mono text-fg">{fmt(usage.used)}</dd>
+        <dd class="font-mono text-fg">{formatTokens(usage.used)}</dd>
         <dt class="text-muted">Window</dt>
-        <dd class="font-mono text-fg">{fmt(usage.size)}</dd>
+        <dd class="font-mono text-fg">{formatTokens(usage.size)}</dd>
         <dt class="text-muted">Remaining</dt>
-        <dd class="font-mono text-fg">{fmt(usage.size - usage.used)}</dd>
+        <dd class="font-mono text-fg">{formatTokens(usage.size - usage.used)}</dd>
         {#if usage.cost}
           <dt class="text-muted">Cost</dt>
-          <dd class="font-mono text-fg">{usage.cost.currency} {usage.cost.amount.toFixed(2)}</dd>
+          <dd class="font-mono text-fg">{formatCost(usage.cost)}</dd>
         {/if}
       </dl>
     </Popover.Content>

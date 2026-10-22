@@ -12,7 +12,7 @@ use std::{
 use sworm_core::services::folders::resolve_folder;
 use sworm_core::{errors::ApiError, Host};
 use sworm_protocol::{
-    chat::{ChatConfigValue, ChatContent, ChatResponse, ChatStartInfo},
+    chat::{ChatConfigValue, ChatContent, ChatForkInfo, ChatResponse, ChatStartInfo},
     git::{GitWorktreeCheckout, GitWorktreeList, GitWorktreeOp, GitWorktreeResult},
     rpc::{Reply, Request, Response, RunStatus, WireError, MAX_WHOLE_FILE_BYTES},
     session::SessionStartInfo,
@@ -1030,6 +1030,16 @@ impl DispatchRuntime<'_> {
         let host = Arc::clone(self.host);
         check_chat_owner(&host, owner, &run_id).await?;
         tokio::task::spawn_blocking(move || host.chat_set_config(run_id, config_id, value))
+            .await
+            .map_err(run_operation_join)?
+            .map_err(WireError::from)
+    }
+
+    async fn chat_fork(&self, run_id: String) -> Result<ChatForkInfo, WireError> {
+        let owner = self.run_owner();
+        let host = Arc::clone(self.host);
+        check_chat_owner(&host, owner, &run_id).await?;
+        tokio::task::spawn_blocking(move || host.chat_fork(run_id))
             .await
             .map_err(run_operation_join)?
             .map_err(WireError::from)
