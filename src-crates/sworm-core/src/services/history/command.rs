@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -11,7 +11,8 @@ use serde_json::Value;
 
 use super::{store_home, HistoryRow};
 
-const HISTORY_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+const HISTORY_COMMAND_TIMEOUT: Duration = Duration::from_secs(if cfg!(test) { 2 } else { 30 });
+const PIPE_DRAIN_GRACE: Duration = Duration::from_secs(1);
 
 pub(super) fn run(
     program: &str,
@@ -32,14 +33,21 @@ pub(super) fn run(
     request.push(b'\n');
     let home = store_home(env);
     let started = Instant::now();
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(argv)
         .current_dir(folder.or(home.as_deref()).unwrap_or_else(|| Path::new("/")))
         .env_clear()
         .envs(env)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    let mut child = command
         .spawn()
         .map_err(|error| format!("history command failed to start: {error}"))?;
 
@@ -81,8 +89,7 @@ pub(super) fn run(
             match child.try_wait() {
                 Ok(exit) => status = exit,
                 Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    kill(&mut child);
                     return Err(format!("history command could not be waited for: {error}"));
                 }
             }
@@ -123,15 +130,53 @@ pub(super) fn run(
             return rows.take().expect("completed history stdout");
         }
         if started.elapsed() >= HISTORY_COMMAND_TIMEOUT {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("history command timed out after 30s".into());
+            kill(&mut child);
+            let deadline = Instant::now() + PIPE_DRAIN_GRACE;
+            let finished = |result: Result<(), mpsc::RecvTimeoutError>| {
+                !matches!(result, Err(mpsc::RecvTimeoutError::Timeout))
+            };
+            let drained = (rows.is_some()
+                || finished(
+                    rows_rx
+                        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                        .map(drop),
+                ))
+                && (stderr.is_some()
+                    || finished(
+                        stderr_rx
+                            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                            .map(drop),
+                    ));
+            if !drained {
+                // ponytail: a descendant that left the group (setsid) keeps its pipe and its
+                // reader thread; poll-based readers with a deadline if that ever shows up.
+                tracing::warn!(
+                    "history command output stayed open after kill; abandoning its readers"
+                );
+            }
+            return Err(format!(
+                "history command timed out after {}s",
+                HISTORY_COMMAND_TIMEOUT.as_secs()
+            ));
         }
         thread::sleep(
             Duration::from_millis(20)
                 .min(HISTORY_COMMAND_TIMEOUT.saturating_sub(started.elapsed())),
         );
     }
+}
+
+/// Kill the whole group: descendants holding the output pipes would otherwise keep
+/// the reader threads blocked past the deadline.
+fn kill(child: &mut Child) {
+    #[cfg(unix)]
+    if let Err(error) =
+        crate::services::pty::signal_process(-(child.id() as libc::pid_t), libc::SIGKILL)
+    {
+        tracing::warn!("history command group could not be killed: {error}");
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn read_rows(stdout: impl Read) -> Result<Vec<HistoryRow>, String> {
@@ -230,6 +275,31 @@ mod tests {
         let error = source.list(Some(&folder), None).unwrap_err();
         assert!(error.contains("exited with status 3"), "{error}");
         assert!(error.contains("history failed"), "{error}");
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn timeout_kills_descendants_holding_pipes() {
+        let (folder, source) = script_source("echo $$ > \"$PWD/group\"\nsleep 60 &\nwait");
+        let started = Instant::now();
+        let error = source.list(Some(&folder), None).unwrap_err();
+        assert!(error.contains("timed out"), "{error}");
+        assert!(
+            started.elapsed() < HISTORY_COMMAND_TIMEOUT + PIPE_DRAIN_GRACE + Duration::from_secs(1)
+        );
+        let group: libc::pid_t = fs::read_to_string(folder.join("group"))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let poll_until = Instant::now() + Duration::from_secs(1);
+        while crate::services::pty::groups_terminated(&[group]) != Ok(true)
+            && Instant::now() < poll_until
+        {
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(crate::services::pty::groups_terminated(&[group]), Ok(true));
         fs::remove_dir_all(folder).unwrap();
     }
 }

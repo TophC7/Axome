@@ -36,12 +36,14 @@ pub(crate) struct HistoryQuery<'a> {
     /// Harness `extra_args` then preset args, as the CLI would receive them.
     pub args: &'a [String],
     pub env: &'a HashMap<String, String>,
-    /// Hint only: scanners may skip older sessions; normalization filters anyway.
+    /// Hint only, already floored to the source's creation precision: scanners may skip
+    /// older sessions; normalization filters anyway.
     pub since: Option<SystemTime>,
 }
 
 pub(crate) struct BuiltinScanner {
     pub name: &'static str,
+    created_precision: Duration,
     list: fn(&HistoryQuery) -> Result<Vec<HistoryRow>, String>,
     exists: fn(&HistoryQuery, &str) -> Result<bool, String>,
 }
@@ -114,11 +116,21 @@ impl HistorySource {
         }))
     }
 
+    /// Stores record creation at varying precision; spawn-time comparisons use the source's.
+    pub(crate) fn created_precision(&self) -> Duration {
+        match &self.kind {
+            SourceKind::Builtin(scanner) => scanner.created_precision,
+            // The command protocol declares no precision; whole seconds is the safe floor.
+            SourceKind::Command { .. } => Duration::from_secs(1),
+        }
+    }
+
     pub(crate) fn list(
         &self,
         folder: Option<&Path>,
         since: Option<SystemTime>,
     ) -> Result<Vec<HistoryRow>, String> {
+        let since = since.map(|time| floor_to(time, self.created_precision()));
         let rows = match &self.kind {
             SourceKind::Builtin(scanner) => (scanner.list)(&HistoryQuery {
                 folder,
@@ -178,7 +190,7 @@ fn normalize(
     }
 
     let folder = folder.map(Path::to_string_lossy);
-    let since = since.map(|time| DateTime::<Utc>::from(floor_to_second(time)));
+    let since = since.map(DateTime::<Utc>::from);
     let mut result = Vec::new();
     let mut seen: HashMap<String, (usize, Option<DateTime<Utc>>)> = HashMap::new();
     for mut row in rows {
@@ -244,11 +256,10 @@ pub(crate) fn store_home(env: &HashMap<String, String>) -> Option<PathBuf> {
         .or_else(super::folders::home_dir)
 }
 
-/// Stores record creation with varying precision; compare at whole seconds.
-pub(crate) fn floor_to_second(time: SystemTime) -> SystemTime {
-    let seconds = time
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_secs())
-        .unwrap_or(0);
-    UNIX_EPOCH + Duration::from_secs(seconds)
+/// Stores record creation at varying precision; flooring a spawn time to it keeps a
+/// session created later in the same tick eligible.
+fn floor_to(time: SystemTime, precision: Duration) -> SystemTime {
+    let elapsed = time.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let remainder = elapsed.as_nanos() % precision.as_nanos().max(1);
+    UNIX_EPOCH + elapsed - Duration::from_nanos(remainder as u64)
 }

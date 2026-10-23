@@ -25,10 +25,10 @@ use crate::{
     services::{
         activity_map,
         db::DatabaseService,
-        extensions::ExtensionService,
+        extensions::{ExtensionService, LoadedExtensionCatalog},
         harnesses::resolve_harness_launch,
         history::{HistoryRow, HistorySource},
-        settings_resolution::resolve_effective_settings_for_folder_path,
+        settings_resolution::SettingsResolver,
     },
 };
 
@@ -217,10 +217,17 @@ fn source_folders(conn: &Connection, key: &SourceKey) -> rusqlite::Result<BTreeS
 }
 
 pub(crate) fn configured_keys(folder: Option<&Path>) -> Result<Vec<SourceKey>, ApiError> {
-    let settings = resolve_effective_settings_for_folder_path(folder)
-        .map_err(ApiError::Internal)?
-        .settings;
     let catalog = ExtensionService::current();
+    let resolver = SettingsResolver::load(&catalog.settings_ids).map_err(ApiError::Internal)?;
+    Ok(keys_for(&catalog, &resolver, folder))
+}
+
+fn keys_for(
+    catalog: &LoadedExtensionCatalog,
+    resolver: &SettingsResolver<'_>,
+    folder: Option<&Path>,
+) -> Vec<SourceKey> {
+    let settings = resolver.resolve_folder_path(folder).settings;
     let mut keys = Vec::new();
     for harness in &catalog.harnesses {
         let id = &harness.definition.id;
@@ -236,7 +243,7 @@ pub(crate) fn configured_keys(folder: Option<&Path>) -> Result<Vec<SourceKey>, A
             keys.push(SourceKey::new(folder, id, Some(preset)));
         }
     }
-    Ok(keys)
+    keys
 }
 
 pub(crate) fn build_sources(
@@ -419,6 +426,17 @@ impl SessionIndexService {
         self.jobs.lock().active.keys().cloned().collect()
     }
 
+    /// Folders whose snapshots show `key`; a finished pass must reach them so `refreshing` clears.
+    fn key_folders(&self, key: &SourceKey) -> BTreeSet<String> {
+        if key.folder().is_some() {
+            return BTreeSet::from([key.scope.clone()]);
+        }
+        source_folders(self.db.read().conn(), key).unwrap_or_else(|error| {
+            tracing::warn!(?key, %error, "session index folders unavailable");
+            BTreeSet::new()
+        })
+    }
+
     async fn drain(self: Arc<Self>, key: SourceKey) {
         loop {
             match self.jobs.lock().active.get_mut(&key) {
@@ -434,11 +452,11 @@ impl SessionIndexService {
                 Ok(Ok(folders)) => folders,
                 Ok(Err(error)) => {
                     tracing::warn!(?key, %error, "session index refresh failed");
-                    BTreeSet::new()
+                    self.key_folders(&key)
                 }
                 Err(error) => {
                     tracing::warn!(?key, %error, "session index refresh failed");
-                    BTreeSet::new()
+                    self.key_folders(&key)
                 }
             };
             drop(permit);
@@ -469,18 +487,20 @@ impl SessionIndexService {
         if self.jobs.lock().closed {
             return Ok(BTreeSet::new());
         }
-        let Ok(launch) =
-            resolve_harness_launch(&self.db, key.folder(), &key.harness_id, key.preset())
-        else {
-            return Ok(BTreeSet::new());
-        };
-        let result = match HistorySource::from_launch(&launch) {
-            Ok(Some(source)) => source
-                .list(key.folder(), None)
-                .map_err(|message| (SessionIndexStatus::Error, message)),
-            Ok(None) => return Ok(BTreeSet::new()),
-            Err(message) => Err((SessionIndexStatus::Missing, message)),
-        };
+        let result =
+            match resolve_harness_launch(&self.db, key.folder(), &key.harness_id, key.preset()) {
+                Err(error) => Err((SessionIndexStatus::Missing, error.to_string())),
+                Ok(launch) => match HistorySource::from_launch(&launch) {
+                    Ok(Some(source)) => source
+                        .list(key.folder(), None)
+                        .map_err(|message| (SessionIndexStatus::Error, message)),
+                    Ok(None) => Err((
+                        SessionIndexStatus::Missing,
+                        format!("Harness {} has no history source", key.harness_id),
+                    )),
+                    Err(message) => Err((SessionIndexStatus::Missing, message)),
+                },
+            };
         // Serialize the closed check with shutdown so a late blocking worker cannot write.
         let jobs = self.jobs.lock();
         if jobs.closed {
@@ -555,16 +575,18 @@ impl SessionIndexService {
     }
 
     pub(crate) fn activity_map(&self) -> Result<Vec<DiscoveredProject>, ApiError> {
+        let catalog = ExtensionService::current();
+        let resolver = SettingsResolver::load(&catalog.settings_ids).map_err(ApiError::Internal)?;
         let mut enabled: HashMap<String, HashSet<SourceKey>> = HashMap::new();
-        enabled.insert(String::new(), configured_keys(None)?.into_iter().collect());
+        enabled.insert(
+            String::new(),
+            keys_for(&catalog, &resolver, None).into_iter().collect(),
+        );
         let mut observations = load_observations(self.db.read().conn(), None)?;
         observations.retain(|observation| {
             let scope = &observation.key.scope;
             if !enabled.contains_key(scope) {
-                let keys = configured_keys(Some(Path::new(scope))).unwrap_or_else(|error| {
-                    tracing::warn!(%scope, %error, "skipping session index scope");
-                    Vec::new()
-                });
+                let keys = keys_for(&catalog, &resolver, Some(Path::new(scope)));
                 enabled.insert(scope.clone(), keys.into_iter().collect());
             }
             enabled[scope].contains(&observation.key)
@@ -724,5 +746,31 @@ mod tests {
         assert!(snapshot.sessions.is_empty());
         assert_eq!(snapshot.sources.len(), 1);
         assert_eq!(snapshot.sources[0].status, SessionIndexStatus::Pending);
+    }
+
+    #[tokio::test]
+    async fn unresolvable_source_records_missing_and_announces_completion() {
+        let (_dir, db) = database();
+        let db = Arc::new(db);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let events: EventSink<HostEvent> =
+            Arc::new(move |event| sender.send(event).map_err(|error| error.to_string()));
+        let service = SessionIndexService::new(Arc::clone(&db), events);
+        let (mut done, started) = service
+            .schedule_key(SourceKey::new(
+                Some(Path::new(FOLDER)),
+                "no-such-harness",
+                None,
+            ))
+            .unwrap();
+        assert!(started);
+        done.wait_for(|done| *done).await.unwrap();
+        assert!(matches!(
+            receiver.recv_timeout(std::time::Duration::from_secs(1)),
+            Ok(HostEvent::SessionsChanged(folder)) if folder == FOLDER
+        ));
+        let sources = load_sources(db.read().conn(), Some(FOLDER)).unwrap();
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].status, SessionIndexStatus::Missing);
     }
 }

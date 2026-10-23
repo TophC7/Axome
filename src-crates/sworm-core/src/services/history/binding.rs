@@ -1,6 +1,6 @@
 //! Bind fresh terminal runs to the sessions their history source creates.
 
-use super::{floor_to_second, HistoryRow, HistorySource};
+use super::{floor_to, HistoryRow, HistorySource};
 use crate::services::pty::PtyEventSink;
 use chrono::DateTime;
 use parking_lot::Mutex;
@@ -153,16 +153,38 @@ fn worker_loop(inner: Arc<Inner>) {
         }
         groups.sort_by_key(|(_, group)| group.runs.first().map(|run| run.spawned_at));
         let now = SystemTime::now();
-        for (key, group) in groups {
-            if tick != 0
-                && !group.runs.iter().any(|run| {
-                    now.duration_since(run.spawned_at).unwrap_or_default() < Duration::from_secs(30)
+        let due: Vec<(GroupKey, Group)> = groups
+            .into_iter()
+            .filter(|(_, group)| {
+                tick == 0
+                    || group.runs.iter().any(|run| {
+                        now.duration_since(run.spawned_at).unwrap_or_default()
+                            < Duration::from_secs(30)
+                    })
+            })
+            .collect();
+        // Sources are independent; listing them together bounds a tick by the slowest
+        // source instead of their sum. Attribution below stays serialized in spawn order
+        // because presets of one harness share a store and must claim earliest runs first.
+        let listed: Vec<Result<Vec<HistoryRow>, String>> = std::thread::scope(|scope| {
+            let handles: Vec<_> = due
+                .iter()
+                .map(|(key, group)| {
+                    let since = group.runs.first().map(|run| run.spawned_at);
+                    scope.spawn(move || group.source.list(Some(&key.folder), since))
                 })
-            {
-                continue;
-            }
-            let since = group.runs.first().map(|run| run.spawned_at);
-            let rows = match group.source.list(Some(&key.folder), since) {
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| {
+                    handle
+                        .join()
+                        .unwrap_or_else(|_| Err("history listing panicked".to_owned()))
+                })
+                .collect()
+        });
+        for ((key, group), rows) in due.into_iter().zip(listed) {
+            let rows = match rows {
                 Ok(rows) => rows,
                 Err(error) => {
                     debug!(
@@ -175,7 +197,8 @@ fn worker_loop(inner: Arc<Inner>) {
             };
             let bindings = {
                 let mut claimed = inner.claimed.lock();
-                let bindings = attribute(rows, group.runs, &claimed);
+                let precision = group.source.created_precision();
+                let bindings = attribute(rows, group.runs, &claimed, precision);
                 let now = SystemTime::now();
                 for (_, token) in &bindings {
                     claimed.insert(token.clone(), now);
@@ -211,6 +234,7 @@ fn attribute(
     rows: Vec<HistoryRow>,
     mut runs: Vec<PendingSnapshot>,
     claimed: &HashMap<String, SystemTime>,
+    precision: Duration,
 ) -> Vec<(String, String)> {
     let mut rows: Vec<_> = rows
         .into_iter()
@@ -228,7 +252,7 @@ fn attribute(
         }
         if let Some(index) = runs
             .iter()
-            .position(|run| created_at >= floor_to_second(run.spawned_at))
+            .position(|run| created_at >= floor_to(run.spawned_at, precision))
         {
             bindings.push((runs.remove(index).run_id, id));
         }
@@ -275,6 +299,7 @@ mod tests {
             ],
             vec![run("run", 10_999)],
             &HashMap::new(),
+            Duration::from_secs(1),
         );
         assert_eq!(bindings, [("run".into(), "current".into())]);
     }
@@ -290,6 +315,7 @@ mod tests {
             ],
             vec![run("late", 20_500), run("early", 10_500)],
             &HashMap::from([("claimed".into(), UNIX_EPOCH)]),
+            Duration::from_secs(1),
         );
         assert_eq!(
             bindings,
@@ -298,5 +324,19 @@ mod tests {
                 ("late".into(), "last".into())
             ]
         );
+    }
+
+    #[test]
+    fn millisecond_sources_ignore_sessions_earlier_in_spawn_second() {
+        let bindings = attribute(
+            vec![
+                row("external", Some("1970-01-01T00:00:10.200Z")),
+                row("own", Some("1970-01-01T00:00:10.900Z")),
+            ],
+            vec![run("run", 10_900)],
+            &HashMap::new(),
+            Duration::from_millis(1),
+        );
+        assert_eq!(bindings, [("run".into(), "own".into())]);
     }
 }

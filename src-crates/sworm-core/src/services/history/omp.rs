@@ -1,4 +1,4 @@
-use super::{floor_to_second, store_home, BuiltinScanner, HistoryQuery, HistoryRow};
+use super::{store_home, BuiltinScanner, HistoryQuery, HistoryRow};
 use crate::services::folders::home_dir;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::collections::HashMap;
@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "omp",
+    // File-name timestamps carry milliseconds.
+    created_precision: std::time::Duration::from_millis(1),
     list,
     exists,
 };
@@ -161,7 +163,7 @@ fn session_dirs(query: &HistoryQuery<'_>) -> Result<Vec<PathBuf>, String> {
 
 fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
     const HEADER_LIMIT: u64 = 16 * 1024;
-    let since = query.since.map(floor_to_second).map(DateTime::<Utc>::from);
+    let since = query.since.map(DateTime::<Utc>::from);
     let mut rows = Vec::new();
     for dir in session_dirs(query)? {
         let Some(entries) = read_dir(&dir)? else {

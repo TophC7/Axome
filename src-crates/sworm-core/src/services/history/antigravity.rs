@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "antigravity",
+    // File birth time, normalized to milliseconds.
+    created_precision: std::time::Duration::from_millis(1),
     list,
     exists,
 };
@@ -66,9 +68,11 @@ fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
             .format("%Y-%m-%d %H:%M:%S")
             .to_string()
     });
+    // Unset (pre-1970) times mark summaries not yet written; new conversations still need binding.
     let sql = if since.is_some() {
         "SELECT conversation_id, title, last_modified_time, workspace_uris
-         FROM conversation_summaries WHERE nesting_depth = 0 AND last_modified_time >= ?1"
+         FROM conversation_summaries
+         WHERE nesting_depth = 0 AND (last_modified_time >= ?1 OR last_modified_time < '1970')"
     } else {
         "SELECT conversation_id, title, last_modified_time, workspace_uris
          FROM conversation_summaries WHERE nesting_depth = 0"
@@ -143,6 +147,7 @@ fn exists(query: &HistoryQuery<'_>, id: &str) -> Result<bool, String> {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::time::SystemTime;
 
     #[test]
     fn summaries_filter_workspaces_and_parse_dates() {
@@ -248,6 +253,17 @@ mod tests {
         assert!(rows
             .iter()
             .any(|row| row.id == "no-workspace" && row.cwd.is_none()));
+        query.folder = Some(&folder);
+        query.since = Some(SystemTime::from(
+            DateTime::parse_from_rfc3339("2026-10-20T22:57:15Z").unwrap(),
+        ));
+        let mut ids: Vec<_> = list(&query)
+            .unwrap()
+            .into_iter()
+            .map(|row| row.id)
+            .collect();
+        ids.sort();
+        assert_eq!(ids, ["naive", "sentinel"]);
         std::fs::remove_dir_all(home).unwrap();
     }
 }

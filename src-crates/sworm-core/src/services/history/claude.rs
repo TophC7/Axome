@@ -12,6 +12,7 @@ use super::{BuiltinScanner, HistoryQuery, HistoryRow};
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "claude",
+    created_precision: std::time::Duration::from_millis(1),
     list,
     exists,
 };

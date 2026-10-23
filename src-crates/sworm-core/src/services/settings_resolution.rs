@@ -43,20 +43,8 @@ pub struct ResolvedSettings {
 pub fn resolve_effective_settings_for_folder_path(
     folder_path: Option<&Path>,
 ) -> Result<ResolvedSettings, String> {
-    let global_path = SettingsService::global_settings_path()?;
-    let global = load_settings_layer(SettingsLayerKind::Global, global_path);
-    let folder = folder_path.map(|folder_path| {
-        load_settings_layer(
-            SettingsLayerKind::Folder,
-            SettingsService::folder_settings_path(folder_path),
-        )
-    });
-
-    Ok(resolve_effective_settings(
-        global,
-        folder,
-        &ExtensionService::current().settings_ids,
-    ))
+    let catalog = ExtensionService::current();
+    Ok(SettingsResolver::load(&catalog.settings_ids)?.resolve_folder_path(folder_path))
 }
 
 pub fn lsp_config_record(settings: &EffectiveSettings, server_id: &str) -> LspServerConfigRecord {
@@ -125,63 +113,97 @@ pub fn parse_error_diagnostic(
 /// Resolves defaults <- global <- folder. Each layer is validated against the
 /// schema derived from `EffectiveSettings`; rejected nodes are stripped and
 /// reported, so one bad field never poisons its siblings or the other layer.
-pub fn resolve_effective_settings(
-    global: SettingsLayerLoad,
-    folder: Option<SettingsLayerLoad>,
-    ids: &SettingsCatalogIds,
-) -> ResolvedSettings {
-    // ponytail: rebuild per call; cache validators by catalog ids if profiling shows cost
-    let global_schema = settings_layer_schema(SettingsLayerKind::Global, ids);
-    let global_validator =
-        jsonschema::validator_for(&global_schema).expect("global model schema is valid");
-    let mut diagnostics = Vec::new();
-    let mut merged = serde_json::to_value(EffectiveSettings::with_catalog_defaults(
-        &ids.lsp_server_ids,
-        &ids.formatting_defaults,
-        &ids.harness_ids,
-    ))
-    .expect("default settings serialize");
+/// Defaults <- global is validated once; folder layers then resolve on top without
+/// re-reading global settings or rebuilding the global schema.
+pub struct SettingsResolver<'a> {
+    ids: &'a SettingsCatalogIds,
+    base: Value,
+    diagnostics: Vec<SettingsDiagnostic>,
+    folder_validator: std::cell::OnceCell<Validator>,
+}
 
-    if let Some(value) = validate_layer(
-        &global_validator,
-        SettingsLayerKind::Global,
-        global,
-        &mut diagnostics,
-    ) {
-        merge_layer(&mut merged, value);
-    }
-
-    if let Some(folder_load) = folder {
-        let folder_schema = settings_layer_schema(SettingsLayerKind::Folder, ids);
-        let folder_validator =
-            jsonschema::validator_for(&folder_schema).expect("folder model schema is valid");
-        if let Some(value) = validate_layer(
-            &folder_validator,
-            SettingsLayerKind::Folder,
-            folder_load,
-            &mut diagnostics,
-        ) {
-            merge_layer(&mut merged, value);
-        }
-    }
-
-    let settings = serde_json::from_value(merged).unwrap_or_else(|error| {
-        // Bug guard: validation already stripped everything the model rejects.
-        diagnostics.push(parse_error_diagnostic(
-            SettingsLayerKind::Global,
-            Path::new(""),
-            format!("Settings model rejected validated layers: {error}"),
-        ));
-        EffectiveSettings::with_catalog_defaults(
+impl<'a> SettingsResolver<'a> {
+    pub fn new(global: SettingsLayerLoad, ids: &'a SettingsCatalogIds) -> Self {
+        let global_schema = settings_layer_schema(SettingsLayerKind::Global, ids);
+        let global_validator =
+            jsonschema::validator_for(&global_schema).expect("global model schema is valid");
+        let mut diagnostics = Vec::new();
+        let mut base = serde_json::to_value(EffectiveSettings::with_catalog_defaults(
             &ids.lsp_server_ids,
             &ids.formatting_defaults,
             &ids.harness_ids,
-        )
-    });
+        ))
+        .expect("default settings serialize");
+        if let Some(value) = validate_layer(
+            &global_validator,
+            SettingsLayerKind::Global,
+            global,
+            &mut diagnostics,
+        ) {
+            merge_layer(&mut base, value);
+        }
+        Self {
+            ids,
+            base,
+            diagnostics,
+            folder_validator: std::cell::OnceCell::new(),
+        }
+    }
 
-    ResolvedSettings {
-        settings,
-        diagnostics,
+    pub fn load(ids: &'a SettingsCatalogIds) -> Result<Self, String> {
+        let global_path = SettingsService::global_settings_path()?;
+        Ok(Self::new(
+            load_settings_layer(SettingsLayerKind::Global, global_path),
+            ids,
+        ))
+    }
+
+    pub fn resolve(&self, folder: Option<SettingsLayerLoad>) -> ResolvedSettings {
+        let ids = self.ids;
+        let mut merged = self.base.clone();
+        let mut diagnostics = self.diagnostics.clone();
+        if let Some(folder_load) = folder {
+            let folder_validator = self.folder_validator.get_or_init(|| {
+                jsonschema::validator_for(&settings_layer_schema(SettingsLayerKind::Folder, ids))
+                    .expect("folder model schema is valid")
+            });
+            if let Some(value) = validate_layer(
+                folder_validator,
+                SettingsLayerKind::Folder,
+                folder_load,
+                &mut diagnostics,
+            ) {
+                merge_layer(&mut merged, value);
+            }
+        }
+
+        let settings = serde_json::from_value(merged).unwrap_or_else(|error| {
+            // Bug guard: validation already stripped everything the model rejects.
+            diagnostics.push(parse_error_diagnostic(
+                SettingsLayerKind::Global,
+                Path::new(""),
+                format!("Settings model rejected validated layers: {error}"),
+            ));
+            EffectiveSettings::with_catalog_defaults(
+                &ids.lsp_server_ids,
+                &ids.formatting_defaults,
+                &ids.harness_ids,
+            )
+        });
+
+        ResolvedSettings {
+            settings,
+            diagnostics,
+        }
+    }
+
+    pub fn resolve_folder_path(&self, folder_path: Option<&Path>) -> ResolvedSettings {
+        self.resolve(folder_path.map(|folder_path| {
+            load_settings_layer(
+                SettingsLayerKind::Folder,
+                SettingsService::folder_settings_path(folder_path),
+            )
+        }))
     }
 }
 
@@ -496,22 +518,19 @@ mod tests {
     }
 
     fn resolve(global: SettingsLayerLoad, project: Option<SettingsLayerLoad>) -> ResolvedSettings {
-        resolve_effective_settings(
-            global,
-            project,
-            &SettingsCatalogIds {
-                lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
-                harness_ids: vec!["claude_code".into()],
-                formatter_ids: vec![
-                    "dev.sworm.biome::biome".to_string(),
-                    "dev.sworm.nix::nixfmt".to_string(),
-                ],
-                formatting_defaults: BTreeMap::from([
-                    ("json".to_string(), "dev.sworm.biome::biome".to_string()),
-                    ("nix".to_string(), "dev.sworm.nix::nixfmt".to_string()),
-                ]),
-            },
-        )
+        let ids = SettingsCatalogIds {
+            lsp_server_ids: vec!["dev.sworm.vtsls::vtsls".to_string()],
+            harness_ids: vec!["claude_code".into()],
+            formatter_ids: vec![
+                "dev.sworm.biome::biome".to_string(),
+                "dev.sworm.nix::nixfmt".to_string(),
+            ],
+            formatting_defaults: BTreeMap::from([
+                ("json".to_string(), "dev.sworm.biome::biome".to_string()),
+                ("nix".to_string(), "dev.sworm.nix::nixfmt".to_string()),
+            ]),
+        };
+        SettingsResolver::new(global, &ids).resolve(project)
     }
 
     #[test]
@@ -931,21 +950,19 @@ mod tests {
     }
     #[test]
     fn invalid_preset_name_is_rejected() {
-        let resolved = resolve_effective_settings(
-            missing(SettingsLayerKind::Global, "global"),
-            Some(loaded(
+        let ids = SettingsCatalogIds {
+            harness_ids: vec!["omp".into()],
+            ..Default::default()
+        };
+        let resolved = SettingsResolver::new(missing(SettingsLayerKind::Global, "global"), &ids)
+            .resolve(Some(loaded(
                 SettingsLayerKind::Folder,
                 "folder",
                 json!({ "harnesses": { "omp": { "presets": {
                     "bad name": {},
                     "web": { "args": ["--profile", "web"] }
                 } } } }),
-            )),
-            &SettingsCatalogIds {
-                harness_ids: vec!["omp".into()],
-                ..Default::default()
-            },
-        );
+            )));
         assert_eq!(resolved.diagnostics.len(), 1);
         let diagnostic = &resolved.diagnostics[0];
         assert_eq!(diagnostic.code, SettingsDiagnosticCode::InvalidValue);

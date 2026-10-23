@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "codex",
+    // `threads.created_at` is whole seconds.
+    created_precision: std::time::Duration::from_secs(1),
     list,
     exists,
 };
