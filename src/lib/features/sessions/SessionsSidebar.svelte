@@ -62,11 +62,10 @@
   let launchers = $derived(
     getLaunchOptions(folderPath)
       .filter((option) => option.status?.status === 'connected')
-      .map(({ harness, preset, view, label }) => ({
+      .map(({ harness, preset, label }) => ({
         id: `${harness.id}:${preset ?? ''}`,
         harnessId: harness.id,
         preset,
-        view,
         label,
         icon: svgUrl(harness.icon)
       }))
@@ -85,9 +84,7 @@
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         {#each launchers as launcher (launcher.id)}
-          <DropdownMenu.Item
-            onSelect={() => startSession(folderPath, launcher.harnessId, launcher.preset, launcher.view)}
-          >
+          <DropdownMenu.Item onSelect={() => startSession(folderPath, launcher.harnessId, launcher.preset)}>
             <HarnessIcon icon={launcher.icon} size={14} />
             <span>{launcher.label}</span>
           </DropdownMenu.Item>
@@ -116,7 +113,7 @@
         <SidebarRow
           variant="action"
           divider={false}
-          onclick={() => startSession(folderPath, launcher.harnessId, launcher.preset, launcher.view)}
+          onclick={() => startSession(folderPath, launcher.harnessId, launcher.preset)}
         >
           <HarnessIcon icon={launcher.icon} size={12} />
           <span class="min-w-0 flex-1 truncate">Start {launcher.label}</span>

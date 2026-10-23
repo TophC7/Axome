@@ -21,10 +21,6 @@
         "terminal": {
           "resume_args": ["--resume", "${session_id}"],
           "title_prefixes": ["π", ">"]
-        },
-        "chat": {
-          "command": "omp",
-          "args": ["acp"]
         }
       }
     ]

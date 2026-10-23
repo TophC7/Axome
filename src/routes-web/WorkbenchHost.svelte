@@ -11,7 +11,6 @@
     getDirtyTextSurfaceCount
   } from '$lib/features/workbench/surfaces/text/service.svelte'
   import * as terminals from '$lib/features/terminal/registry'
-  import * as chats from '$lib/features/chat/registry'
   import { registerHostTransport } from '$lib/api/transport'
   import { createWebHostTransport, type WebHandshakeError, type WebHostTransport } from '$lib/api/transport.web'
   import { getHostConnection, setHostConnection } from '$lib/api/hostConnection.svelte'
@@ -117,7 +116,6 @@
     recovery.dispose()
     stopWorkbenchPersistence()
     terminals.releaseAll()
-    chats.releaseAll()
   }
 
   function terminate(state: 'busy' | 'revoked' | 'closed' | 'error', error?: WebHandshakeError): void {

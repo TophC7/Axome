@@ -738,7 +738,7 @@ pub(crate) async fn detach(
                             .map_err(database)?
                             .as_deref()
                             .is_some_and(tabless)
-                        && !host.owner_has_live_run(&record.owner);
+                        && !host.pty.owner_has_live_run(&record.owner);
                     if empty {
                         let owner = record.owner.clone();
                         delete(conn, &detached)?;

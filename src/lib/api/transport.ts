@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatStartInfo, LspEvent, PtyEvent, SessionSpec, SessionStartInfo } from '$lib/types/backend'
+import type { LspEvent, PtyEvent, SessionSpec, SessionStartInfo } from '$lib/types/backend'
 
 export type Unsubscribe = () => void
 
@@ -41,21 +41,6 @@ export type TaskStreamRequest = {
   }
 }
 
-export type ChatStreamRequest = {
-  method: 'chat_start'
-  params: {
-    runId: string
-    folderPath: string
-    harnessId: string
-    preset: string | null
-    sessionId: string | null
-  }
-}
-
-export type ChatSinks = {
-  onEvent: (event: ChatEvent) => void
-}
-
 export type LspStreamRequest = {
   method: 'lsp_start'
   params: {
@@ -72,7 +57,6 @@ export interface HostTransport {
   openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
   openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
   openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
-  openStream(request: ChatStreamRequest, sinks: ChatSinks): StreamHandle<ChatStartInfo>
   openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
 }
 

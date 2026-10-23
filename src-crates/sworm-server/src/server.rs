@@ -1,5 +1,5 @@
 use crate::{
-    chat_stream, config, dispatch, events, lsp_stream, pty_stream,
+    config, dispatch, events, lsp_stream, pty_stream,
     stream::{StreamReader, StreamWriter},
     web,
 };
@@ -557,17 +557,6 @@ async fn process_stream(
                 context,
                 run_id,
                 cursor,
-                StreamWriter::quic(send, connection),
-                StreamReader::quic(recv),
-                shutdown,
-            )
-            .await;
-            return;
-        }
-        Open::Chat { run_id } => {
-            chat_stream::run(
-                host,
-                run_id,
                 StreamWriter::quic(send, connection),
                 StreamReader::quic(recv),
                 shutdown,

@@ -77,8 +77,7 @@
   let isPrefixedMode = $derived(paletteMode !== 'default')
   let filterQuery = $derived(filePick ? search.trim() : isPrefixedMode ? search.slice(1).trim() : search.trim())
 
-  // Re-read eligibility on open: chat controllers may mount while the palette is closed.
-  let appGroups = $derived(open ? getAppCommandGroups() : [])
+  let appGroups = $derived(getAppCommandGroups())
   let editorGroups = $derived(getEditorCommandGroups())
   let taskGroups = $derived(getTaskPaletteGroups())
   let activeFolderPath = $derived(getActiveFolderPath())

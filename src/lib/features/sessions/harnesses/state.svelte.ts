@@ -8,13 +8,7 @@ import { backend } from '$lib/api/backend'
 import { getExtensionCatalog, loadExtensionCatalog } from '$lib/features/extensions/catalog.svelte'
 import { launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { createFolderKeyedStore } from '$lib/state/folderKeyedStore.svelte'
-import type {
-  HarnessDescriptor,
-  HarnessListing,
-  HarnessStatus,
-  SessionView,
-  SettingsChangedEvent
-} from '$lib/types/backend'
+import type { HarnessDescriptor, HarnessListing, HarnessStatus, SettingsChangedEvent } from '$lib/types/backend'
 
 let listing = $state<HarnessListing>({ harnesses: [], default_preset: null })
 let loading = $state(false)
@@ -82,7 +76,6 @@ export function releaseHarnessFolder(folderPath: string) {
 export interface LaunchOption {
   harness: HarnessDescriptor
   preset: string | null
-  view: SessionView
   status: HarnessStatus | null
   label: string
 }
@@ -94,15 +87,9 @@ export function getLaunchOptions(folderPath: string | null): LaunchOption[] {
   for (const harness of getExtensionCatalog(folderPath)?.runtime.harnesses ?? []) {
     const status = listing.harnesses.find((entry) => entry.id === harness.id) ?? null
     if (status?.enabled === false) continue
-    options.push({ harness, preset: null, view: 'terminal', status, label: harness.label })
+    options.push({ harness, preset: null, status, label: harness.label })
     for (const preset of status?.presets ?? []) {
-      options.push({
-        harness,
-        preset: preset.name,
-        view: preset.view,
-        status,
-        label: launchLabel(harness.label, preset.name)
-      })
+      options.push({ harness, preset, status, label: launchLabel(harness.label, preset) })
     }
   }
   const defaultIndex = options.findIndex(

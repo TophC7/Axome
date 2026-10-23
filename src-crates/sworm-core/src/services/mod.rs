@@ -1,6 +1,5 @@
 pub mod activity_map;
 pub mod app_state_kv;
-pub(crate) mod chat;
 pub mod codex_state;
 pub mod completed_runs;
 pub mod config_schemas;

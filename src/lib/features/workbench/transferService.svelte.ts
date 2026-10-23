@@ -5,8 +5,7 @@ import * as modelCache from '$lib/features/editor/renderers/monaco/text/modelCac
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import * as terminals from '$lib/features/terminal/registry'
-import * as chats from '$lib/features/chat/registry'
-import { isChatTab, isTab, isTerminalTab, tabServer, type Tab, type TabId } from '$lib/features/workbench/model'
+import { isTab, isTerminalTab, tabServer, type Tab, type TabId } from '$lib/features/workbench/model'
 import {
   getActiveTabId,
   getTabs,
@@ -80,7 +79,6 @@ export function freezeTabs(transferId: string, tabIds: readonly TabId[] | null):
 
 export function cleanupRegistries(tab: Tab): void {
   if (isTerminalTab(tab)) terminals.release(tab.id)
-  else if (isChatTab(tab)) chats.release(tab.id)
   else if (tab.kind === 'text') modelCache.detachForTransfer(tab)
 }
 
@@ -131,7 +129,7 @@ async function handleTransferImport({ transferId, exportPayload, targetIndex }: 
     return
   }
 
-  const tab: Tab = isChatTab(exportPayload.tab) ? { ...exportPayload.tab, status: 'dormant' } : exportPayload.tab
+  const tab = exportPayload.tab
   if (await rejectServerTab(transferId, tab)) return
   targetTransfers.set(transferId, { tab, staged: false })
   updateInputBlocking()

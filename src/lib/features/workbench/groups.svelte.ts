@@ -7,7 +7,7 @@ import { platform, requireNative, type GroupHandoff, type GroupImport, type Grou
 import { getErrorMessage } from '$lib/utils/client-error'
 import {
   isTab,
-  isRunTab,
+  isTerminalTab,
   tabServer,
   type PersistedGroupRef,
   type PersistedTab,
@@ -155,7 +155,7 @@ async function releaseViews(group: OwnedGroup): Promise<void> {
   const runIds: string[] = []
   for (const tab of currentTabs(group.server)) {
     cleanupRegistries(tab)
-    if (isRunTab(tab) && tab.runId) runIds.push(tab.runId)
+    if (isTerminalTab(tab) && tab.runId) runIds.push(tab.runId)
   }
   if (!runIds.length) return
   try {

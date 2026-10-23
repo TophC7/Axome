@@ -18,7 +18,6 @@ use sworm_core::{
     services::pty::PtySubscriber,
 };
 use sworm_protocol::{
-    chat::{ChatEvent, ChatStartInfo},
     pty::PtyEvent,
     rpc::{Reply, Request, RunStatus},
 };
@@ -242,46 +241,6 @@ macro_rules! define_router_operation {
                     owner_id,
                 ))
                 .await
-        }
-    };
-    (
-        #[route(folder_path)]
-        ChatStart => $method:ident(
-            $run_id:ident: $run_id_type:ty,
-            $folder_path:ident: $folder_path_type:ty,
-            $harness_id:ident: $harness_id_type:ty,
-            $preset:ident: $preset_type:ty,
-            $session_id:ident: $session_id_type:ty $(,)?
-        ) -> $return_type:ty;
-    ) => {
-        #[allow(clippy::too_many_arguments)]
-        pub async fn $method(
-            &self,
-            $run_id: $run_id_type,
-            $folder_path: $folder_path_type,
-            $harness_id: $harness_id_type,
-            $preset: $preset_type,
-            $session_id: $session_id_type,
-            events: EventSink<ChatEvent>,
-            owner_id: Option<String>,
-        ) -> Result<$return_type, ApiError> {
-            if let Target::Remote { server, path } = Target::parse(&$folder_path)? {
-                return self.start_remote_chat(
-                    $run_id.clone(), server, path, owner_id,
-                    Request::ChatStart {
-                        run_id: $run_id,
-                        folder_path: path.to_owned(),
-                        harness_id: $harness_id,
-                        preset: $preset,
-                        session_id: $session_id,
-                    },
-                    events,
-                ).await;
-            }
-            self.local(move |host| host.$method(
-                $run_id, $folder_path, $harness_id, $preset, $session_id,
-                Some(events), owner_id,
-            )).await
         }
     };
     (
@@ -852,30 +811,6 @@ macro_rules! define_router_operation {
         }
     };
     (
-        #[route(chat)]
-        ChatStop => $method:ident($run_id:ident: $run_id_type:ty $(,)?) -> $return_type:ty;
-    ) => {
-        pub async fn $method(&self, $run_id: $run_id_type) -> Result<$return_type, ApiError> {
-            let Some((server, workbench)) = self.inner.remote_chat.target(&$run_id) else {
-                return self.local(move |host| host.$method($run_id)).await;
-            };
-            let result = self.inner.call_reply_for(
-                &server, Some(&workbench), Request::ChatStop { run_id: $run_id.clone() },
-            ).await.and_then(|reply| reply.$method().map_err(ApiError::from));
-            self.inner.remote_chat.cancel(&$run_id);
-            result
-        }
-    };
-    (#[route(chat)] $variant:ident => $method:ident($run_id:ident: $run_id_type:ty $(, $argument:ident: $argument_type:ty)* $(,)?) -> $return_type:ty;) => {
-        pub async fn $method(&self, $run_id: $run_id_type $(, $argument: $argument_type)*) -> Result<$return_type, ApiError> {
-            if let Some((server, workbench)) = self.inner.remote_chat.target(&$run_id) {
-                return self.inner.call_reply_for(&server, Some(&workbench), Request::$variant { $run_id $(, $argument)* })
-                    .await?.$method().map_err(ApiError::from);
-            }
-            self.local(move |host| host.$method($run_id $(, $argument)*)).await
-        }
-    };
-    (
         #[route(none)]
         $variant:ident => $method:ident(
             $($argument:ident: $argument_type:ty),* $(,)?
@@ -1017,50 +952,6 @@ impl WorkspaceRouter {
             owner_id,
         )?;
         Ok(result)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    async fn start_remote_chat(
-        &self,
-        run_id: String,
-        server: &str,
-        path: &str,
-        owner_id: Option<String>,
-        request: Request,
-        events: EventSink<ChatEvent>,
-    ) -> Result<ChatStartInfo, ApiError> {
-        self.inner.remember_claim(server, path, None, false);
-        let _guard = self.inner.transition(server).lock_owned().await;
-        let workbench = owner_id
-            .as_deref()
-            .and_then(|owner| {
-                self.inner
-                    .leases
-                    .lock()
-                    .0
-                    .get(&(owner.to_owned(), server.to_owned()))
-                    .map(|lease| lease.id.clone())
-            })
-            .ok_or_else(|| {
-                ApiError::InvalidArgument(format!(
-                    "Window has no attached workbench on remote `{server}`"
-                ))
-            })?;
-        let info = self
-            .inner
-            .call_reply_for(server, Some(&workbench), request)
-            .await?
-            .chat_start()
-            .map_err(ApiError::from)?;
-        self.inner.remote_chat.attach(
-            Arc::downgrade(&self.inner),
-            run_id,
-            server.to_owned(),
-            workbench,
-            owner_id,
-            events,
-        );
-        Ok(info)
     }
 
     async fn stop_local(&self, kind: RemoteRunKind, run_id: String) -> Result<(), ApiError> {

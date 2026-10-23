@@ -6,11 +6,11 @@ import type { TerminalTab } from '$lib/features/workbench/model'
 import {
   clearSessionTabSessionId,
   getTabs,
-  persistRunTabRunId,
+  persistTerminalTabRunId,
   setSessionTabSessionId,
   setTaskTabStatus,
-  setRunTabRunId,
-  setRunTabStatus,
+  setTerminalTabRunId,
+  setTerminalTabStatus,
   setTerminalTabTitle
 } from '$lib/features/workbench/state.svelte'
 import type { PtyEvent, ShiftEncoding } from '$lib/types/backend'
@@ -73,8 +73,8 @@ export function behaviorFor(tab: TerminalTab): TerminalBehavior {
     renderErrors: false,
     canInteract: () => true,
     onPtyLost() {
-      setRunTabRunId(tab.id, null)
-      setRunTabStatus(tab.id, 'failed')
+      setTerminalTabRunId(tab.id, null)
+      setTerminalTabStatus(tab.id, 'failed')
     },
     shiftEncoding: () =>
       tab.kind === 'session' ? (getHarness(tab.folderPath, tab.harnessId)?.shift_encoding ?? 'legacy') : 'legacy',
@@ -90,8 +90,8 @@ export function behaviorFor(tab: TerminalTab): TerminalBehavior {
       const current = getTabs().find((candidate) => candidate.id === tab.id)
       if (!current || (current.kind !== 'session' && current.kind !== 'shell')) return
       const runId = current.runId ?? crypto.randomUUID()
-      setRunTabStatus(tab.id, 'starting')
-      await persistRunTabRunId(tab.id, runId)
+      setTerminalTabStatus(tab.id, 'starting')
+      await persistTerminalTabRunId(tab.id, runId)
       if (current.kind === 'shell') {
         await manager.openRun(runId, (cols, rows, sinks) =>
           backend.shells.start({ runId, folderPath: current.folderPath, preset: current.preset }, cols, rows, sinks)
@@ -121,12 +121,12 @@ export function behaviorFor(tab: TerminalTab): TerminalBehavior {
       }
     },
     onEvent(event) {
-      if (event.type === 'started') setRunTabStatus(tab.id, 'running')
+      if (event.type === 'started') setTerminalTabStatus(tab.id, 'running')
       else if (event.type === 'exit') {
-        setRunTabRunId(tab.id, null)
-        setRunTabStatus(tab.id, 'exited')
+        setTerminalTabRunId(tab.id, null)
+        setTerminalTabStatus(tab.id, 'exited')
       } else if (event.type === 'error') {
-        setRunTabStatus(tab.id, 'failed')
+        setTerminalTabStatus(tab.id, 'failed')
       } else if (tab.kind === 'session' && event.type === 'sessionIdBound' && event.session_id) {
         setSessionTabSessionId(tab.id, event.session_id)
       }

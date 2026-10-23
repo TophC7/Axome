@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'
   import type { HTMLAttributes } from 'svelte/elements'
   import type { ChatCommand } from '$lib/types/backend'
-  import type { ChatDraftImage } from '$lib/features/chat/controller.svelte'
+  import type { ChatDraftImage } from './types'
   import { Textarea } from '$lib/components/ui/input'
   import { cn } from '$lib/utils/cn'
   import Attachments from './PromptInputAttachments.svelte'

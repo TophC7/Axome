@@ -278,21 +278,11 @@ pub struct LoadedHarness {
 }
 
 #[derive(Debug)]
-pub struct LoadedMcpServer {
-    pub extension_id: String,
-    pub extension_dir: Option<PathBuf>,
-    pub requires: Vec<String>,
-    pub install_hint: String,
-    pub definition: McpServerContribution,
-}
-
-#[derive(Debug)]
 pub struct LoadedExtensionCatalog {
     pub catalog: ExtensionCatalog,
     pub lsp_servers: Vec<LoadedLspServer>,
     pub formatters: Vec<LoadedFormatter>,
     pub harnesses: Vec<LoadedHarness>,
-    pub mcp_servers: Vec<LoadedMcpServer>,
     pub grammars: Vec<ExtensionGrammar>,
     pub settings_ids: SettingsCatalogIds,
 }
@@ -572,16 +562,12 @@ fn prepare(
                     .iter()
                     .map(|formatter| &formatter.command),
             )
-            .chain(manifest.contributes.harnesses.iter().flat_map(|harness| {
-                std::iter::once(&harness.command)
-                    .chain(harness.chat.iter().map(|chat| &chat.command))
-            }))
             .chain(
                 manifest
                     .contributes
-                    .mcp_servers
+                    .harnesses
                     .iter()
-                    .map(|server| &server.command),
+                    .map(|harness| &harness.command),
             )
             .any(|command| command.trim().starts_with("./"))
     {
@@ -652,7 +638,6 @@ fn prepare(
             gradient: harness.brand.gradient.clone(),
             shift_encoding: harness.terminal.shift_encoding,
             title_prefixes: harness.terminal.title_prefixes.clone(),
-            chat: harness.chat.is_some(),
         });
     }
     Ok(PreparedExtension {
@@ -704,8 +689,6 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
     let mut harnesses = Vec::new();
     let mut harness_descriptors = Vec::new();
     let mut harness_owners: BTreeMap<&str, &str> = BTreeMap::new();
-    let mut mcp_servers = Vec::new();
-    let mut mcp_server_owners: BTreeMap<&str, &str> = BTreeMap::new();
     let mut server_ids = HashSet::new();
     let mut extension_ids = HashSet::new();
     for extension in list {
@@ -785,28 +768,6 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
             harnesses.push(LoadedHarness {
                 extension_id: manifest.id.clone(),
                 extension_label: manifest.label.clone(),
-                extension_dir: extension.dir.clone(),
-                requires: manifest.requires.clone(),
-                install_hint: definition
-                    .install_hint
-                    .as_ref()
-                    .or(manifest.install_hint.as_ref())
-                    .cloned()
-                    .unwrap_or_default(),
-                definition: definition.clone(),
-            });
-        }
-        for definition in &manifest.contributes.mcp_servers {
-            if let Some(owner) =
-                mcp_server_owners.insert(definition.id.as_str(), manifest.id.as_str())
-            {
-                return Err(format!(
-                    "mcp server {} is contributed by both {owner} and {}",
-                    definition.id, manifest.id
-                ));
-            }
-            mcp_servers.push(LoadedMcpServer {
-                extension_id: manifest.id.clone(),
                 extension_dir: extension.dir.clone(),
                 requires: manifest.requires.clone(),
                 install_hint: definition
@@ -932,7 +893,6 @@ fn build(list: &[PreparedExtension]) -> Result<LoadedExtensionCatalog, String> {
         lsp_servers,
         formatters,
         harnesses,
-        mcp_servers,
         grammars,
         settings_ids,
     })
@@ -1091,13 +1051,6 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
         for (field, args) in [
             ("terminal.args", harness.terminal.args.as_slice()),
             (
-                "chat.args",
-                harness
-                    .chat
-                    .as_ref()
-                    .map_or(&[][..], |chat| chat.args.as_slice()),
-            ),
-            (
                 "detect.version_args",
                 harness.detect.version_args.as_slice(),
             ),
@@ -1120,40 +1073,6 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
             return Err(format!(
                 "harness {id} title_prefixes must be non-empty strings"
             ));
-        }
-        if harness
-            .chat
-            .as_ref()
-            .is_some_and(|chat| chat.command.trim().is_empty())
-        {
-            return Err(format!("harness {id} chat must define a command"));
-        }
-    }
-    let mut mcp_server_ids = HashSet::new();
-    for server in &manifest.contributes.mcp_servers {
-        let id = &server.id;
-        if !id
-            .bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-            || !id.bytes().all(|byte| {
-                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
-            })
-        {
-            return Err(format!("mcp server id {id} must match [a-z0-9][a-z0-9_-]*"));
-        }
-        if !mcp_server_ids.insert(id) {
-            return Err(format!("duplicate mcp server {id}"));
-        }
-        if server.command.trim().is_empty() {
-            return Err(format!("mcp server {id} must define a command"));
-        }
-        for arg in &server.args {
-            if arg.contains("${") {
-                return Err(format!(
-                    "mcp server {id} args uses unknown variable in {arg}"
-                ));
-            }
         }
     }
     let mut formatter_ids = HashSet::new();
@@ -1676,62 +1595,6 @@ mod tests {
             .harnesses
             .iter()
             .any(|h| h.id == "example"));
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn mcp_server_with_invalid_id_is_rejected() {
-        let root = temp_dir();
-        install(
-            &root,
-            serde_json::json!({
-                "id": "dev.example.mcp", "label": "MCP", "version": "1.0.0", "api": 1,
-                "contributes": { "mcp_servers": [{ "id": "Bad Id", "command": "example" }] }
-            }),
-        );
-        let loaded = load_catalog(Some(&root));
-        assert_eq!(loaded.catalog.diagnostics.len(), 1);
-        assert_eq!(
-            loaded.catalog.diagnostics[0].message,
-            "Extension dev.example.mcp rejected: mcp server id Bad Id must match [a-z0-9][a-z0-9_-]*"
-        );
-        assert!(loaded.mcp_servers.is_empty());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn installed_mcp_server_loads_into_catalog() {
-        let root = temp_dir();
-        install(
-            &root,
-            serde_json::json!({
-                "id": "dev.example.mcp", "label": "MCP", "version": "1.0.0", "api": 1,
-                "requires": ["example"], "install_hint": "Install Example",
-                "contributes": { "mcp_servers": [{
-                    "id": "example", "command": "./bin/server",
-                    "args": ["--stdio"], "env": { "EXAMPLE_MODE": "chat" }
-                }] }
-            }),
-        );
-        let loaded = load_catalog(Some(&root));
-        assert!(
-            loaded.catalog.diagnostics.is_empty(),
-            "{:?}",
-            loaded.catalog.diagnostics
-        );
-        assert_eq!(loaded.mcp_servers.len(), 1);
-        let server = &loaded.mcp_servers[0];
-        assert_eq!(server.extension_id, "dev.example.mcp");
-        assert_eq!(
-            server.extension_dir.as_deref(),
-            Some(root.join("dev.example.mcp").as_path())
-        );
-        assert_eq!(server.requires, ["example"]);
-        assert_eq!(server.install_hint, "Install Example");
-        assert_eq!(server.definition.id, "example");
-        assert_eq!(server.definition.command, "./bin/server");
-        assert_eq!(server.definition.args, ["--stdio"]);
-        assert_eq!(server.definition.env["EXAMPLE_MODE"], "chat");
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -1,5 +1,5 @@
 use crate::{
-    chat_stream, dispatch, events, file_stream, lsp_stream, pty_stream,
+    dispatch, events, file_stream, lsp_stream, pty_stream,
     server::cleanup_session,
     stream::{StreamReader, StreamWriter},
     workbenches::{self, Attach, ControlLease, Terminal},
@@ -29,8 +29,8 @@ use std::{
 };
 use sworm_core::Host;
 use sworm_protocol::rpc::{
-    ChatDown, FileReadDown, Open, PtyDown, Request, Response as RpcResponse, WireError,
-    MAX_FRAME_BYTES, MAX_REQUEST_FRAME_BYTES, MAX_STREAMS_PER_CONNECTION,
+    FileReadDown, Open, PtyDown, Request, Response as RpcResponse, WireError, MAX_FRAME_BYTES,
+    MAX_REQUEST_FRAME_BYTES, MAX_STREAMS_PER_CONNECTION,
 };
 use tokio::{
     net::TcpListener,
@@ -740,16 +740,6 @@ async fn stream_socket(mut socket: WebSocket, state: WebState, control: Arc<Cont
                 stop,
             )
             .await;
-        }
-        Open::Chat { run_id } => {
-            if let Err(error) =
-                dispatch::authorize_chat(&state.host, &control.session, &run_id).await
-            {
-                let _ = timeout(IO_TIMEOUT, writer.write_json(&ChatDown::Closed { error })).await;
-                let _ = timeout(IO_TIMEOUT, writer.finish()).await;
-                return;
-            }
-            chat_stream::run(state.host, run_id, writer, reader, stop).await;
         }
         Open::Lsp { session_id } => {
             let owner = control.session.lock().await.subscriber_id.clone();

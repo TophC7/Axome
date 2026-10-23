@@ -1,12 +1,11 @@
 // Shared tab-close flow.
 //
 // Lifted out of the tab strip so a keyboard shortcut (Ctrl+W) runs the
-// same dirty-check + run-stop path as clicking a tab's close button. Keep
+// same dirty-check + PTY-stop path as clicking a tab's close button. Keep
 // this the single source of truth — divergence between the two call sites
-// is how tabs end up closed while their run is still alive.
+// is how tabs end up closed while their PTY is still alive.
 
 import { stopTerminalProcess } from '$lib/features/terminal/lifecycle'
-import { stopTabRun } from '$lib/features/workbench/runLifecycle'
 import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { isProcessLive, type TabId } from '$lib/features/workbench/model'
@@ -25,8 +24,8 @@ import { textModelRevision, type TextModelRevision } from '$lib/features/editor/
 /**
  * Close a specific tab with full safety checks:
  *  - prompt on unsaved editor buffers
- *  - stop the run for live session/shell tabs (aborts close if stop fails —
- *    leaking a running process while the tab vanishes would leave the
+ *  - stop the PTY for live session/shell tabs (aborts close if stop fails —
+ *    leaking a running PTY while the tab vanishes would leave the
  *    process hidden until app quit)
  *
  * Returns true when the tab was closed, false when the user cancelled
@@ -77,7 +76,7 @@ export async function closeTabWithChecks(
 
   if ((tab.kind === 'session' || tab.kind === 'shell') && (tab.runId !== null || isProcessLive(tab.status))) {
     try {
-      await stopTabRun(tab)
+      await stopTerminalProcess(tab)
     } catch (err) {
       notify.error(tab.kind === 'shell' ? 'Stop terminal failed' : 'Stop session failed', getErrorMessage(err))
       return false

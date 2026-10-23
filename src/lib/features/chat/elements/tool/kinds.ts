@@ -38,7 +38,7 @@ export function toolPreviewField(input: unknown): { key: string; value: string }
 export function toolPreview(entry: ToolEntry, folderPath: string): string {
   const field = toolPreviewField(entry.input)
   if (!field) return entry.title
-  // ACP locations and arguments use host paths even for a remote project.
+  // Tool locations and arguments use host paths even for a remote project.
   const root = field.value.startsWith('sworm://') ? folderPath : (splitRemotePath(folderPath)?.path ?? folderPath)
   if (!isPathWithin(root, field.value)) return field.value
   return field.value.slice(root.replace(/\/+$/, '').length + 1) || '.'

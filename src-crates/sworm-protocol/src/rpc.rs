@@ -139,7 +139,6 @@ fn deserialize_exit<'de, D: serde::Deserializer<'de>>(
 /// - `opt_folder_path`: an optional `folder_path`; `None` is local.
 /// - `server`: no path at all; the caller passes the server explicitly.
 /// - `run`: keyed by a registered run id.
-/// - `chat`: keyed by a registered chat run id.
 /// - `lsp`: keyed by a registered LSP session id.
 /// - `connection`: handled by the connection/workbench-registry layer; never reaches Host.
 /// - `none`: host-global; always the local host.
@@ -717,43 +716,6 @@ macro_rules! sworm_rpc_ops {
             TasksStop => tasks_stop(
                 run_id: String,
             ) -> ();
-            #[route(folder_path)]
-            ChatStart => chat_start(
-                run_id: String,
-                folder_path: String,
-                harness_id: String,
-                preset: Option<String>,
-                session_id: Option<String>,
-            ) -> $crate::chat::ChatStartInfo;
-            #[route(chat)]
-            ChatPrompt => chat_prompt(
-                run_id: String,
-                prompt: Vec<$crate::chat::ChatContent>,
-            ) -> ();
-            #[route(chat)]
-            ChatCancel => chat_cancel(
-                run_id: String,
-            ) -> ();
-            #[route(chat)]
-            ChatSetConfig => chat_set_config(
-                run_id: String,
-                config_id: String,
-                value: $crate::chat::ChatConfigValue,
-            ) -> ();
-            #[route(chat)]
-            ChatRespond => chat_respond(
-                run_id: String,
-                request_id: String,
-                response: $crate::chat::ChatResponse,
-            ) -> ();
-            #[route(chat)]
-            ChatFork => chat_fork(
-                run_id: String,
-            ) -> $crate::chat::ChatForkInfo;
-            #[route(chat)]
-            ChatStop => chat_stop(
-                run_id: String,
-            ) -> ();
             #[route(run)]
             RunStatus => run_status(
                 run_id: String,
@@ -839,9 +801,6 @@ pub enum Open {
     Pty {
         run_id: String,
         cursor: PtyCursor,
-    },
-    Chat {
-        run_id: String,
     },
     Lsp {
         session_id: String,
@@ -949,14 +908,6 @@ pub enum PtyDown {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PtyUp {
     Resize { cols: u16, rows: u16 },
-}
-
-/// Daemon-to-client JSON frames on a chat stream. The first event is always `Snapshot`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum ChatDown {
-    Event { event: crate::chat::ChatEvent },
-    Closed { error: WireError },
 }
 
 /// Wire-safe mirror of `sworm_core::events::HostEvent`.

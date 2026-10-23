@@ -133,45 +133,6 @@ export interface SessionStartInfo {
   sessionId: string | null
 }
 
-export interface ChatStartInfo {
-  sessionId: string | null
-  resumed: boolean
-}
-
-export interface ChatForkInfo {
-  sessionId: string
-}
-
-export type ChatEvent =
-  | { type: 'snapshot'; state: ChatState }
-  | { type: 'turnState'; turn: ChatTurn }
-  | { type: 'entry'; entry: ChatEntry }
-  | { type: 'textDelta'; id: string; text: string }
-  | { type: 'configOptions'; options: ChatConfigOption[] }
-  | { type: 'commands'; commands: ChatCommand[] }
-  | { type: 'usage'; usage: ChatUsage }
-  | { type: 'request'; request: ChatRequest }
-  | { type: 'requestResolved'; request_id: string }
-  | { type: 'sessionBound'; session_id: string }
-  | { type: 'notice'; level: ChatNoticeLevel; message: string }
-  | { type: 'exit'; message: string | null }
-
-export interface ChatState {
-  session_id: string | null
-  turn: ChatTurn
-  entries: ChatEntry[]
-  config_options: ChatConfigOption[]
-  commands: ChatCommand[]
-  usage: ChatUsage | null
-  requests: ChatRequest[]
-  capabilities: ChatCapabilities
-}
-
-export interface ChatCapabilities {
-  images: boolean
-  fork: boolean
-}
-
 export type ChatTurn = 'starting' | 'idle' | 'running' | 'reconnecting'
 
 export type ChatEntry =
@@ -243,8 +204,6 @@ export interface ChatConfigChoice {
   group: string | null
 }
 
-export type ChatConfigValue = { type: 'select'; value: string } | { type: 'boolean'; value: boolean }
-
 export interface ChatCommand {
   name: string
   description: string
@@ -262,28 +221,11 @@ export interface ChatCost {
   currency: string
 }
 
-export type ChatRequest =
-  | {
-      kind: 'permission'
-      request_id: string
-      tool_call_id: string
-      title: string
-      options: ChatPermissionOption[]
-    }
-  | { kind: 'elicitation'; request_id: string; message: string; schema: unknown }
-
 export interface ChatPermissionOption {
   option_id: string
   name: string
   kind: string
 }
-
-export type ChatResponse =
-  | { kind: 'permission'; option_id: string | null }
-  | { kind: 'elicitation'; action: ChatElicitationAction; content: Record<string, unknown> | null }
-
-export type ChatElicitationAction = 'accept' | 'decline' | 'cancel'
-export type ChatNoticeLevel = 'info' | 'warning' | 'error'
 
 /** Everything the backend needs to spawn a session tab's process under an ephemeral run id. */
 export interface SessionSpec {
@@ -296,17 +238,12 @@ export interface SessionSpec {
 
 export type HarnessConnectionStatus = 'connected' | 'missing' | 'error'
 
-export interface HarnessPresetEntry {
-  name: string
-  view: SessionView
-}
-
 export interface HarnessStatus {
   id: string
   label: string
   status: HarnessConnectionStatus
   enabled: boolean
-  presets: HarnessPresetEntry[]
+  presets: string[]
   version: string | null
   resolved_path: string | null
   message: string | null
@@ -405,13 +342,9 @@ export interface HarnessSettings {
   presets: Record<string, PresetSettings>
 }
 
-export type SessionView = 'chat' | 'terminal'
-
 export interface PresetSettings {
   args: string[]
   env: Record<string, string>
-  /** Default view for new tabs; chat falls back to terminal for harnesses without a chat agent. */
-  view: SessionView | null
 }
 
 export interface ShellPresetSettings {
@@ -447,14 +380,6 @@ export interface ShellListing {
 export interface SessionsSettings {
   /** `<harness_id>` or `<harness_id>/<preset>`; launched by New Session and listed first. */
   default_preset: string | null
-  /** MCP stdio servers passed to every chat session, keyed by name. Global settings only. */
-  mcp_servers: Record<string, McpServerSettings>
-}
-
-export interface McpServerSettings {
-  command: string
-  args: string[]
-  env: Record<string, string>
 }
 
 export interface RemoteSettings {
@@ -631,8 +556,6 @@ export interface HarnessDescriptor {
   id: string
   label: string
   extension_id: string
-  /** The harness has a chat (ACP) agent. */
-  chat: boolean
   /** SVG markup. */
   icon: string
   wordmark: string | null

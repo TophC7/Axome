@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { HTMLAttributes } from 'svelte/elements'
-  import type { ChatDraftImage } from '$lib/features/chat/controller.svelte'
+  import type { ChatDraftImage } from './types'
   import { IconButton } from '$lib/components/ui/button'
   import { X } from '$lib/icons/lucideExports'
   import { cn } from '$lib/utils/cn'

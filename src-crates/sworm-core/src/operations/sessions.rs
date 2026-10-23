@@ -12,7 +12,7 @@ use crate::services::resume_discovery::PendingRun;
 use crate::services::runs::RunKind;
 use crate::services::settings_resolution::resolve_effective_settings_for_folder_path;
 use parking_lot::Mutex;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -20,7 +20,7 @@ use std::sync::{
 };
 use std::time::SystemTime;
 use sworm_protocol::session::SessionStartInfo;
-use sworm_protocol::settings::{HarnessSettings, McpServerSettings, PresetSettings};
+use sworm_protocol::settings::{HarnessSettings, PresetSettings};
 use tracing::{info, warn};
 
 pub(crate) struct HarnessLaunch {
@@ -30,16 +30,11 @@ pub(crate) struct HarnessLaunch {
     pub(crate) preset: PresetSettings,
     /// Folder env (login env + Nix) with the preset env applied.
     pub(crate) env: HashMap<String, String>,
-    pub(crate) mcp_servers: BTreeMap<String, McpServerSettings>,
 }
 
 impl HarnessLaunch {
     pub(crate) fn harness(&self) -> &LoadedHarness {
         &self.catalog.harnesses[self.index]
-    }
-
-    pub(crate) fn catalog(&self) -> &LoadedExtensionCatalog {
-        &self.catalog
     }
 }
 
@@ -103,11 +98,10 @@ impl Host {
             config,
             preset,
             env,
-            mcp_servers: settings.sessions.mcp_servers.clone(),
         })
     }
 
-    /// Caller holds `session_claims`. Errors when another live chat or terminal run on this host holds the session.
+    /// Caller holds `session_claims`. Errors when another live terminal run on this host holds the session.
     pub(crate) fn ensure_session_free(
         &self,
         harness_id: &str,
@@ -115,14 +109,10 @@ impl Host {
         run_id: &str,
     ) -> Result<(), ApiError> {
         if self
-            .chat
-            .holder(harness_id, session_id)
-            .is_some_and(|other| other != run_id)
-            || self
-                .runs
-                .session_runs(harness_id, session_id)
-                .iter()
-                .any(|id| id != run_id && self.pty.run_state(id) == Some(PtyRunState::Live))
+            .runs
+            .session_runs(harness_id, session_id)
+            .iter()
+            .any(|id| id != run_id && self.pty.run_state(id) == Some(PtyRunState::Live))
         {
             return Err(ApiError::InvalidArgument(format!(
                 "Session {session_id} is already open in another tab"

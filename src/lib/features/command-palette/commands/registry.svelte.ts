@@ -11,7 +11,6 @@ import {
 } from '$lib/features/notifications/state.svelte'
 import { svgUrl } from '$lib/features/sessions/harnesses/catalog'
 import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
-import { canForkSession, canSwitchView, forkSession, switchSessionView } from '$lib/features/sessions/service.svelte'
 import { getShellListing } from '$lib/features/shells/state.svelte'
 import { isSidebarCollapsed, toggleSidebar } from '$lib/features/app-shell/sidebar/state.svelte'
 import { zoomIn, zoomOut, zoomReset } from '$lib/features/app-shell/zoom/state.svelte'
@@ -66,7 +65,6 @@ import {
   FilePlusCornerIcon,
   FolderOpenIcon,
   GitCompareIcon,
-  MessageSquare,
   PaintbrushIcon,
   PanelLeftIcon,
   Play,
@@ -141,7 +139,7 @@ function appCommand(definition: AppCommandDefinition): AppCommandDefinition {
 }
 
 export function getAppCommandDefinitions(): AppCommandDefinition[] {
-  const sessionCommands = getLaunchOptions(getActiveFolderPath()).map(({ harness, preset, view, label, status }) =>
+  const sessionCommands = getLaunchOptions(getActiveFolderPath()).map(({ harness, preset, label, status }) =>
     appCommand({
       id: `new-session-${harness.id}${preset === null ? '' : `:${preset}`}`,
       label: `New ${label} Session`,
@@ -149,7 +147,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       iconSrc: svgUrl(harness.icon),
       keywords: ['new', 'session', 'agent', harness.label, preset ?? ''],
       visible: () => activeFolderVisible() && status?.status === 'connected',
-      run: () => createSession(harness.id, preset, view)
+      run: () => createSession(harness.id, preset)
     })
   )
   const shellCommands = getShellListing(getActiveFolderPath()).presets.map(({ name }) =>
@@ -374,29 +372,6 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       run: newDefaultSession
     }),
     ...sessionCommands,
-    appCommand({
-      id: 'session.switch-view',
-      label: () =>
-        activeTab?.kind === 'session' && activeTab.view === 'chat' ? 'Switch to Terminal' : 'Switch to Chat',
-      group: 'Sessions',
-      icon: MessageSquare,
-      keywords: ['chat', 'terminal', 'view', 'acp'],
-      visible: () => canSwitchView(activeTab),
-      run: () => {
-        if (activeTab) return switchSessionView(activeTab.id)
-      }
-    }),
-    appCommand({
-      id: 'session.fork',
-      label: 'Fork Session',
-      group: 'Sessions',
-      icon: MessageSquare,
-      keywords: ['fork', 'copy', 'session', 'chat', 'acp'],
-      visible: () => canForkSession(activeTab),
-      run: () => {
-        if (activeTab) return forkSession(activeTab.id)
-      }
-    }),
     appCommand({
       id: 'new-terminal',
       label: 'New Terminal',

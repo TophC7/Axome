@@ -12,7 +12,6 @@ use std::{
 use sworm_core::services::folders::resolve_folder;
 use sworm_core::{errors::ApiError, Host};
 use sworm_protocol::{
-    chat::{ChatConfigValue, ChatContent, ChatForkInfo, ChatResponse, ChatStartInfo},
     git::{GitWorktreeCheckout, GitWorktreeList, GitWorktreeOp, GitWorktreeResult},
     rpc::{Reply, Request, Response, RunStatus, WireError, MAX_WHOLE_FILE_BYTES},
     session::SessionStartInfo,
@@ -414,7 +413,6 @@ macro_rules! dispatch_operation {
     (#[route($route:ident)] GitWorktreeDefaultPath => $($rest:tt)*) => {};
     (#[route($route:ident)] GitWorktree => $($rest:tt)*) => {};
     (#[route($route:ident)] SessionStart => $($rest:tt)*) => {};
-    (#[route($route:ident)] ChatStart => $($rest:tt)*) => {};
     (#[route($route:ident)] ShellStart => $($rest:tt)*) => {};
     (#[route($route:ident)] TasksStart => $($rest:tt)*) => {};
     (#[route($route:ident)] LspStart => $($rest:tt)*) => {};
@@ -424,7 +422,6 @@ macro_rules! dispatch_operation {
     (#[route($route:ident)] AppStateDelete => $($rest:tt)*) => {};
     (#[route(connection)] $($rest:tt)*) => {};
     (#[route(run)] $($rest:tt)*) => {};
-    (#[route(chat)] $($rest:tt)*) => {};
     (
         #[route(server)]
         SettingsPatchGlobalSection => $method:ident(
@@ -604,39 +601,6 @@ pub(crate) async fn authorize_run(
     })
     .await
     .map_err(run_operation_join)?
-}
-
-async fn check_chat_owner(
-    host: &Arc<Host>,
-    owner: Option<String>,
-    run_id: &str,
-) -> Result<(), WireError> {
-    let Some(owner) = owner else {
-        return Ok(());
-    };
-    let host = Arc::clone(host);
-    let run_id = run_id.to_owned();
-    tokio::task::spawn_blocking(move || {
-        if let Some(Some(run_owner)) = host.chat_owner(&run_id) {
-            if run_owner != owner {
-                return Err(WireError::Unauthorized {
-                    message: format!("Chat run {run_id} belongs to another workbench"),
-                });
-            }
-        }
-        Ok(())
-    })
-    .await
-    .map_err(run_operation_join)?
-}
-
-pub(crate) async fn authorize_chat(
-    host: &Arc<Host>,
-    session: &Mutex<Session>,
-    run_id: &str,
-) -> Result<(), WireError> {
-    let owner = session.lock().await.scope.run_owner().map(str::to_owned);
-    check_chat_owner(host, owner, run_id).await
 }
 
 /// The auth and folder claim a `FileRead` stream needs, without the stat a
@@ -963,111 +927,6 @@ impl DispatchRuntime<'_> {
         })
         .await
         .map_err(run_operation_join)?
-    }
-
-    async fn chat_start(
-        &self,
-        run_id: String,
-        folder_path: String,
-        harness_id: String,
-        preset: Option<String>,
-        session_id: Option<String>,
-    ) -> Result<ChatStartInfo, WireError> {
-        let folder = self.claim(&folder_path, "folder_path").await?;
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner.clone(), &run_id).await?;
-        let context = Arc::clone(self.context);
-        tokio::spawn(async move {
-            let _folder = folder;
-            let _operation = context.run_operation(&run_id).await;
-            tokio::task::spawn_blocking(move || {
-                host.chat_start(
-                    run_id,
-                    folder_path,
-                    harness_id,
-                    preset,
-                    session_id,
-                    None,
-                    owner,
-                )
-            })
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-        })
-        .await
-        .map_err(run_operation_join)?
-    }
-
-    async fn chat_prompt(&self, run_id: String, prompt: Vec<ChatContent>) -> Result<(), WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_prompt(run_id, prompt))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-    }
-
-    async fn chat_cancel(&self, run_id: String) -> Result<(), WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_cancel(run_id))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-    }
-
-    async fn chat_set_config(
-        &self,
-        run_id: String,
-        config_id: String,
-        value: ChatConfigValue,
-    ) -> Result<(), WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_set_config(run_id, config_id, value))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-    }
-
-    async fn chat_fork(&self, run_id: String) -> Result<ChatForkInfo, WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_fork(run_id))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-    }
-
-    async fn chat_respond(
-        &self,
-        run_id: String,
-        request_id: String,
-        response: ChatResponse,
-    ) -> Result<(), WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_respond(run_id, request_id, response))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
-    }
-
-    async fn chat_stop(&self, run_id: String) -> Result<(), WireError> {
-        let owner = self.run_owner();
-        let host = Arc::clone(self.host);
-        check_chat_owner(&host, owner, &run_id).await?;
-        tokio::task::spawn_blocking(move || host.chat_stop(run_id))
-            .await
-            .map_err(run_operation_join)?
-            .map_err(WireError::from)
     }
 
     async fn shell_start(

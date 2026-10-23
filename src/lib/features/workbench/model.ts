@@ -5,7 +5,6 @@
 // importing the state store itself.
 
 import { splitRemotePath } from '$lib/utils/paths'
-import type { SessionView } from '$lib/types/backend'
 
 export type TabId = string
 
@@ -24,9 +23,7 @@ export interface SessionTab extends TabBase {
   harnessId: string
   /** null = bare harness. */
   preset: string | null
-  /** Chat (ACP) or terminal (CLI in a PTY). */
-  view: SessionView
-  /** Frontend-generated UUID used as the run key; retained while the run may still be live. */
+  /** Frontend-generated UUID used as the PTY key; retained while the run may still be live. */
   runId: string | null
   /** Harness-owned session id; null until known. */
   sessionId: string | null
@@ -160,22 +157,11 @@ export interface EpicTab extends TabBase {
   temporary: boolean
 }
 
-export type ChatSessionTab = SessionTab & { view: 'chat' }
-export type TerminalSessionTab = SessionTab & { view: 'terminal' }
-export type TerminalTab = TerminalSessionTab | ShellTab | TaskTab
-export type RunTab = SessionTab | ShellTab | TaskTab
-export type Tab = RunTab | DiffTab | TextTab | NewTab | IssueTab | EpicTab
+export type TerminalTab = SessionTab | ShellTab | TaskTab
+export type Tab = TerminalTab | DiffTab | TextTab | NewTab | IssueTab | EpicTab
 
 export function isTerminalTab(tab: Tab): tab is TerminalTab {
-  return tab.kind === 'shell' || tab.kind === 'task' || (tab.kind === 'session' && tab.view === 'terminal')
-}
-
-export function isRunTab(tab: Tab): tab is RunTab {
   return tab.kind === 'session' || tab.kind === 'shell' || tab.kind === 'task'
-}
-
-export function isChatTab(tab: Tab): tab is ChatSessionTab {
-  return tab.kind === 'session' && tab.view === 'chat'
 }
 
 export function isTab(value: unknown): value is Tab {
@@ -205,7 +191,6 @@ export type PersistedTab = { folderPath: string } & (
       harnessId: string
       /** null = bare harness. */
       preset: string | null
-      view: SessionView
       /** Absent in legacy blobs; hydrate as null. */
       runId?: string | null
       /** Harness-owned session id; null until known. */
@@ -281,10 +266,10 @@ export interface PersistedWorkbenchV4 {
 }
 
 export function canLockTab(tab: Tab): boolean {
-  return isRunTab(tab) || tab.kind === 'text' || tab.kind === 'issue' || tab.kind === 'epic'
+  return isTerminalTab(tab) || tab.kind === 'text' || tab.kind === 'issue' || tab.kind === 'epic'
 }
 
-/** True while a run tab owns a live process (spawning or running). */
+/** True while a terminal tab owns a live process (spawning or running). */
 export function isProcessLive(status: SessionStatus | TaskRunStatus): boolean {
   return status === 'running' || status === 'starting'
 }

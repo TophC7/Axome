@@ -1594,14 +1594,7 @@ fn release_window_resources(state: &AppState, label: &str, detach_runs: bool) {
     // per window, so a close never reaches a surviving window's servers -
     // including a window that just adopted a transferred tab. PTY runs are
     // untouched: they may outlive the window.
-    let router = state.router.clone();
-    let owner = label.to_owned();
-    tauri::async_runtime::spawn(async move {
-        // ChatStop needs the window's workbench lease, so await every stop
-        // before release_window can send any lease detach.
-        router.release_window_chats(&owner, !detach_runs).await;
-        router.release_window(&owner);
-    });
+    state.router.release_window(label);
     for folder in final_folders {
         release_folder_resources(state, &folder);
     }

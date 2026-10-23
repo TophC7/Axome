@@ -2,11 +2,8 @@ use crate::services::extensions::{
     missing_requirement, resolve_contribution_command, LoadedExtensionCatalog, LoadedHarness,
 };
 use std::collections::HashMap;
-use sworm_protocol::extensions::{
-    HarnessChat, HarnessTerminal, VersionStream, SESSION_ID_VARIABLE,
-};
-use sworm_protocol::harness::{HarnessConnectionStatus, HarnessPresetEntry, HarnessStatus};
-use sworm_protocol::session::SessionView;
+use sworm_protocol::extensions::{HarnessTerminal, VersionStream, SESSION_ID_VARIABLE};
+use sworm_protocol::harness::{HarnessConnectionStatus, HarnessStatus};
 use sworm_protocol::settings::{EffectiveSettings, HarnessSettings};
 use tracing::{info, warn};
 
@@ -29,39 +26,6 @@ pub fn resolve_harness_command(
         merged_path,
         None,
     )
-}
-
-/// The harness binary override applies when the chat agent is the harness CLI itself (`omp acp`).
-pub fn resolve_chat_command(
-    harness: &LoadedHarness,
-    chat: &HarnessChat,
-    merged_path: &str,
-    override_path: Option<&str>,
-) -> Result<String, String> {
-    if chat.command == harness.definition.command {
-        if let Some(path) = binary_override(override_path) {
-            return Ok(path.to_string());
-        }
-    }
-    resolve_contribution_command(
-        &chat.command,
-        harness.extension_dir.as_deref(),
-        merged_path,
-        None,
-    )
-}
-
-/// Harness extra args, preset args, then the agent's own args.
-pub(crate) fn chat_args(
-    chat: &HarnessChat,
-    extra_args: &[String],
-    preset_args: &[String],
-) -> Vec<String> {
-    let mut args = Vec::with_capacity(extra_args.len() + preset_args.len() + chat.args.len());
-    args.extend_from_slice(extra_args);
-    args.extend_from_slice(preset_args);
-    args.extend_from_slice(&chat.args);
-    args
 }
 
 pub(crate) enum SessionLaunch<'a> {
@@ -138,19 +102,7 @@ fn harness_status(harness: &LoadedHarness, config: &HarnessSettings) -> HarnessS
         label: harness.definition.label.clone(),
         status: HarnessConnectionStatus::Missing,
         enabled: config.enabled,
-        presets: config
-            .presets
-            .iter()
-            .map(|(name, preset)| HarnessPresetEntry {
-                name: name.clone(),
-                view: match preset.view {
-                    Some(SessionView::Chat) if harness.definition.chat.is_some() => {
-                        SessionView::Chat
-                    }
-                    _ => SessionView::Terminal,
-                },
-            })
-            .collect(),
+        presets: config.presets.keys().cloned().collect(),
         version: None,
         resolved_path: None,
         message: None,

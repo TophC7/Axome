@@ -2,7 +2,6 @@ mod file_streams;
 mod leases;
 mod ops;
 mod pending_stops;
-mod remote_chat;
 mod remote_lsp;
 mod remote_runs;
 pub mod remotes;
@@ -47,7 +46,6 @@ pub(crate) struct RouterInner {
     file_streams: FileStreams,
     pub(crate) remote_runs: RemoteRunService,
     pub(crate) remote_lsp: remote_lsp::RemoteLspService,
-    pub(crate) remote_chat: remote_chat::RemoteChatService,
 }
 
 #[derive(Clone)]
@@ -86,7 +84,6 @@ impl WorkspaceRouter {
                 transitions: Mutex::new(HashMap::new()),
                 remote_runs: RemoteRunService::new(),
                 remote_lsp: remote_lsp::RemoteLspService::new(),
-                remote_chat: remote_chat::RemoteChatService::new(),
                 pending_stops,
                 remote_management: AsyncMutex::new(()),
                 file_streams: FileStreams::new(),
@@ -259,27 +256,6 @@ impl WorkspaceRouter {
         }
     }
 
-    pub async fn release_window_chats(&self, owner: &str, stop: bool) {
-        for (run_id, server, workbench) in self.inner.remote_chat.release_owner(owner) {
-            if stop {
-                let result = self
-                    .inner
-                    .call_reply_for(
-                        &server,
-                        Some(&workbench),
-                        Request::ChatStop {
-                            run_id: run_id.clone(),
-                        },
-                    )
-                    .await
-                    .and_then(|reply| reply.chat_stop().map_err(ApiError::from));
-                if let Err(error) = result {
-                    tracing::warn!(%server, %run_id, %error, "remote chat stop on window close failed");
-                }
-            }
-        }
-    }
-
     pub async fn remote_runs_release(
         &self,
         owner: &str,
@@ -291,7 +267,6 @@ impl WorkspaceRouter {
         let run_ids = run_ids.to_owned();
         tokio::task::spawn_blocking(move || {
             let _admission = admission;
-            inner.remote_chat.release(&owner, &run_ids);
             inner.remote_runs.release(&inner.host, &owner, &run_ids)
         })
         .await?
