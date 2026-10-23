@@ -1,6 +1,7 @@
 use crate::errors::ApiError;
 use crate::events::{deliver, EventSink, HostEvent};
 use crate::services::{
+    axo::AxoService,
     db::DatabaseService,
     env::EnvironmentService,
     file_watcher::FileWatcherService,
@@ -44,6 +45,7 @@ pub struct Host {
     pub(crate) git_watchers: GitWatcherService,
     pub(crate) history_binder: HistoryBinder,
     pub(crate) session_index: Arc<SessionIndexService>,
+    pub(crate) axo: Arc<AxoService>,
     pub(crate) nix_eval_locks: Mutex<HashSet<String>>,
     pub(crate) events: EventSink<HostEvent>,
 }
@@ -56,7 +58,10 @@ impl Host {
         let issues = Arc::new(IssueService::new());
         let git = Arc::new(GitService::new());
         EnvironmentService::current();
-        let session_index = SessionIndexService::new(Arc::clone(&db), Arc::clone(&events));
+        let axo = AxoService::new(Arc::clone(&db));
+        let session_index =
+            SessionIndexService::new(Arc::clone(&db), Arc::clone(&events), Arc::clone(&axo));
+        axo.bind_index(&session_index);
         Ok(Self {
             admission: Arc::new(tokio::sync::RwLock::new(())),
             db,
@@ -74,6 +79,7 @@ impl Host {
             git_watchers: GitWatcherService::new(git),
             history_binder: HistoryBinder::new(),
             session_index,
+            axo,
             nix_eval_locks: Mutex::new(HashSet::new()),
             events,
         })
@@ -254,6 +260,7 @@ impl Host {
     /// adopted runs whose backend owns their remote lifetime.
     pub fn shutdown(&self) -> (usize, usize) {
         self.session_index.shutdown();
+        self.axo.shutdown();
         let pty_cleaned = self.runs.with_exclusive(|runs| {
             let cleaned = self.pty.kill_all();
             runs.clear();

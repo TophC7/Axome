@@ -18,6 +18,11 @@ tokio.workspace = true
 rusqlite.workspace = true
 tracing.workspace = true
 parking_lot.workspace = true
+axo.workspace = true
+axo-agent.workspace = true
+axo-ai.workspace = true
+async-trait.workspace = true
+tokio-util.workspace = true
 libc = "0.2"
 notify = "6"
 ignore = "0.4"
@@ -29,3 +34,6 @@ refinery = { version = "0.8", features = ["rusqlite"] }
 which = "8"
 sha2 = "0.10"
 jsonschema = { version = "0.55.0", default-features = false }
+
+[dev-dependencies]
+axo-ai = { workspace = true, features = ["testing"] }

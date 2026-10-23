@@ -2,6 +2,7 @@
   import { Button } from '$lib/components/ui/button'
   import { getTabGroup, retryGroup } from '$lib/features/workbench/groups.svelte'
   import type { Tab } from '$lib/features/workbench/model'
+  import ChatSurface from '$lib/features/workbench/surfaces/chat/ChatSurface.svelte'
   import NewTabSurface from '$lib/features/workbench/surfaces/new-tab/NewTabSurface.svelte'
   import TerminalSurface from '$lib/features/workbench/surfaces/terminal/TerminalSurface.svelte'
   import TextSurface from '$lib/features/workbench/surfaces/text/TextSurface.svelte'
@@ -25,6 +26,10 @@
   </div>
 {:else if activeTab.kind === 'new-tab'}
   <NewTabSurface folderPath={activeTab.folderPath} />
+{:else if activeTab.kind === 'chat'}
+  {#key activeTab.id}
+    <ChatSurface tab={activeTab} />
+  {/key}
 {:else if activeTab.kind === 'session' || activeTab.kind === 'shell' || activeTab.kind === 'task'}
   <TerminalSurface tab={activeTab} />
 {:else if activeTab.kind === 'text'}

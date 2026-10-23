@@ -15,7 +15,7 @@ import {
   resolveDefaultLaunch
 } from '$lib/features/sessions/harnesses/state.svelte'
 import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
-import { startSession } from '$lib/features/sessions/service.svelte'
+import { newChat, startSession } from '$lib/features/sessions/service.svelte'
 import { refreshLoadedSessionIndexes } from '$lib/features/sessions/state.svelte'
 import { startShell } from '$lib/features/shells/service.svelte'
 import { getShellListing, reloadShellListings } from '$lib/features/shells/state.svelte'
@@ -204,6 +204,11 @@ export function openActiveFolderInExternalTerminal(): void {
     .catch((error) => {
       notify.error('Open in terminal failed', getErrorMessage(error))
     })
+}
+
+export function newChatInActiveFolder(): void {
+  const folderPath = getActiveFolderPath()
+  if (folderPath) newChat(folderPath)
 }
 
 export function createSession(harnessId: string, preset: string | null): void {

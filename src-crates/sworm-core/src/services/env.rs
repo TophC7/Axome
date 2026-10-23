@@ -69,18 +69,22 @@ fn restore_originals(vars: impl IntoIterator<Item = (String, String)>) -> HashMa
 
 /// Resolve one child environment; unavailable Nix state falls back to the host.
 pub(crate) fn folder_env(db: &DatabaseService, folder: &Path) -> HashMap<String, String> {
+    EnvironmentService::current().with_nix(folder_nix(db, folder).as_ref())
+}
+
+pub(crate) fn folder_nix(db: &DatabaseService, folder: &Path) -> Option<HashMap<String, String>> {
     let nix = {
         let db = db.read();
         NixService::load_env_vars(db.conn(), &folder.to_string_lossy())
     };
     match nix {
-        Ok(nix) => EnvironmentService::current().with_nix(nix.as_ref()),
+        Ok(nix) => nix,
         Err(error) => {
             warn!(
                 "Failed to load Nix env for folder {}: {error}; using host environment",
                 folder.display()
             );
-            EnvironmentService::current().with_nix(None)
+            None
         }
     }
 }

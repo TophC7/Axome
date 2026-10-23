@@ -551,7 +551,8 @@ async function stageGroup(handoff: GroupImport): Promise<void> {
     }
     for (const [index, tab] of handoff.tabs.entries()) {
       const staged: Tab =
-        (tab.kind === 'session' || tab.kind === 'shell') && tab.status !== 'exited' && tab.status !== 'failed'
+        tab.kind === 'chat' ||
+        ((tab.kind === 'session' || tab.kind === 'shell') && tab.status !== 'exited' && tab.status !== 'failed')
           ? { ...tab, status: 'dormant' }
           : tab.kind === 'task' && tab.status !== 'exited' && tab.status !== 'failed'
             ? { ...tab, status: 'starting', attachOnly: true }

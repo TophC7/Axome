@@ -1,11 +1,12 @@
 // Shared tab-close flow.
 //
 // Lifted out of the tab strip so a keyboard shortcut (Ctrl+W) runs the
-// same dirty-check + PTY-stop path as clicking a tab's close button. Keep
+// same dirty-check + run-stop path as clicking a tab's close button. Keep
 // this the single source of truth — divergence between the two call sites
-// is how tabs end up closed while their PTY is still alive.
+// is how tabs end up closed while their run is still alive.
 
 import { stopTerminalProcess } from '$lib/features/terminal/lifecycle'
+import * as chats from '$lib/features/chat/registry'
 import { confirmAsync } from '$lib/features/confirm/service.svelte'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { isProcessLive, type TabId } from '$lib/features/workbench/model'
@@ -27,6 +28,7 @@ import { textModelRevision, type TextModelRevision } from '$lib/features/editor/
  *  - stop the PTY for live session/shell tabs (aborts close if stop fails —
  *    leaking a running PTY while the tab vanishes would leave the
  *    process hidden until app quit)
+ *  - stop busy chat turns (aborts close if stop fails)
  *
  * Returns true when the tab was closed, false when the user cancelled
  * or the close could not proceed.
@@ -83,6 +85,18 @@ export async function closeTabWithChecks(
     }
   }
 
+  if (tab.kind === 'chat') {
+    const controller = chats.get(tab.id)
+    if (controller?.busy) {
+      try {
+        await controller.stop()
+      } catch (err) {
+        notify.error('Stop chat failed', getErrorMessage(err))
+        return false
+      }
+    }
+  }
+
   if (tab.kind === 'task') {
     // Stop even a detached or completed run to release its retained state.
     // Ordinary close reports stop errors; destructive worktree closure must abort.
@@ -111,7 +125,7 @@ export async function closeTabWithChecks(
     }
   }
 
-  // `closeTab` disposes the terminal manager for the tab.
+  // `closeTab` disposes the tab's terminal or chat controller.
   closeTab(tabId)
   if (tab.kind === 'text') clearTextSurfaceDirty(tab.id)
   return !getTabs().some((current) => current.id === tabId)

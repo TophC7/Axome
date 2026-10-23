@@ -29,6 +29,8 @@ export function getTabPresentation(tab: Tab): TabPresentation {
         preview: false,
         sessionIcon: sessionBrand(tab.folderPath, tab.harnessId).icon
       }
+    case 'chat':
+      return { ...plain, title: tab.title, preview: false }
     case 'shell':
       return { ...plain, title: tab.title, preview: false }
     case 'text':

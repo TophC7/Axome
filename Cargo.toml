@@ -24,3 +24,8 @@ parking_lot = "0.12"
 quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+axo = { git = "https://git.ryot.foo/toph/axo.git", rev = "1cdd692631b4911d76ba5785a46a58649b215eca" }
+axo-agent = { git = "https://git.ryot.foo/toph/axo.git", rev = "1cdd692631b4911d76ba5785a46a58649b215eca" }
+axo-ai = { git = "https://git.ryot.foo/toph/axo.git", rev = "1cdd692631b4911d76ba5785a46a58649b215eca" }
+async-trait = "0.1"
+tokio-util = "0.7"

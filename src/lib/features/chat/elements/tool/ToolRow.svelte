@@ -1,35 +1,39 @@
 <script lang="ts">
-  import type { ComponentProps, Snippet } from 'svelte'
+  import type { ComponentProps } from 'svelte'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { statusToneText } from '$lib/components/ui/status-dot'
   import { ChevronRight } from '$lib/icons/lucideExports'
+  import type { ToolStep } from '$lib/features/chat/turns'
   import { cn } from '$lib/utils/cn'
-  import { kindLabel, toolPreview, toolStatusTone, type ToolEntry } from './kinds'
+  import { kindLabel, toolPreview, toolStatusTone } from './kinds'
   import ToolDiff from './ToolDiff.svelte'
   import ToolFields from './ToolFields.svelte'
 
   let {
-    entry,
-    awaiting,
+    call,
     open,
     onOpenChange,
     onOpenLocation,
     folderPath,
-    children,
     class: className,
     ...rest
   }: Omit<ComponentProps<typeof Collapsible.Root>, 'child' | 'children'> & {
-    entry: ToolEntry
-    awaiting: boolean
+    call: ToolStep
     open: boolean
     onOpenChange: (open: boolean) => void
     onOpenLocation: (path: string, line?: number) => void
     folderPath: string
-    children?: Snippet
   } = $props()
-  const label = $derived(entry.name ?? kindLabel(entry.tool_kind))
-  const preview = $derived(toolPreview(entry, folderPath))
-  const state = $derived(toolStatusTone(entry.status, awaiting))
+  const preview = $derived(toolPreview(call, folderPath))
+  const state = $derived(toolStatusTone(call))
+  const path = $derived(
+    call.arguments !== null &&
+      typeof call.arguments === 'object' &&
+      'path' in call.arguments &&
+      typeof call.arguments.path === 'string'
+      ? call.arguments.path
+      : null
+  )
 </script>
 
 <Collapsible.Root
@@ -42,7 +46,9 @@
   <Collapsible.Trigger
     class="flex min-h-7 min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-raised focus-visible:shadow-focus-ring focus-visible:outline-none"
   >
-    <span class={cn('shrink-0 font-mono text-xs font-semibold', statusToneText[state.tone])}>{label}</span>
+    <span class={cn('shrink-0 font-mono text-xs font-semibold', statusToneText[state.tone])}
+      >{kindLabel(call.name)}</span
+    >
     <span class="min-w-0 flex-1 truncate font-mono text-xs text-muted" title={preview}>{preview}</span>
     <span class="shrink-0 text-xs text-subtle">{state.label}</span>
     <ChevronRight
@@ -52,29 +58,31 @@
     />
   </Collapsible.Trigger>
   <Collapsible.Content class="flex min-w-0 flex-col gap-2 border-t border-edge p-2.5">
-    <ToolFields input={entry.input} />
-    {#each entry.content as part}
+    <ToolFields {call} />
+    {#if call.name === 'edit' || call.name === 'write'}
+      <ToolDiff {call} {folderPath} onOpen={() => path && onOpenLocation(path)} />
+    {/if}
+    {#each call.output as part}
       {#if part.type === 'text'}
         <pre
-          class="max-h-96 overflow-auto rounded-md bg-ground p-2 font-mono text-xs whitespace-pre-wrap text-fg">{part.text}</pre>
-      {:else if part.type === 'diff'}
-        <ToolDiff
-          path={part.path}
-          oldText={part.old_text}
-          newText={part.new_text}
-          {folderPath}
-          onOpen={() => onOpenLocation(part.path)}
+          class={cn(
+            'max-h-96 overflow-auto rounded-md bg-ground p-2 text-xs whitespace-pre-wrap text-fg',
+            call.name === 'bash' ? 'font-mono' : 'font-sans'
+          )}>{part.text}</pre>
+      {:else if part.type === 'image'}
+        <img
+          class="max-h-96 max-w-full object-contain"
+          src={`data:${part.mimeType};base64,${part.data}`}
+          alt={`${call.name} result`}
         />
       {/if}
     {/each}
-    {#each entry.locations as location}
+    {#if path && call.name !== 'edit' && call.name !== 'write'}
       <button
         type="button"
         class="self-start text-left font-mono text-xs break-all text-accent hover:underline focus-visible:shadow-focus-ring focus-visible:outline-none"
-        onclick={() => onOpenLocation(location.path, location.line ?? undefined)}
-        >{location.path}{location.line != null ? `:${location.line}` : ''}</button
+        onclick={() => path && onOpenLocation(path)}>{path}</button
       >
-    {/each}
+    {/if}
   </Collapsible.Content>
-  {#if children}{@render children()}{/if}
 </Collapsible.Root>

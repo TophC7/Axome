@@ -28,6 +28,7 @@ import {
   closeActiveTab,
   closeCurrentWorkbench,
   createSession,
+  newChatInActiveFolder,
   newDefaultSession,
   newEmptyFile,
   newTerminalSession,
@@ -65,6 +66,7 @@ import {
   FilePlusCornerIcon,
   FolderOpenIcon,
   GitCompareIcon,
+  MessagesSquareIcon,
   PaintbrushIcon,
   PanelLeftIcon,
   Play,
@@ -361,6 +363,15 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       native: true,
       visible: activeFolderVisible,
       run: openActiveFolderInExternalTerminal
+    }),
+    appCommand({
+      id: 'new-chat',
+      label: 'New Chat',
+      group: 'Sessions',
+      icon: MessagesSquareIcon,
+      keywords: ['new', 'chat', 'axo', 'agent'],
+      visible: activeFolderVisible,
+      run: newChatInActiveFolder
     }),
     appCommand({
       id: 'new-session',

@@ -1,27 +1,26 @@
 <script lang="ts">
   import type { HTMLButtonAttributes } from 'svelte/elements'
-  import type { ChatTurn } from '$lib/types/backend'
   import { Button } from '$lib/components/ui/button'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { ArrowUp, LoaderCircle, SquareIcon } from '$lib/icons/lucideExports'
   import { cn } from '$lib/utils/cn'
 
   let {
-    turn,
+    running,
+    connecting,
     canSend,
     onSend,
     onStop,
     class: className,
     ...rest
   }: Omit<HTMLButtonAttributes, 'children' | 'disabled' | 'onclick'> & {
-    turn: ChatTurn
+    running: boolean
+    connecting: boolean
     canSend: boolean
     onSend: () => void
     onStop: () => void
   } = $props()
-  const label = $derived(
-    turn === 'idle' ? 'Send' : turn === 'running' ? 'Stop' : turn === 'starting' ? 'Starting' : 'Reconnecting'
-  )
+  const label = $derived(connecting ? 'Connecting' : running ? 'Stop' : 'Send')
 </script>
 
 <Tooltip.Root>
@@ -31,16 +30,16 @@
         {...props}
         data-slot="prompt-input-submit"
         size="icon"
-        variant={turn === 'idle' ? 'accent' : 'outline'}
+        variant={running || connecting ? 'outline' : 'accent'}
         aria-label={label}
-        disabled={turn === 'idle' ? !canSend : turn !== 'running'}
-        onclick={turn === 'running' ? onStop : onSend}
+        disabled={connecting || (!running && !canSend)}
+        onclick={running ? onStop : onSend}
         class={cn(className)}
         {...rest}
       >
-        {#if turn === 'idle'}<ArrowUp size={14} />
-        {:else if turn === 'running'}<SquareIcon size={10} class="fill-current" />
-        {:else}<LoaderCircle size={14} class="animate-spin" />{/if}
+        {#if connecting}<LoaderCircle size={14} class="animate-spin" />
+        {:else if running}<SquareIcon size={10} class="fill-current" />
+        {:else}<ArrowUp size={14} />{/if}
       </Button>
     {/snippet}
   </Tooltip.Trigger>

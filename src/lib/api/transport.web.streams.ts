@@ -1,5 +1,7 @@
-import type { FileContent, LspEvent, PtyEvent, SessionStartInfo } from '$lib/types/backend'
+import type { ChatEvent, FileContent, LspEvent, PtyEvent, SessionStartInfo } from '$lib/types/backend'
 import type {
+  ChatSinks,
+  ChatStreamRequest,
   HostTransport,
   LspStreamRequest,
   PtySinks,
@@ -151,6 +153,20 @@ type PtyOwner = {
   pendingStartup: PromiseWithResolvers<void> | null
 }
 
+type ChatOwner = {
+  attachId: string
+  folderPath: string
+  sessionId: string
+  disposed: boolean
+  socket: LiveSocket | null
+  generation: number | undefined
+  terminal: boolean
+  retry: ReturnType<typeof setTimeout> | undefined
+  attempts: number
+  sinks: ChatSinks
+  pendingStartup: PromiseWithResolvers<void>
+}
+
 type LspOwner = {
   sessionId: string
   definitionId: string
@@ -193,6 +209,7 @@ export interface WebStreams {
 
 export function createWebStreams(options: WebStreamsOptions): WebStreams {
   const ptys = new Map<string, PtyOwner>()
+  const chats = new Map<string, ChatOwner>()
   const lsps = new Map<string, LspOwner>()
   const stoppedLsps = new Map<string, Promise<void>>()
   const files = new Map<string, FileOwner>()
@@ -348,6 +365,113 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
         clearTimeout(owner.retry)
         owner.socket?.close()
         if (ptys.get(owner.runId) === owner) ptys.delete(owner.runId)
+      }
+    }
+  }
+
+  function attachChat(owner: ChatOwner): Promise<void> {
+    let created: LiveSocket | null = null
+    return connect(
+      options,
+      { kind: 'chat', folder_path: owner.folderPath, session_id: owner.sessionId },
+      currentGeneration,
+      ({ tag, body }) => {
+        if (owner.disposed || owner.terminal || owner.socket !== created || owner.generation !== currentGeneration)
+          return
+        if (tag !== 0) throw new Error('Invalid chat stream frame')
+        const frame = JSON.parse(decoder.decode(body)) as {
+          kind: string
+          event?: ChatEvent
+          error?: unknown
+        }
+        if (frame.kind === 'closed') {
+          owner.terminal = true
+          const error = normalizeWireError(frame.error)
+          owner.pendingStartup.resolve()
+          owner.sinks.onEvent({
+            type: 'closed',
+            message: error instanceof Error ? error.message : String(error.message ?? error.kind),
+            missing:
+              typeof frame.error === 'object' &&
+              frame.error !== null &&
+              'kind' in frame.error &&
+              frame.error.kind === 'not_found'
+          })
+          owner.socket?.close()
+          return
+        }
+        if (frame.kind !== 'event' || !frame.event) throw new Error('Invalid chat event')
+        if (frame.event.type === 'snapshot') {
+          owner.attempts = 0
+          owner.pendingStartup.resolve()
+        } else if (frame.event.type === 'closed') {
+          owner.terminal = true
+          owner.pendingStartup.resolve()
+        }
+        owner.sinks.onEvent(frame.event)
+        if (owner.terminal) owner.socket?.close()
+      },
+      () => {
+        if (owner.socket !== created) return
+        owner.socket = null
+        if (owner.disposed || disposed) owner.pendingStartup.resolve()
+        else if (!owner.terminal) {
+          owner.sinks.onEvent({ type: 'reconnecting' })
+          scheduleChat(owner)
+        }
+      },
+      (socket) => {
+        created = socket
+        owner.socket = socket
+        owner.generation = socket.generation
+      }
+    ).then((socket) => {
+      if (owner.disposed || owner.terminal || owner.socket !== socket || socket.generation !== currentGeneration)
+        socket.close()
+    })
+  }
+
+  function scheduleChat(owner: ChatOwner): void {
+    if (owner.retry || owner.disposed || owner.terminal || currentGeneration === undefined) return
+    const seconds = Math.min(2 ** owner.attempts++, 30)
+    owner.retry = setTimeout(() => {
+      owner.retry = undefined
+      if (!owner.disposed && !owner.terminal && currentGeneration !== undefined)
+        void attachChat(owner).catch(() => scheduleChat(owner))
+    }, seconds * 1000)
+  }
+
+  function openChat(request: ChatStreamRequest, sinks: ChatSinks): StreamHandle<void> {
+    const owner: ChatOwner = {
+      ...request.params,
+      disposed: false,
+      socket: null,
+      generation: undefined,
+      terminal: false,
+      retry: undefined,
+      attempts: 0,
+      sinks,
+      pendingStartup: Promise.withResolvers<void>()
+    }
+    const replaced = chats.get(owner.attachId)
+    if (replaced) {
+      replaced.disposed = true
+      replaced.pendingStartup.resolve()
+      clearTimeout(replaced.retry)
+      replaced.socket?.close()
+    }
+    chats.set(owner.attachId, owner)
+    if (currentGeneration !== undefined) void attachChat(owner).catch(() => scheduleChat(owner))
+    else sinks.onEvent({ type: 'reconnecting' })
+    return {
+      ready: owner.pendingStartup.promise,
+      dispose() {
+        if (owner.disposed) return
+        owner.disposed = true
+        owner.pendingStartup.resolve()
+        clearTimeout(owner.retry)
+        owner.socket?.close()
+        if (chats.get(owner.attachId) === owner) chats.delete(owner.attachId)
       }
     }
   }
@@ -687,13 +811,15 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
   function openStream(request: SessionStreamRequest, sinks: PtySinks): StreamHandle<SessionStartInfo>
   function openStream(request: TaskStreamRequest, sinks: PtySinks): StreamHandle<void>
   function openStream(request: ShellStreamRequest, sinks: PtySinks): StreamHandle<void>
+  function openStream(request: ChatStreamRequest, sinks: ChatSinks): StreamHandle<void>
   function openStream(request: LspStreamRequest, sinks: { onEvent: (event: LspEvent) => void }): StreamHandle<void>
   function openStream(
-    request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | LspStreamRequest,
-    sinks: PtySinks | { onEvent: (event: LspEvent) => void }
+    request: SessionStreamRequest | ShellStreamRequest | TaskStreamRequest | ChatStreamRequest | LspStreamRequest,
+    sinks: PtySinks | ChatSinks | { onEvent: (event: LspEvent) => void }
   ): StreamHandle<SessionStartInfo | void> {
     if (disposed) throw new Error(DISCONNECTED)
     if (request.method === 'lsp_start') return openLsp(request, sinks as { onEvent: (event: LspEvent) => void })
+    if (request.method === 'chat_attach') return openChat(request, sinks as ChatSinks)
     return openPty(request, sinks as PtySinks)
   }
 
@@ -717,6 +843,16 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
           owner.retry = undefined
         }
       }
+      for (const owner of chats.values()) {
+        if (owner.generation !== generation) continue
+        owner.socket?.close()
+        owner.socket = null
+        if (owner.retry !== undefined) {
+          clearTimeout(owner.retry)
+          owner.retry = undefined
+        }
+        if (!owner.disposed && !owner.terminal) owner.sinks.onEvent({ type: 'reconnecting' })
+      }
       for (const owner of affected) owner.socket?.close()
       for (const owner of files.values()) rejectFile(owner, disconnected())
     },
@@ -724,6 +860,7 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
       if (disposed) return
       currentGeneration = generation
       for (const owner of ptys.values()) if (!owner.socket && !owner.disposed && !owner.terminal) schedulePty(owner)
+      for (const owner of chats.values()) if (!owner.socket && !owner.disposed && !owner.terminal) scheduleChat(owner)
     },
     dispose() {
       if (disposed) return
@@ -731,6 +868,12 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
       currentGeneration = undefined
       for (const owner of ptys.values()) {
         owner.pendingStartup?.resolve()
+        owner.disposed = true
+        clearTimeout(owner.retry)
+        owner.socket?.close()
+      }
+      for (const owner of chats.values()) {
+        owner.pendingStartup.resolve()
         owner.disposed = true
         clearTimeout(owner.retry)
         owner.socket?.close()
@@ -745,6 +888,7 @@ export function createWebStreams(options: WebStreamsOptions): WebStreams {
         rejectFile(owner, cancelled())
       }
       ptys.clear()
+      chats.clear()
       lsps.clear()
       files.clear()
       queue.length = 0

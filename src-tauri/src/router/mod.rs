@@ -1,3 +1,4 @@
+mod chats;
 mod file_streams;
 mod leases;
 mod ops;
@@ -9,6 +10,7 @@ mod target;
 mod worktrees;
 
 use crate::host_events::DesktopEvent;
+use chats::ChatAttachments;
 use file_streams::FileStreams;
 use leases::Leases;
 use pending_stops::{PendingStop, PendingStops};
@@ -28,7 +30,10 @@ use sworm_core::{
     events::{EventSink, HostEvent},
     Host,
 };
-use sworm_protocol::rpc::{Reply, Request};
+use sworm_protocol::{
+    chat::ChatEvent,
+    rpc::{Reply, Request},
+};
 use sworm_remote::{client::client_endpoint, Identity, RemoteError};
 use tokio::sync::{Mutex as AsyncMutex, OnceCell};
 pub(crate) struct RouterInner {
@@ -46,6 +51,7 @@ pub(crate) struct RouterInner {
     file_streams: FileStreams,
     pub(crate) remote_runs: RemoteRunService,
     pub(crate) remote_lsp: remote_lsp::RemoteLspService,
+    pub(crate) chats: ChatAttachments,
 }
 
 #[derive(Clone)]
@@ -84,6 +90,7 @@ impl WorkspaceRouter {
                 transitions: Mutex::new(HashMap::new()),
                 remote_runs: RemoteRunService::new(),
                 remote_lsp: remote_lsp::RemoteLspService::new(),
+                chats: ChatAttachments::new(),
                 pending_stops,
                 remote_management: AsyncMutex::new(()),
                 file_streams: FileStreams::new(),
@@ -114,6 +121,61 @@ impl WorkspaceRouter {
         }
         self.local(move |host| host.lsp_send(session_id, message_json))
             .await
+    }
+
+    pub async fn chat_attach(
+        &self,
+        attach_id: String,
+        folder_path: String,
+        session_id: String,
+        events: EventSink<ChatEvent>,
+        owner: String,
+    ) -> Result<(), ApiError> {
+        let target = Target::parse(&folder_path)?;
+        match target {
+            Target::Local => {
+                let host_attach_id = attach_id.clone();
+                let host_session_id = session_id.clone();
+                let host_events = Arc::clone(&events);
+                let result = self
+                    .local(move |host| {
+                        host.chat_attach(folder_path, host_session_id, host_attach_id, host_events)
+                    })
+                    .await;
+                match result {
+                    Ok(()) => self.inner.chats.attach_local(attach_id, owner, session_id),
+                    Err(error) => {
+                        let missing = matches!(&error, ApiError::NotFound(_));
+                        let _ = events(ChatEvent::Closed {
+                            message: error.to_string(),
+                            missing,
+                        });
+                    }
+                }
+            }
+            Target::Remote { server, path } => {
+                self.inner.chats.attach_remote(
+                    Arc::downgrade(&self.inner),
+                    attach_id,
+                    owner,
+                    server.to_owned(),
+                    path.to_owned(),
+                    session_id,
+                    events,
+                );
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn chat_detach(&self, attach_id: String) {
+        let inner = Arc::clone(&self.inner);
+        let _ = self
+            .local(move |host| {
+                inner.chats.detach(&attach_id, host);
+                Ok(())
+            })
+            .await;
     }
 
     pub fn server_for_run(&self, run_id: &str) -> Option<String> {
@@ -233,6 +295,7 @@ impl WorkspaceRouter {
     pub fn release_window(&self, owner: &str) {
         self.inner.file_streams.release_owner(owner);
         self.inner.remote_lsp.release_owner(owner);
+        self.inner.chats.release_owner(owner, &self.inner.host);
         let leases: Vec<_> = self
             .inner
             .leases

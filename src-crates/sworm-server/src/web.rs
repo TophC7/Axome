@@ -1,5 +1,5 @@
 use crate::{
-    dispatch, events, file_stream, lsp_stream, pty_stream,
+    chat_stream, dispatch, events, file_stream, lsp_stream, pty_stream,
     server::cleanup_session,
     stream::{StreamReader, StreamWriter},
     workbenches::{self, Attach, ControlLease, Terminal},
@@ -29,8 +29,8 @@ use std::{
 };
 use sworm_core::Host;
 use sworm_protocol::rpc::{
-    FileReadDown, Open, PtyDown, Request, Response as RpcResponse, WireError, MAX_FRAME_BYTES,
-    MAX_REQUEST_FRAME_BYTES, MAX_STREAMS_PER_CONNECTION,
+    ChatDown, FileReadDown, Open, PtyDown, Request, Response as RpcResponse, WireError,
+    MAX_FRAME_BYTES, MAX_REQUEST_FRAME_BYTES, MAX_STREAMS_PER_CONNECTION,
 };
 use tokio::{
     net::TcpListener,
@@ -741,6 +741,30 @@ async fn stream_socket(mut socket: WebSocket, state: WebState, control: Arc<Cont
             )
             .await;
         }
+        Open::Chat {
+            folder_path,
+            session_id,
+        } => {
+            let folder = match dispatch::claim_stream_folder(
+                &state.host,
+                &state.context,
+                &control.session,
+                &folder_path,
+                "folder_path",
+            )
+            .await
+            {
+                Ok(folder) => folder,
+                Err(error) => {
+                    let _ =
+                        timeout(IO_TIMEOUT, writer.write_json(&ChatDown::Closed { error })).await;
+                    let _ = timeout(IO_TIMEOUT, writer.finish()).await;
+                    return;
+                }
+            };
+            drop(folder);
+            chat_stream::run(state.host, folder_path, session_id, writer, reader, stop).await;
+        }
         Open::Lsp { session_id } => {
             let owner = control.session.lock().await.subscriber_id.clone();
             lsp_stream::run(
@@ -759,11 +783,12 @@ async fn stream_socket(mut socket: WebSocket, state: WebState, control: Arc<Cont
             file_path,
             version,
         } => {
-            let folder = match dispatch::claim_file_read(
+            let folder = match dispatch::claim_stream_folder(
                 &state.host,
                 &state.context,
                 &control.session,
                 &project_path,
+                "project_path",
             )
             .await
             {

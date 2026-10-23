@@ -1,5 +1,5 @@
 use crate::{
-    config, dispatch, events, lsp_stream, pty_stream,
+    chat_stream, config, dispatch, events, lsp_stream, pty_stream,
     stream::{StreamReader, StreamWriter},
     web,
 };
@@ -458,7 +458,11 @@ async fn process_stream(
             return;
         }
     };
-    if !matches!(open, Open::Rpc(_) | Open::FileRead { .. }) && !session.lock().await.authorized {
+    if !matches!(
+        open,
+        Open::Rpc(_) | Open::FileRead { .. } | Open::Chat { .. }
+    ) && !session.lock().await.authorized
+    {
         let response: Response = Err(dispatch::unauthorized(
             "client is not paired with this server",
         ));
@@ -474,20 +478,27 @@ async fn process_stream(
             file_path,
             version,
         } => {
-            let folder =
-                match dispatch::claim_file_read(&host, &context, &session, &project_path).await {
-                    Ok(folder) => folder,
-                    Err(error) => {
-                        let unauthorized = matches!(error, WireError::Unauthorized { .. });
-                        let frame = sworm_protocol::rpc::FileReadDown::Error { error };
-                        let _ = timeout(STREAM_WRITE_TIMEOUT, write_frame(&mut send, &frame)).await;
-                        let _ = send.finish();
-                        if unauthorized {
-                            close_unauthorized(&connection, &mut send).await;
-                        }
-                        return;
+            let folder = match dispatch::claim_stream_folder(
+                &host,
+                &context,
+                &session,
+                &project_path,
+                "project_path",
+            )
+            .await
+            {
+                Ok(folder) => folder,
+                Err(error) => {
+                    let unauthorized = matches!(error, WireError::Unauthorized { .. });
+                    let frame = sworm_protocol::rpc::FileReadDown::Error { error };
+                    let _ = timeout(STREAM_WRITE_TIMEOUT, write_frame(&mut send, &frame)).await;
+                    let _ = send.finish();
+                    if unauthorized {
+                        close_unauthorized(&connection, &mut send).await;
                     }
-                };
+                    return;
+                }
+            };
             crate::file_stream::run(
                 host,
                 folder,
@@ -557,6 +568,43 @@ async fn process_stream(
                 context,
                 run_id,
                 cursor,
+                StreamWriter::quic(send, connection),
+                StreamReader::quic(recv),
+                shutdown,
+            )
+            .await;
+            return;
+        }
+        Open::Chat {
+            folder_path,
+            session_id,
+        } => {
+            let folder = match dispatch::claim_stream_folder(
+                &host,
+                &context,
+                &session,
+                &folder_path,
+                "folder_path",
+            )
+            .await
+            {
+                Ok(folder) => folder,
+                Err(error) => {
+                    let unauthorized = matches!(error, WireError::Unauthorized { .. });
+                    let frame = sworm_protocol::rpc::ChatDown::Closed { error };
+                    let _ = timeout(STREAM_WRITE_TIMEOUT, write_frame(&mut send, &frame)).await;
+                    let _ = send.finish();
+                    if unauthorized {
+                        close_unauthorized(&connection, &mut send).await;
+                    }
+                    return;
+                }
+            };
+            drop(folder);
+            chat_stream::run(
+                host,
+                folder_path,
+                session_id,
                 StreamWriter::quic(send, connection),
                 StreamReader::quic(recv),
                 shutdown,

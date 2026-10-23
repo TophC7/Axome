@@ -1,20 +1,24 @@
 <script lang="ts">
   import type { HTMLAttributes } from 'svelte/elements'
   import { cn } from '$lib/utils/cn'
+  import type { ToolStep } from '$lib/features/chat/turns'
   import { toolPreviewField } from './kinds'
 
   let {
-    input,
+    call,
     class: className,
     ...rest
   }: Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
-    input: unknown
+    call: ToolStep
   } = $props()
 
+  const input = $derived(call.arguments)
   const fields = $derived.by(() => {
     if (input === null || typeof input !== 'object' || Array.isArray(input)) return null
-    const previewKey = toolPreviewField(input)?.key
-    return Object.entries(input as Record<string, unknown>).filter(([key]) => key !== previewKey && key !== 'i')
+    const previewKey = toolPreviewField(call.name, input)?.key
+    return Object.entries(input as Record<string, unknown>).filter(
+      ([key]) => key !== previewKey && !(call.name === 'write' && key === 'content')
+    )
   })
 </script>
 

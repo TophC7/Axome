@@ -1,9 +1,20 @@
 // Typed host API. Desktop and future web transports provide the same calls.
 
-import { getHostTransport, type PtySinks, type StreamHandle, type Unsubscribe } from './transport'
+import {
+  getHostTransport,
+  type ChatSinks,
+  type ChatStreamRequest,
+  type PtySinks,
+  type StreamHandle,
+  type Unsubscribe
+} from './transport'
 import type {
   AppRuntimeInfo,
   BranchSummary,
+  ChatAnswer,
+  ChatForkInfo,
+  ChatModelCatalog,
+  ChatThinking,
   ExtensionCatalog,
   ExtensionGrammar,
   FormatterStatus,
@@ -204,6 +215,54 @@ export const backend = {
     },
     ompResolveUri(uri: string, cwd?: string | null): Promise<{ path: string; is_dir: boolean }> {
       return invoke<{ path: string; is_dir: boolean }>('omp_resolve_uri', { uri, cwd: cwd ?? null })
+    }
+  },
+
+  chat: {
+    models(folderPath: string): Promise<ChatModelCatalog> {
+      return invoke<ChatModelCatalog>('chat_models', { folderPath })
+    },
+    create(folderPath: string, model: string, thinking: ChatThinking): Promise<string> {
+      return invoke<string>('chat_create', { folderPath, model, thinking })
+    },
+    prompt(folderPath: string, sessionId: string, requestId: string, text: string): Promise<void> {
+      return invoke<void>('chat_prompt', { folderPath, sessionId, requestId, text })
+    },
+    steer(folderPath: string, sessionId: string, text: string): Promise<void> {
+      return invoke<void>('chat_steer', { folderPath, sessionId, text })
+    },
+    followUp(folderPath: string, sessionId: string, text: string): Promise<void> {
+      return invoke<void>('chat_follow_up', { folderPath, sessionId, text })
+    },
+    abort(folderPath: string, sessionId: string): Promise<void> {
+      return invoke<void>('chat_abort', { folderPath, sessionId })
+    },
+    answer(folderPath: string, sessionId: string, callId: string, answers: ChatAnswer[]): Promise<void> {
+      return invoke<void>('chat_answer', { folderPath, sessionId, callId, answers })
+    },
+    dismiss(folderPath: string, sessionId: string, callId: string): Promise<void> {
+      return invoke<void>('chat_dismiss', { folderPath, sessionId, callId })
+    },
+    setModel(folderPath: string, sessionId: string, model: string): Promise<void> {
+      return invoke<void>('chat_set_model', { folderPath, sessionId, model })
+    },
+    setThinking(folderPath: string, sessionId: string, thinking: ChatThinking): Promise<void> {
+      return invoke<void>('chat_set_thinking', { folderPath, sessionId, thinking })
+    },
+    compact(folderPath: string, sessionId: string): Promise<void> {
+      return invoke<void>('chat_compact', { folderPath, sessionId })
+    },
+    navigate(folderPath: string, sessionId: string, entryId: string | null): Promise<void> {
+      return invoke<void>('chat_navigate', { folderPath, sessionId, entryId })
+    },
+    selectBranch(folderPath: string, sessionId: string, entryId: string): Promise<void> {
+      return invoke<void>('chat_select_branch', { folderPath, sessionId, entryId })
+    },
+    fork(folderPath: string, sessionId: string, entryId: string): Promise<ChatForkInfo> {
+      return invoke<ChatForkInfo>('chat_fork', { folderPath, sessionId, entryId })
+    },
+    attach(params: ChatStreamRequest['params'], sinks: ChatSinks): StreamHandle<void> {
+      return getHostTransport().openStream({ method: 'chat_attach', params }, sinks)
     }
   },
 

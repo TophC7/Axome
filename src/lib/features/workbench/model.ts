@@ -30,6 +30,16 @@ export interface SessionTab extends TabBase {
   status: SessionStatus
 }
 
+export type ChatStatus = 'dormant' | 'idle' | 'running' | 'waiting' | 'failed'
+
+export interface ChatTab extends TabBase {
+  kind: 'chat'
+  title: string
+  /** axo session id; null until the first message creates it. */
+  sessionId: string | null
+  status: ChatStatus
+}
+
 export interface ShellTab extends TabBase {
   kind: 'shell'
   title: string
@@ -158,7 +168,7 @@ export interface EpicTab extends TabBase {
 }
 
 export type TerminalTab = SessionTab | ShellTab | TaskTab
-export type Tab = TerminalTab | DiffTab | TextTab | NewTab | IssueTab | EpicTab
+export type Tab = TerminalTab | ChatTab | DiffTab | TextTab | NewTab | IssueTab | EpicTab
 
 export function isTerminalTab(tab: Tab): tab is TerminalTab {
   return tab.kind === 'session' || tab.kind === 'shell' || tab.kind === 'task'
@@ -171,7 +181,7 @@ export function isTab(value: unknown): value is Tab {
     typeof tab.id === 'string' &&
     typeof tab.folderPath === 'string' &&
     typeof tab.kind === 'string' &&
-    ['session', 'shell', 'diff', 'text', 'new-tab', 'task', 'issue', 'epic'].includes(tab.kind)
+    ['session', 'chat', 'shell', 'diff', 'text', 'new-tab', 'task', 'issue', 'epic'].includes(tab.kind)
   )
 }
 
@@ -194,6 +204,12 @@ export type PersistedTab = { folderPath: string } & (
       /** Absent in legacy blobs; hydrate as null. */
       runId?: string | null
       /** Harness-owned session id; null until known. */
+      sessionId: string | null
+      locked: boolean
+    }
+  | {
+      kind: 'chat'
+      title: string
       sessionId: string | null
       locked: boolean
     }
@@ -266,7 +282,7 @@ export interface PersistedWorkbenchV4 {
 }
 
 export function canLockTab(tab: Tab): boolean {
-  return isTerminalTab(tab) || tab.kind === 'text' || tab.kind === 'issue' || tab.kind === 'epic'
+  return isTerminalTab(tab) || tab.kind === 'chat' || tab.kind === 'text' || tab.kind === 'issue' || tab.kind === 'epic'
 }
 
 /** True while a terminal tab owns a live process (spawning or running). */

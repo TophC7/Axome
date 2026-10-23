@@ -1,6 +1,9 @@
 //! Home activity aggregated from cached session-index observations.
 
-use crate::services::{folders::folder_name, session_index::Observation};
+use crate::services::{
+    folders::folder_name,
+    session_index::{Observation, SourceId},
+};
 use chrono::{DateTime, Local, TimeZone};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -27,13 +30,16 @@ fn rank(observation: &Observation) -> (bool, Option<&str>) {
 pub(crate) fn aggregate(observations: &[Observation]) -> Vec<DiscoveredProject> {
     let mut sessions: HashMap<(&str, &str, &str), &Observation> = HashMap::new();
     for observation in observations {
+        let SourceId::Harness(harness_id) = &observation.key.source else {
+            continue;
+        };
         if observation.updated_at.is_none() {
             continue;
         }
         sessions
             .entry((
                 observation.folder_path.as_str(),
-                observation.key.harness_id.as_str(),
+                harness_id.as_str(),
                 observation.session_id.as_str(),
             ))
             .and_modify(|best| {
@@ -125,7 +131,11 @@ mod tests {
         updated_at: Option<&str>,
     ) -> Observation {
         Observation {
-            key: SourceKey::new(scope.map(Path::new), "omp", preset),
+            key: SourceKey::new(
+                scope.map(Path::new),
+                SourceId::Harness("omp".into()),
+                preset,
+            ),
             session_id: id.into(),
             folder_path: folder.into(),
             title: None,

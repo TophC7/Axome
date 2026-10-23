@@ -61,6 +61,7 @@ impl Host {
             NixService::select(db.conn(), &folder_path, &nix_file).map_err(ApiError::Database)?
         };
         self.emit(HostEvent::NixChanged(folder_path));
+        self.axo.reload_exec_env(Some(&folder));
         Ok(record)
     }
 
@@ -115,6 +116,7 @@ impl Host {
                     .map_err(ApiError::Database)?;
                 drop(db);
                 self.emit(HostEvent::NixChanged(folder_path));
+                self.axo.reload_exec_env(Some(&folder));
                 return Err(ApiError::Internal(eval_error.to_string()));
             }
         }
@@ -126,6 +128,7 @@ impl Host {
             })?;
         drop(db);
         self.emit(HostEvent::NixChanged(folder_path));
+        self.axo.reload_exec_env(Some(&folder));
         Ok(record)
     }
 
@@ -137,6 +140,7 @@ impl Host {
             NixService::remove(db.conn(), &folder_path).map_err(ApiError::Database)?;
         }
         self.emit(HostEvent::NixChanged(folder_path));
+        self.axo.reload_exec_env(Some(&folder));
         Ok(())
     }
 

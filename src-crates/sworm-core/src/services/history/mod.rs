@@ -164,7 +164,17 @@ impl HistorySource {
     }
 }
 
-fn normalize(
+pub(crate) fn normalize_title(raw: &str) -> Option<String> {
+    let title: String = raw
+        .split_whitespace()
+        .enumerate()
+        .flat_map(|(index, word)| (index != 0).then_some(' ').into_iter().chain(word.chars()))
+        .take(200)
+        .collect();
+    (!title.is_empty()).then_some(title)
+}
+
+pub(crate) fn normalize(
     rows: Vec<HistoryRow>,
     folder: Option<&Path>,
     since: Option<SystemTime>,
@@ -199,16 +209,7 @@ fn normalize(
         };
         row.id = id;
         row.cwd = trim(row.cwd);
-        row.title = trim(row.title).map(|title| {
-            title
-                .split_whitespace()
-                .enumerate()
-                .flat_map(|(index, word)| {
-                    (index != 0).then_some(' ').into_iter().chain(word.chars())
-                })
-                .take(200)
-                .collect()
-        });
+        row.title = row.title.as_deref().and_then(normalize_title);
         row.model = trim(row.model);
         row.git_branch = trim(row.git_branch);
         let created_at = timestamp(trim(row.created_at));

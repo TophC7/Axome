@@ -603,13 +603,13 @@ pub(crate) async fn authorize_run(
     .map_err(run_operation_join)?
 }
 
-/// The auth and folder claim a `FileRead` stream needs, without the stat a
-/// dispatched request would run: the stream's open validates the version.
-pub(crate) async fn claim_file_read(
+/// Authorize a stream and claim its folder without running a dispatched request.
+pub(crate) async fn claim_stream_folder(
     host: &Arc<Host>,
     context: &Arc<ServerContext>,
     session: &Mutex<Session>,
-    project_path: &str,
+    path: &str,
+    field: &str,
 ) -> Result<FolderOperation, WireError> {
     let scope = {
         let session = session.lock().await;
@@ -624,7 +624,7 @@ pub(crate) async fn claim_file_read(
         session,
         scope,
     }
-    .claim(project_path, "project_path")
+    .claim(path, field)
     .await
 }
 
@@ -2042,11 +2042,12 @@ mod tests {
                     24,
                     false,
                 ));
-                let mut file = Box::pin(claim_file_read(
+                let mut file = Box::pin(claim_stream_folder(
                     &fixture.host,
                     &fixture.context,
                     &session,
                     &fixture.linked,
+                    "project_path",
                 ));
                 assert!(pending(&mut claim).await);
                 assert!(pending(&mut start).await);

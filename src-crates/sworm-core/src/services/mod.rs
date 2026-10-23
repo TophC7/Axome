@@ -1,5 +1,6 @@
 pub mod activity_map;
 pub mod app_state_kv;
+pub(crate) mod axo;
 pub mod completed_runs;
 pub mod config_schemas;
 pub mod db;

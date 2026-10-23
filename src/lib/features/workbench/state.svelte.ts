@@ -13,7 +13,9 @@ import { filterExistingFolders, pushRecentFolder } from '$lib/features/folders/s
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
 import * as terminals from '$lib/features/terminal/registry'
+import * as chats from '$lib/features/chat/registry'
 import type {
+  ChatStatus,
   CompareDiffSource,
   CompareFileSide,
   CompareSide,
@@ -58,7 +60,7 @@ let activationSeq = $state(0)
 
 // LIFO stack of recently closed tabs for Ctrl+Shift+T. In-memory only: a
 // fresh launch has nothing to reopen beyond what restore hydrates. The cap
-// applies per kind group: sessions/shells and everything else.
+// applies per kind group: chats/sessions/shells and everything else.
 const MAX_CLOSED_TABS = 20
 let closedTabs = $state<PersistedTab[]>([])
 
@@ -239,12 +241,15 @@ function updateTab(tabId: TabId, update: (tab: Tab) => Tab): void {
 }
 
 function pushClosedTab(snapshot: PersistedTab): void {
+  if (snapshot.kind === 'chat' && snapshot.sessionId === null) return
   // Separate caps: editor and diff churn must not evict a conversation's
   // session id from the Sessions view.
   let sessions = 0
   let others = 0
   closedTabs = [snapshot, ...closedTabs].filter((tab) =>
-    tab.kind === 'session' || tab.kind === 'shell' ? ++sessions <= MAX_CLOSED_TABS : ++others <= MAX_CLOSED_TABS
+    tab.kind === 'chat' || tab.kind === 'session' || tab.kind === 'shell'
+      ? ++sessions <= MAX_CLOSED_TABS
+      : ++others <= MAX_CLOSED_TABS
   )
 }
 
@@ -305,6 +310,15 @@ export type ClosedSession = Extract<PersistedTab, { kind: 'session' }>
 /** Closed session snapshots for `folderPath`, newest first (this launch only). */
 export function getClosedSessions(folderPath: string): ClosedSession[] {
   return closedTabs.filter((tab): tab is ClosedSession => tab.kind === 'session' && tab.folderPath === folderPath)
+}
+
+export type ClosedChat = Extract<PersistedTab, { kind: 'chat' }> & { sessionId: string }
+
+/** Closed chats with sessions for `folderPath`, newest first (this launch only). */
+export function getClosedChats(folderPath: string): ClosedChat[] {
+  return closedTabs.filter(
+    (tab): tab is ClosedChat => tab.kind === 'chat' && tab.sessionId !== null && tab.folderPath === folderPath
+  )
 }
 
 export type ClosedShell = Extract<PersistedTab, { kind: 'shell' }>
@@ -531,6 +545,32 @@ export async function restoreWorkbench(): Promise<boolean> {
   }
 }
 
+// CHAT TABS //
+export function addChatTab(folderPath: string, init: { sessionId: string | null; title: string }): TabId {
+  return insertTab({
+    kind: 'chat',
+    id: generateTabId(),
+    folderPath,
+    title: init.title,
+    sessionId: init.sessionId,
+    status: 'dormant',
+    locked: false
+  })
+}
+
+export function setChatTabSessionId(tabId: TabId, sessionId: string | null): void {
+  updateTab(tabId, (t) => (t.kind === 'chat' && t.sessionId !== sessionId ? { ...t, sessionId } : t))
+}
+
+export function setChatTabTitle(tabId: TabId, title: string): void {
+  if (!title) return
+  updateTab(tabId, (t) => (t.kind === 'chat' && t.title !== title ? { ...t, title } : t))
+}
+
+export function setChatTabStatus(tabId: TabId, status: ChatStatus): void {
+  updateTab(tabId, (t) => (t.kind === 'chat' && t.status !== status ? { ...t, status } : t))
+}
+
 // SESSION TABS //
 export interface SessionTabInit {
   harnessId: string
@@ -710,8 +750,8 @@ function addContentTab(
 ): TabId {
   if (temporary) {
     const existingTemp = tabId
-      ? workbench.tabs.find((t) => t.id === tabId && t.kind === kind && !isTerminalTab(t) && t.temporary)
-      : workbench.tabs.find((t) => t.kind === kind && !isTerminalTab(t) && t.temporary)
+      ? workbench.tabs.find((t) => t.id === tabId && t.kind === kind && 'temporary' in t && t.temporary)
+      : workbench.tabs.find((t) => t.kind === kind && 'temporary' in t && t.temporary)
     if (existingTemp) {
       const newTab = makeTab(existingTemp.id)
       if (isTabInert(newTab)) throw new Error('This server workbench is not controlled by this window')
@@ -1039,7 +1079,9 @@ export function updateEpicTabTitle(folderPath: string, epicId: string, title: st
 
 // PROMOTION //
 export function promoteTab(tabId: TabId): void {
-  updateTab(tabId, (t) => (isTerminalTab(t) || t.kind === 'new-tab' || !t.temporary ? t : { ...t, temporary: false }))
+  updateTab(tabId, (t) =>
+    !('temporary' in t) || t.kind === 'new-tab' || !t.temporary ? t : { ...t, temporary: false }
+  )
 }
 
 export function promoteTabWhenReady(pendingTabId: TabId | Promise<TabId> | null | undefined): void {
@@ -1062,6 +1104,7 @@ export function closeTab(tabId: TabId): void {
   if (snapshot) pushClosedTab(snapshot)
 
   if (isTerminalTab(tab)) terminals.dispose(tab.id)
+  if (tab.kind === 'chat') chats.dispose(tab.id)
   releaseTextFileClaim(tab)
 
   const tabs = workbench.tabs.filter((t) => t.id !== tabId)
@@ -1100,6 +1143,8 @@ export async function reopenClosedTab(snapshot: PersistedTab): Promise<TabId | n
           title: snapshot.title,
           sessionId: snapshot.sessionId
         })
+      case 'chat':
+        return addChatTab(snapshot.folderPath, { sessionId: snapshot.sessionId, title: snapshot.title })
       case 'shell':
         return addShellTab(snapshot.folderPath, { preset: snapshot.preset, title: snapshot.title })
       case 'task':

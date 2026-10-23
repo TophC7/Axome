@@ -1,6 +1,6 @@
 <!--
   @component
-  SessionsSidebar — the folder's open sessions and shells, indexed history,
+  SessionsSidebar — the folder's open chats, sessions and shells, indexed history,
   and recently closed shortcuts not covered by either.
   The header's + starts a new one.
 -->
@@ -15,14 +15,16 @@
     ChevronDown,
     ChevronRight,
     HistoryIcon,
+    MessagesSquareIcon,
     Plus,
     RefreshCwIcon,
     TerminalIcon,
     X
   } from '$lib/icons/lucideExports'
-  import type { SessionStatus, SessionTab, ShellTab } from '$lib/features/workbench/model'
+  import type { ChatStatus, ChatTab, SessionStatus, SessionTab, ShellTab } from '$lib/features/workbench/model'
   import {
     getActiveTabId,
+    getClosedChats,
     getClosedSessions,
     getClosedShells,
     getTabs,
@@ -30,7 +32,13 @@
     setActiveTab
   } from '$lib/features/workbench/state.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
-  import { countLiveAgents, historyRows, startSession } from '$lib/features/sessions/service.svelte'
+  import {
+    countLiveAgents,
+    historyRows,
+    newChat,
+    openChatSession,
+    startSession
+  } from '$lib/features/sessions/service.svelte'
   import { getSessionIndex, refreshSessionIndex } from './state.svelte'
   import SessionHistory from './SessionHistory.svelte'
   import { sessionBrand, svgUrl } from '$lib/features/sessions/harnesses/catalog'
@@ -45,17 +53,21 @@
 
   let { folderPath }: { folderPath: string } = $props()
 
-  const SESSION_TONE: Record<SessionStatus, StatusTone> = {
+  const SESSION_TONE: Record<SessionStatus | ChatStatus, StatusTone> = {
     running: 'working',
     starting: 'waiting',
     failed: 'danger',
     exited: 'idle',
-    dormant: 'idle'
+    dormant: 'idle',
+    idle: 'idle',
+    waiting: 'waiting'
   }
 
+  let chats = $derived(getTabs().filter((t): t is ChatTab => t.kind === 'chat' && t.folderPath === folderPath))
   let sessions = $derived(getTabs().filter((t): t is SessionTab => t.kind === 'session' && t.folderPath === folderPath))
   let shells = $derived(getTabs().filter((t): t is ShellTab => t.kind === 'shell' && t.folderPath === folderPath))
   let openGroups = $derived([
+    { kind: 'chat' as const, label: 'Chats', tabs: chats },
     { kind: 'session' as const, label: 'Sessions', tabs: sessions },
     { kind: 'shell' as const, label: 'Shells', tabs: shells }
   ])
@@ -63,12 +75,24 @@
   let index = $derived(getSessionIndex(folderPath))
   let refreshing = $derived(index.loading || (index.snapshot?.sources.some((source) => source.refreshing) ?? false))
   let closed = $derived([
+    ...getClosedChats(folderPath).filter(
+      (snapshot) =>
+        !snapshot.sessionId ||
+        (!history.some((session) => session.source.kind === 'axo' && session.sessionId === snapshot.sessionId) &&
+          !chats.some((chat) => chat.sessionId === snapshot.sessionId))
+    ),
     ...getClosedSessions(folderPath).filter(
       (snapshot) =>
         !snapshot.sessionId ||
-        ![...history, ...sessions].some(
-          (session) => session.harnessId === snapshot.harnessId && session.sessionId === snapshot.sessionId
-        )
+        (!history.some(
+          (session) =>
+            session.source.kind === 'harness' &&
+            session.source.harnessId === snapshot.harnessId &&
+            session.sessionId === snapshot.sessionId
+        ) &&
+          !sessions.some(
+            (session) => session.harnessId === snapshot.harnessId && session.sessionId === snapshot.sessionId
+          ))
     ),
     ...getClosedShells(folderPath)
   ])
@@ -87,7 +111,7 @@
   )
   let shellLaunchers = $derived(getShellLaunchOptions(folderPath))
 
-  let openCollapsed = $state({ session: false, shell: false })
+  let openCollapsed = $state({ chat: false, session: false, shell: false })
   let closedCollapsed = $state(false)
 </script>
 
@@ -101,6 +125,11 @@
         <Plus size={12} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
+        <DropdownMenu.Item onSelect={() => newChat(folderPath)}>
+          <MessagesSquareIcon size={14} />
+          <span>New Chat</span>
+        </DropdownMenu.Item>
+        <DropdownMenu.Separator />
         {#each launchers as launcher (launcher.id)}
           <DropdownMenu.Item onSelect={() => startSession(folderPath, launcher.harnessId, launcher.preset)}>
             <HarnessIcon icon={launcher.icon} size={14} />
@@ -125,8 +154,13 @@
         <span>{liveAgents} agents share this working tree</span>
       </Alert.Root>
     {/if}
-    {#if sessions.length === 0 && shells.length === 0 && closed.length === 0 && history.length === 0}
-      <SidebarRow variant="info" divider={false}>No sessions or shells in this folder yet</SidebarRow>
+    {#if chats.length === 0 && sessions.length === 0 && shells.length === 0 && closed.length === 0 && history.length === 0}
+      <SidebarRow variant="info" divider={false}>No chats, sessions or shells in this folder yet</SidebarRow>
+      <SidebarRow variant="action" divider={false} onclick={() => newChat(folderPath)}>
+        <MessagesSquareIcon size={12} />
+        <span class="min-w-0 flex-1 truncate">Start Chat</span>
+        <Plus size={12} class="shrink-0" />
+      </SidebarRow>
       {#each launchers as launcher (launcher.id)}
         <SidebarRow
           variant="action"
@@ -170,6 +204,8 @@
                 >
                   {#if session.kind === 'shell'}
                     <TerminalIcon size={12} />
+                  {:else if session.kind === 'chat'}
+                    <MessagesSquareIcon size={12} />
                   {:else}
                     {@const meta = sessionBrand(session.folderPath, session.harnessId)}
                     {#if meta.icon}<HarnessIcon icon={meta.icon} size={12} />{/if}
@@ -183,7 +219,11 @@
                   class="absolute inset-y-0 right-1 flex items-center opacity-0 group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100"
                 >
                   <IconButton
-                    tooltip={session.kind === 'shell' ? 'Close shell' : 'Close session'}
+                    tooltip={session.kind === 'chat'
+                      ? 'Close chat'
+                      : session.kind === 'shell'
+                        ? 'Close shell'
+                        : 'Close session'}
                     onclick={(e: MouseEvent) => {
                       e.stopPropagation()
                       void closeTabWithChecks(session.id)
@@ -212,25 +252,38 @@
               variant="leaf"
               on="surface"
               divider={false}
-              title={snapshot.kind === 'session' && snapshot.sessionId
-                ? 'Reopen and resume this conversation'
-                : 'Reopen (starts fresh)'}
-              onclick={() =>
+              title={snapshot.kind === 'chat' && snapshot.sessionId
+                ? 'Reopen and resume this chat'
+                : snapshot.kind === 'session' && snapshot.sessionId
+                  ? 'Reopen and resume this conversation'
+                  : 'Reopen (starts fresh)'}
+              onclick={() => {
+                if (snapshot.kind === 'chat' && snapshot.sessionId) {
+                  openChatSession(folderPath, snapshot.sessionId, snapshot.title)
+                  return
+                }
                 void reopenClosedTab(snapshot).catch((error) =>
                   notify.error(
-                    snapshot.kind === 'shell' ? 'Reopen shell failed' : 'Reopen session failed',
+                    snapshot.kind === 'chat'
+                      ? 'Reopen chat failed'
+                      : snapshot.kind === 'shell'
+                        ? 'Reopen shell failed'
+                        : 'Reopen session failed',
                     getErrorMessage(error)
                   )
-                )}
+                )
+              }}
             >
               {#if snapshot.kind === 'shell'}
                 <TerminalIcon size={12} class="opacity-60" />
+              {:else if snapshot.kind === 'chat'}
+                <MessagesSquareIcon size={12} class="opacity-60" />
               {:else}
                 {@const meta = sessionBrand(snapshot.folderPath, snapshot.harnessId)}
                 {#if meta.icon}<HarnessIcon icon={meta.icon} size={12} class="opacity-60" />{/if}
               {/if}
               <span class="min-w-0 flex-1 truncate text-muted">{snapshot.title}</span>
-              {#if snapshot.kind === 'session' && snapshot.sessionId}
+              {#if (snapshot.kind === 'session' || snapshot.kind === 'chat') && snapshot.sessionId}
                 <HistoryIcon size={11} class="shrink-0 text-subtle" />
               {/if}
             </SidebarRow>

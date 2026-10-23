@@ -11,16 +11,43 @@ pub struct SessionStartInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum SessionSource {
+    Harness {
+        harness_id: String,
+        /// Unnamed (`None`) first, then by name. Never empty.
+        presets: Vec<Option<String>>,
+    },
+    Axo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum SessionSourceKey {
+    Harness {
+        harness_id: String,
+        preset: Option<String>,
+    },
+    Axo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedSession {
-    pub harness_id: String,
+    pub source: SessionSource,
     pub session_id: String,
     pub title: Option<String>,
     pub updated_at: Option<String>,
     pub model: Option<String>,
     pub git_branch: Option<String>,
-    /// Presets whose source listed it: unnamed (`None`) first, then by name. Never empty.
-    pub presets: Vec<Option<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -35,8 +62,7 @@ pub enum SessionIndexStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionIndexSource {
-    pub harness_id: String,
-    pub preset: Option<String>,
+    pub source: SessionSourceKey,
     pub status: SessionIndexStatus,
     pub refreshing: bool,
     pub refreshed_at: Option<String>,

@@ -695,6 +695,34 @@ macro_rules! sworm_rpc_ops {
                 folder_path: String,
             ) -> $crate::session::SessionIndexSnapshot;
             #[route(folder_path)]
+            ChatModels => chat_models(folder_path: String) -> $crate::chat::ChatModelCatalog;
+            #[route(folder_path)]
+            ChatCreate => chat_create(folder_path: String, model: String, thinking: $crate::chat::ChatThinking) -> String;
+            #[route(folder_path)]
+            ChatPrompt => chat_prompt(folder_path: String, session_id: String, request_id: String, text: String) -> ();
+            #[route(folder_path)]
+            ChatSteer => chat_steer(folder_path: String, session_id: String, text: String) -> ();
+            #[route(folder_path)]
+            ChatFollowUp => chat_follow_up(folder_path: String, session_id: String, text: String) -> ();
+            #[route(folder_path)]
+            ChatAbort => chat_abort(folder_path: String, session_id: String) -> ();
+            #[route(folder_path)]
+            ChatAnswer => chat_answer(folder_path: String, session_id: String, call_id: String, answers: Vec<$crate::chat::ChatAnswer>) -> ();
+            #[route(folder_path)]
+            ChatDismiss => chat_dismiss(folder_path: String, session_id: String, call_id: String) -> ();
+            #[route(folder_path)]
+            ChatSetModel => chat_set_model(folder_path: String, session_id: String, model: String) -> ();
+            #[route(folder_path)]
+            ChatSetThinking => chat_set_thinking(folder_path: String, session_id: String, thinking: $crate::chat::ChatThinking) -> ();
+            #[route(folder_path)]
+            ChatCompact => chat_compact(folder_path: String, session_id: String) -> ();
+            #[route(folder_path)]
+            ChatNavigate => chat_navigate(folder_path: String, session_id: String, entry_id: Option<String>) -> ();
+            #[route(folder_path)]
+            ChatSelectBranch => chat_select_branch(folder_path: String, session_id: String, entry_id: String) -> ();
+            #[route(folder_path)]
+            ChatFork => chat_fork(folder_path: String, session_id: String, entry_id: String) -> $crate::chat::ChatForkInfo;
+            #[route(folder_path)]
             ShellStart => shell_start(
                 run_id: String,
                 folder_path: String,
@@ -813,6 +841,10 @@ pub enum Open {
     Lsp {
         session_id: String,
     },
+    Chat {
+        folder_path: String,
+        session_id: String,
+    },
     FileRead {
         project_path: String,
         file_path: String,
@@ -886,6 +918,14 @@ pub enum LspDown {
     Event {
         event: crate::lsp::LspEvent,
     },
+}
+
+/// Daemon-to-client JSON frames on a chat stream. The first event is always `Snapshot`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ChatDown {
+    Event { event: crate::chat::ChatEvent },
+    Closed { error: WireError },
 }
 
 /// Daemon-to-desktop JSON control frames on a PTY stream.

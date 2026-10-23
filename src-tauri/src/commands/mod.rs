@@ -1,4 +1,5 @@
 pub mod app;
+pub mod chat;
 pub mod dnd;
 pub mod files;
 pub mod folders;
@@ -101,6 +102,23 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         activity_map_refresh,
         session_index_get,
         session_index_refresh,
+        // Chat commands
+        chat::chat_attach,
+        chat::chat_detach,
+        chat_models,
+        chat_create,
+        chat_prompt,
+        chat_steer,
+        chat_follow_up,
+        chat_abort,
+        chat_answer,
+        chat_dismiss,
+        chat_set_model,
+        chat_set_thinking,
+        chat_compact,
+        chat_navigate,
+        chat_select_branch,
+        chat_fork,
         // App commands
         app::clipboard_copy_files,
         app::clipboard_read_files,

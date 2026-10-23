@@ -16,7 +16,7 @@
   import { svgUrl, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { getLaunchOptions, getHarnessesLoading } from '$lib/features/sessions/harnesses/state.svelte'
-  import { startSession } from '$lib/features/sessions/service.svelte'
+  import { newChat, startSession } from '$lib/features/sessions/service.svelte'
   import { startShell } from '$lib/features/shells/service.svelte'
   import { getShellLaunchOptions } from '$lib/features/shells/state.svelte'
   import { openTaskTab } from '$lib/features/tasks/service.svelte'
@@ -32,6 +32,7 @@
     ChevronRight,
     FilePlusCornerIcon,
     GitBranchIcon,
+    MessagesSquareIcon,
     MonitorIcon,
     Play,
     ServerIcon,
@@ -55,7 +56,7 @@
   let options = $derived(getLaunchOptions(folderPath))
   let shellOptions = $derived(getShellLaunchOptions(folderPath))
   // Stagger slot after the direct row; New File always reserves one so tasks never jump.
-  let tasksDelay = $derived(0.1 + (options.length + shellOptions.length + 2) * 0.08)
+  let tasksDelay = $derived(0.1 + (options.length + shellOptions.length + 3) * 0.08)
 
   interface CardMeta {
     label: string
@@ -67,6 +68,13 @@
     wordmarkFont?: string
   }
 
+  const chat: CardMeta = {
+    label: 'Chat',
+    icon: MessagesSquareIcon,
+    wordmarkFont: 'var(--font-sans)',
+    gradientFrom: 'var(--color-accent)',
+    gradientTo: 'var(--color-warm)'
+  }
   const shell: CardMeta = {
     label: 'Terminal',
     icon: TerminalIcon,
@@ -194,8 +202,9 @@
     </header>
   </BlurFade>
 
-  <!-- Agent CLIs -->
+  <!-- Agents -->
   <div class="grid grid-cols-2 gap-2.5">
+    {@render card(chat, 0.1, () => newChat(folderPath), 'axo')}
     {#each options as { harness, preset, status }, i (`${harness.id}:${preset ?? ''}`)}
       {@const meta = {
         label: harness.label,
@@ -208,21 +217,21 @@
       }}
       {@render card(
         meta,
-        0.1 + i * 0.08,
+        0.1 + (i + 1) * 0.08,
         status?.status === 'connected' ? () => startSession(folderPath, harness.id, preset) : null,
         preset ?? status?.version ?? null
       )}
     {/each}
   </div>
 
-  {@render divider('or', 0.1 + options.length * 0.08)}
+  {@render divider('or', 0.1 + (options.length + 1) * 0.08)}
 
   <!-- Direct options -->
   <div class="grid grid-cols-2 gap-2.5">
     {#each shellOptions as option, i (option.preset)}
       {@render card(
         { ...shell, label: option.label },
-        0.1 + (options.length + 1 + i) * 0.08,
+        0.1 + (options.length + 2 + i) * 0.08,
         () => startShell(folderPath, option.preset),
         basename(option.shell)
       )}
@@ -230,7 +239,7 @@
     {#if platform.native}
       {@render card(
         newFile,
-        0.1 + (options.length + 1 + shellOptions.length) * 0.08,
+        0.1 + (options.length + 2 + shellOptions.length) * 0.08,
         () => createUntitledTextSurface(folderPath),
         null
       )}

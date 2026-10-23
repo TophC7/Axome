@@ -2,7 +2,7 @@
   import type { HTMLAttributes } from 'svelte/elements'
   import { Button } from '$lib/components/ui/button'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import type { ChatEntry } from '$lib/types/backend'
+  import type { Step } from '$lib/features/chat/turns'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import { basename, splitRemotePath, toProjectRelativePath } from '$lib/utils/paths'
   import { cn } from '$lib/utils/cn'
@@ -14,20 +14,21 @@
     class: className,
     ...rest
   }: HTMLAttributes<HTMLDivElement> & {
-    steps: ChatEntry[]
+    steps: Step[]
     folderPath: string
     onOpenLocation: (path: string, line?: number) => void
   } = $props()
   const paths = $derived.by(() => {
     const paths = new Set<string>()
-    for (const entry of steps) {
-      if (entry.kind !== 'tool') continue
-      for (const part of entry.content) {
-        if (part.type === 'diff') paths.add(part.path)
-      }
-      if (entry.tool_kind === 'edit') {
-        for (const location of entry.locations) paths.add(location.path)
-      }
+    for (const step of steps) {
+      if (step.kind !== 'tool' || (step.name !== 'write' && step.name !== 'edit')) continue
+      if (
+        step.arguments !== null &&
+        typeof step.arguments === 'object' &&
+        'path' in step.arguments &&
+        typeof step.arguments.path === 'string'
+      )
+        paths.add(step.arguments.path)
     }
     return [...paths]
   })

@@ -9,6 +9,7 @@ use crate::services::history::{binding::PendingRun, HistorySource};
 use crate::services::omp;
 use crate::services::pty::{CompletedRunSink, PtyRunState, PtySubscriber};
 use crate::services::runs::RunKind;
+use crate::services::session_index::SourceId;
 use parking_lot::Mutex;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -213,7 +214,11 @@ impl Host {
             }
             binder.cancel(rid);
             if let Some(index) = index {
-                index.schedule(&exit_folder, &exit_harness_id, exit_preset.as_deref());
+                index.schedule(
+                    &exit_folder,
+                    SourceId::Harness(exit_harness_id.clone()),
+                    exit_preset.as_deref(),
+                );
             }
         });
 
@@ -261,7 +266,11 @@ impl Host {
                     event_sink,
                     on_bound: Box::new(move |bound| {
                         *token.lock() = Some(bound);
-                        index.schedule(&bound_folder, &id, bound_preset.as_deref());
+                        index.schedule(
+                            &bound_folder,
+                            SourceId::Harness(id.clone()),
+                            bound_preset.as_deref(),
+                        );
                     }),
                 });
                 // Exit can beat registration; its callback then had no pending

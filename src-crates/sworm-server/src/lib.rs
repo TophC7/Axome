@@ -1,4 +1,5 @@
 pub mod auth;
+mod chat_stream;
 pub mod config;
 mod dispatch;
 mod events;

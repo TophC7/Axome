@@ -67,3 +67,21 @@ export function diffRows(
   }
   return { rows, added, removed }
 }
+
+export function patchRows(patch: string): { rows: DiffRow[]; added: number; removed: number } {
+  const rows: DiffRow[] = []
+  let added = 0
+  let removed = 0
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('--- ') || line.startsWith('+++ ')) continue
+    if (line.startsWith('@@')) rows.push({ kind: 'gap', count: 0 })
+    else if (line.startsWith('+')) {
+      rows.push({ kind: 'add', text: line.slice(1) })
+      added++
+    } else if (line.startsWith('-')) {
+      rows.push({ kind: 'del', text: line.slice(1) })
+      removed++
+    } else if (line.startsWith(' ')) rows.push({ kind: 'ctx', text: line.slice(1) })
+  }
+  return { rows, added, removed }
+}

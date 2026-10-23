@@ -793,8 +793,13 @@ fn session_index_over_quic() -> Result<()> {
             assert_eq!(snapshot.sessions.len(), 1);
             let session = &snapshot.sessions[0];
             assert_eq!(session.title.as_deref(), Some("Indexed session"));
-            assert_eq!(session.harness_id, "omp");
-            assert_eq!(session.presets, vec![None]);
+            assert_eq!(
+                session.source,
+                sworm_protocol::session::SessionSource::Harness {
+                    harness_id: "omp".into(),
+                    presets: vec![None],
+                }
+            );
             client.close();
             daemon.handle.shutdown().await;
             Ok(())

@@ -57,9 +57,19 @@
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
   import { dropFromOtherWindow, isTabTransferring } from '$lib/features/workbench/transferService.svelte'
   import { restartTerminalProcess, stopTerminalProcess } from '$lib/features/terminal/lifecycle'
+  import * as chats from '$lib/features/chat/registry'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
-  import { FileDiff, Layers, Lock, Plus, CircleDot, TerminalIcon, ServerIcon } from '$lib/icons/lucideExports'
+  import {
+    FileDiff,
+    Layers,
+    Lock,
+    Plus,
+    CircleDot,
+    TerminalIcon,
+    ServerIcon,
+    MessagesSquareIcon
+  } from '$lib/icons/lucideExports'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import LucideIcon from '$lib/icons/LucideIcon.svelte'
   import { onMount, tick } from 'svelte'
@@ -322,6 +332,8 @@
             <FileIcon filename={tab.filePath ?? presentation.fileName} size={14} />
           {:else if tab.kind === 'new-tab'}
             <Plus size={14} class="shrink-0 text-accent" />
+          {:else if tab.kind === 'chat'}
+            <MessagesSquareIcon size={14} class="shrink-0 text-accent" />
           {:else if tab.kind === 'shell'}
             <TerminalIcon size={14} class="shrink-0 text-muted" />
           {:else if tab.kind === 'task'}
@@ -352,6 +364,17 @@
           {terminalLive ? 'Stop' : 'Restart'}
         </ContextMenu.Item>
       {/if}
+      {#if tab.kind === 'chat' && chats.get(tab.id)?.busy}
+        <ContextMenu.Item
+          onSelect={() =>
+            void runNotifiedTask(async () => chats.get(tab.id)?.stop(), {
+              loading: { title: 'Stopping chat', description: tab.title },
+              error: { title: 'Stop chat failed' }
+            })}
+        >
+          Stop
+        </ContextMenu.Item>
+      {/if}
       {#if tab.kind === 'task'}
         {@const taskRunning = isProcessLive(tab.status)}
         <ContextMenu.Item onSelect={() => void (taskRunning ? handleTaskStop(tab) : handleTaskRestart(tab))}>
@@ -372,7 +395,7 @@
       {/if}
       {#if canLockTab(tab)}
         <!-- Lock only makes sense on content tabs where accidental input
-                 can cause damage (session terminals, Monaco text tabs). New tab pages
+                 can cause damage (session terminals, chats, Monaco text tabs). New tab pages
                  and diff tabs skip this affordance entirely. -->
         <ContextMenu.Item onSelect={() => toggleTabLocked(tab.id)}>
           {tab.locked ? 'Unlock Tab' : 'Lock Tab'}

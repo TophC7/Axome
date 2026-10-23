@@ -68,8 +68,7 @@
         onclick={() => select(index)}
       >
         <span class="font-mono text-fg">/{command.name}</span>
-        <span class="truncate text-subtle">{command.description}</span>
-        {#if command.hint}<span class="ms-auto font-mono text-xs text-subtle">{command.hint}</span>{/if}
+        <span class="truncate text-subtle">— {command.description}</span>
       </button>
     {/each}
   </div>

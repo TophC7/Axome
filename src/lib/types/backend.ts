@@ -133,22 +133,23 @@ export interface SessionStartInfo {
   sessionId: string | null
 }
 
+export type SessionSource = { kind: 'harness'; harnessId: string; presets: (string | null)[] } | { kind: 'axo' }
+
+export type SessionSourceKey = { kind: 'harness'; harnessId: string; preset: string | null } | { kind: 'axo' }
+
 export interface IndexedSession {
-  harnessId: string
+  source: SessionSource
   sessionId: string
   title: string | null
   updatedAt: string | null
   model: string | null
   gitBranch: string | null
-  /** Unnamed (null) first, then by name; never empty. */
-  presets: (string | null)[]
 }
 
 export type SessionIndexStatus = 'pending' | 'ready' | 'missing' | 'error'
 
 export interface SessionIndexSource {
-  harnessId: string
-  preset: string | null
+  source: SessionSourceKey
   status: SessionIndexStatus
   refreshing: boolean
   refreshedAt: string | null
@@ -160,98 +161,176 @@ export interface SessionIndexSnapshot {
   sources: SessionIndexSource[]
 }
 
-export type ChatTurn = 'starting' | 'idle' | 'running' | 'reconnecting'
+export type ChatThinking = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
-export type ChatEntry =
-  | { kind: 'user'; id: string; content: ChatContent[] }
-  | { kind: 'message'; id: string; text: string }
-  | { kind: 'thought'; id: string; text: string }
-  | {
-      kind: 'tool'
-      id: string
-      name: string | null
-      title: string
-      tool_kind: string
-      status: ChatToolStatus
-      input: unknown
-      content: ChatToolContent[]
-      locations: ChatLocation[]
-    }
-  | { kind: 'plan'; id: string; items: ChatPlanItem[] }
-  | {
-      kind: 'turn_end'
-      id: string
-      stop_reason: ChatStopReason
-      usage: ChatTokenUsage | null
-      error: string | null
-    }
+export interface ChatModel {
+  selector: string
+  provider: string
+  name: string
+  thinking: ChatThinking[]
+  contextWindow: number
+}
 
-export type ChatStopReason = 'end_turn' | 'cancelled' | 'refusal' | 'max_tokens' | 'max_turn_requests' | 'error'
+export interface ChatModelCatalog {
+  models: ChatModel[]
+  defaultModel: string | null
+  defaultThinking: ChatThinking
+}
 
-export interface ChatTokenUsage {
+export type ChatContent = { type: 'text'; text: string } | { type: 'image'; mimeType: string; data: string }
+
+export type ChatBlock =
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string; redacted: boolean }
+  | { type: 'toolCall'; id: string; name: string; arguments: unknown }
+
+export interface ChatUsage {
   input: number
   output: number
-  cache_read: number | null
-  cache_write: number | null
+  cacheRead: number
+  cacheWrite: number
+  totalTokens: number
+  cost: number
 }
 
-export type ChatToolStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
+export type ChatStopReason = 'stop' | 'length' | 'toolUse' | 'error' | 'aborted'
+export type ChatRunOutcome = 'done' | 'aborted' | 'failed' | 'interrupted'
 
-export type ChatToolContent =
-  { type: 'text'; text: string } | { type: 'diff'; path: string; old_text: string | null; new_text: string }
-
-export interface ChatLocation {
-  path: string
-  line: number | null
-}
-
-export interface ChatPlanItem {
-  content: string
-  priority: string
-  status: string
-}
-
-export type ChatContent = { type: 'text'; text: string } | { type: 'image'; mime_type: string; data: string }
-
-export interface ChatConfigOption {
+export interface ChatEntry {
   id: string
-  name: string
-  description: string | null
-  category: string | null
-  kind: ChatConfigKind
+  timestamp: string
+  body: ChatEntryBody
 }
 
-export type ChatConfigKind =
-  { type: 'select'; current_value: string; choices: ChatConfigChoice[] } | { type: 'boolean'; current_value: boolean }
+export type ChatEntryBody =
+  | { kind: 'user'; text: string; anchor: string | null; siblings: string[] }
+  | {
+      kind: 'assistant'
+      blocks: ChatBlock[]
+      model: string
+      usage: ChatUsage
+      stopReason: ChatStopReason
+      error: string | null
+      durationMs: number | null
+    }
+  | {
+      kind: 'toolResult'
+      callId: string
+      toolName: string
+      content: ChatContent[]
+      details: unknown | null
+      isError: boolean
+      durationMs: number | null
+    }
+  | { kind: 'notice'; text: string }
+  | { kind: 'modelChange'; model: string }
+  | { kind: 'thinkingChange'; thinking: ChatThinking }
+  | { kind: 'compaction'; summary: string; tokensBefore: number }
+  | { kind: 'branchSummary'; summary: string }
+  | { kind: 'runEnd'; outcome: ChatRunOutcome; reason: string | null }
 
-export interface ChatConfigChoice {
-  value: string
+export type ChatMaintenance = 'compact' | 'shake' | 'branchSummary'
+
+export interface ChatToolRun {
+  callId: string
   name: string
+  arguments: unknown
+  output: ChatContent[]
+}
+
+export type ChatQueueKind = 'steer' | 'followUp'
+
+export interface ChatQueued {
+  kind: ChatQueueKind
+  text: string
+}
+
+export interface ChatQuestionOption {
+  label: string
   description: string | null
-  group: string | null
+  preview: string | null
+}
+
+export interface ChatQuestion {
+  id: string
+  question: string
+  header: string | null
+  options: ChatQuestionOption[]
+  multi: boolean
+  recommended: number | null
+}
+
+export interface ChatQuestions {
+  callId: string
+  questions: ChatQuestion[]
+}
+
+export interface ChatAnswer {
+  id: string
+  selected: string[]
+  custom: string | null
+}
+
+export interface ChatRetry {
+  attempt: number
+  delayMs: number
+}
+
+export interface ChatStats {
+  contextTokens: number
+  contextWindow: number
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  cost: number
+}
+
+export interface ChatLive {
+  title: string | null
+  running: boolean
+  maintenance: ChatMaintenance | null
+  model: string | null
+  thinking: ChatThinking
+  tools: ChatToolRun[]
+  queue: ChatQueued[]
+  questions: ChatQuestions[]
+  retry: ChatRetry | null
+  stats: ChatStats
 }
 
 export interface ChatCommand {
   name: string
   description: string
-  hint: string | null
 }
 
-export interface ChatUsage {
-  used: number
-  size: number
-  cost: ChatCost | null
+export interface ChatState {
+  sessionId: string
+  entries: ChatEntry[]
+  streaming: ChatBlock[] | null
+  live: ChatLive
+  commands: ChatCommand[]
 }
 
-export interface ChatCost {
-  amount: number
-  currency: string
-}
+export type ChatDelta =
+  | { type: 'start' }
+  | { type: 'text'; index: number; text: string }
+  | { type: 'thinking'; index: number; text: string }
+  | { type: 'toolCall'; index: number; id: string; name: string; arguments: unknown | null }
+  | { type: 'toolOutput'; callId: string; content: ChatContent[] }
 
-export interface ChatPermissionOption {
-  option_id: string
-  name: string
-  kind: string
+export type ChatEvent =
+  | { type: 'snapshot'; state: ChatState }
+  | { type: 'entry'; entry: ChatEntry }
+  | { type: 'live'; live: ChatLive }
+  | { type: 'delta'; delta: ChatDelta }
+  | { type: 'notice'; message: string }
+  | { type: 'closed'; message: string; missing: boolean }
+  | { type: 'reconnecting' }
+
+export interface ChatForkInfo {
+  sessionId: string
+  editableText: string | null
 }
 
 /** Everything the backend needs to spawn a session tab's process under an ephemeral run id. */
