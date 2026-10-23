@@ -26,6 +26,8 @@ let
       clang
       pkg-config
       wrapGAppsHook3
+      # --run needs a shell wrapper; wrapGAppsHook3 may bring the binary one.
+      makeShellWrapper
     ];
 
     buildInputs = runtimeLibraries;
@@ -88,7 +90,7 @@ craneLib.buildPackage (
           | sort -u); do
         recordOriginals+=(--run "export SWORM_ORIG_$name=\"\''${$name-__SWORM_UNSET__}\"")
       done
-      wrapProgram $out/bin/sworm "''${recordOriginals[@]}" "''${gappsWrapperArgs[@]}"
+      wrapProgramShell $out/bin/sworm "''${recordOriginals[@]}" "''${gappsWrapperArgs[@]}"
     '';
 
     meta = {
