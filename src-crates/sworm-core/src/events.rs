@@ -24,6 +24,7 @@ pub enum HostEvent {
     RecentFoldersChanged(Vec<RecentFolder>),
     TasksChanged(String),
     NixChanged(String),
+    SessionsChanged(String),
     IssuesChanged(String),
     FileMoved {
         folder_path: PathBuf,

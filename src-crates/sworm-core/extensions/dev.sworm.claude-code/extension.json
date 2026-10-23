@@ -16,6 +16,7 @@
           "wordmark_aspect": 8.272727,
           "gradient": ["#f29d84", "#763724"]
         },
+        "history": { "builtin": "claude" },
         "terminal": {
           "resume_args": ["--resume", "${session_id}"],
           "new_session_args": ["--session-id", "${session_id}"]

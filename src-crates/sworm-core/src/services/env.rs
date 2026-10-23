@@ -1,5 +1,7 @@
+use crate::services::{db::DatabaseService, nix::NixService};
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Arc, LazyLock};
 use tracing::{info, warn};
 
@@ -63,6 +65,24 @@ fn restore_originals(vars: impl IntoIterator<Item = (String, String)>) -> HashMa
         }
     }
     env
+}
+
+/// Resolve one child environment; unavailable Nix state falls back to the host.
+pub(crate) fn folder_env(db: &DatabaseService, folder: &Path) -> HashMap<String, String> {
+    let nix = {
+        let db = db.read();
+        NixService::load_env_vars(db.conn(), &folder.to_string_lossy())
+    };
+    match nix {
+        Ok(nix) => EnvironmentService::current().with_nix(nix.as_ref()),
+        Err(error) => {
+            warn!(
+                "Failed to load Nix env for folder {}: {error}; using host environment",
+                folder.display()
+            );
+            EnvironmentService::current().with_nix(None)
+        }
+    }
 }
 
 pub struct EnvironmentService {

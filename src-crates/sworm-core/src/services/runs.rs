@@ -997,21 +997,21 @@ mod tests {
         assert_eq!(first.session_id, None);
         assert!(host.run_status("discarded").unwrap().live);
         assert!(host.runs.state.lock().records.contains_key("discarded"));
-        assert!(host.resume_discovery.has_pending("discarded"));
+        assert!(host.history_binder.has_pending("discarded"));
 
         host.discard_run("discarded").unwrap();
         let status = host.run_status("discarded").unwrap();
         assert!(!status.live);
         assert_eq!(status.exited, None);
         assert!(!host.runs.state.lock().records.contains_key("discarded"));
-        assert!(!host.resume_discovery.has_pending("discarded"));
+        assert!(!host.history_binder.has_pending("discarded"));
 
         let restarted = start().expect("discarded id must spawn, not reuse a missing transcript");
         assert!(!restarted.resumed);
         assert_eq!(restarted.session_id, None);
         wait_until(|| fs::read(fixture.folder.join("spawned")).is_ok_and(|bytes| bytes == b"xx"));
         assert!(host.run_status("discarded").unwrap().live);
-        assert!(host.resume_discovery.has_pending("discarded"));
+        assert!(host.history_binder.has_pending("discarded"));
         host.discard_run("discarded").unwrap();
     }
 

@@ -6,6 +6,7 @@
   import { refreshIssuesForFolder } from '$lib/features/issues/state.svelte'
   import { refreshNixForFolder } from '$lib/features/settings/state/nix.svelte'
   import { refreshHarnessListings } from '$lib/features/sessions/harnesses/state.svelte'
+  import { refreshLoadedSessionIndexes } from '$lib/features/sessions/state.svelte'
   import { refreshShellListings } from '$lib/features/shells/state.svelte'
   import CommandCenter from '$lib/features/command-palette/CommandCenter.svelte'
   import ConfirmHost from '$lib/features/confirm/ConfirmHost.svelte'
@@ -116,9 +117,13 @@
         if (event.layer === 'global') void loadSettings()
         refreshHarnessListings(event)
         refreshShellListings(event)
+        refreshLoadedSessionIndexes((folderPath) => event.layer === 'global' || folderPath === event.folder_path)
       }),
       backend.issues.onChanged(({ folderPath }) => void refreshIssuesForFolder(folderPath)),
-      backend.nix.onChanged(({ folderPath }) => refreshNixForFolder(folderPath)),
+      backend.nix.onChanged(({ folderPath }) => {
+        refreshNixForFolder(folderPath)
+        refreshLoadedSessionIndexes((loaded) => loaded === folderPath)
+      }),
       ...(native ? [native.window.onFocusTab((payload) => requestFocusTab(payload.tabId, payload.reveal))] : [])
     ]
     if (native) {

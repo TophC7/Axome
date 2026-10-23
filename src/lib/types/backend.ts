@@ -133,6 +133,33 @@ export interface SessionStartInfo {
   sessionId: string | null
 }
 
+export interface IndexedSession {
+  harnessId: string
+  sessionId: string
+  title: string | null
+  updatedAt: string | null
+  model: string | null
+  gitBranch: string | null
+  /** Unnamed (null) first, then by name; never empty. */
+  presets: (string | null)[]
+}
+
+export type SessionIndexStatus = 'pending' | 'ready' | 'missing' | 'error'
+
+export interface SessionIndexSource {
+  harnessId: string
+  preset: string | null
+  status: SessionIndexStatus
+  refreshing: boolean
+  refreshedAt: string | null
+  message: string | null
+}
+
+export interface SessionIndexSnapshot {
+  sessions: IndexedSession[]
+  sources: SessionIndexSource[]
+}
+
 export type ChatTurn = 'starting' | 'idle' | 'running' | 'reconnecting'
 
 export type ChatEntry =

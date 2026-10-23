@@ -99,6 +99,8 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         // Activity map commands
         activity_map_get,
         activity_map_refresh,
+        session_index_get,
+        session_index_refresh,
         // App commands
         app::clipboard_copy_files,
         app::clipboard_read_files,

@@ -74,6 +74,7 @@ import type {
   ShellListing,
   SessionSpec,
   SessionStartInfo,
+  SessionIndexSnapshot,
   SettingsChangedEvent,
   SettingsFileResult,
   SettingsPayload,
@@ -483,6 +484,19 @@ export const backend = {
         targetDir,
         sources
       })
+    }
+  },
+
+  sessionIndex: {
+    get(folderPath: string): Promise<SessionIndexSnapshot> {
+      return invoke<SessionIndexSnapshot>('session_index_get', { folderPath })
+    },
+    /** Schedules source refreshes and returns the cache with refreshing flags set. */
+    refresh(folderPath: string): Promise<SessionIndexSnapshot> {
+      return invoke<SessionIndexSnapshot>('session_index_refresh', { folderPath })
+    },
+    onChanged(handler: (event: { folderPath: string }) => void): Promise<Unsubscribe> {
+      return getHostTransport().subscribe('sessions-changed', handler)
     }
   },
 

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 pub const EXTENSION_API_VERSION: u32 = 1;
 pub const EXTENSION_MANIFEST_FILE: &str = "extension.json";
@@ -115,6 +116,23 @@ pub struct HarnessContribution {
     /// Terminal launch and presentation configuration.
     #[serde(default)]
     pub terminal: HarnessTerminal,
+    #[serde(default)]
+    pub history: Option<HarnessHistory>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessHistory {
+    /// Builtin scanner name; exclusive with `command`.
+    #[serde(default)]
+    pub builtin: Option<String>,
+    /// History process (`./` resolves in the extension folder); exclusive with `builtin`.
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

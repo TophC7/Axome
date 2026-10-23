@@ -1,10 +1,17 @@
+use crate::errors::ApiError;
+use crate::services::db::DatabaseService;
+use crate::services::env::{folder_env, EnvironmentService};
 use crate::services::extensions::{
-    missing_requirement, resolve_contribution_command, LoadedExtensionCatalog, LoadedHarness,
+    missing_requirement, resolve_contribution_command, ExtensionService, LoadedExtensionCatalog,
+    LoadedHarness,
 };
+use crate::services::settings_resolution::resolve_effective_settings_for_folder_path;
 use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
 use sworm_protocol::extensions::{HarnessTerminal, VersionStream, SESSION_ID_VARIABLE};
 use sworm_protocol::harness::{HarnessConnectionStatus, HarnessStatus};
-use sworm_protocol::settings::{EffectiveSettings, HarnessSettings};
+use sworm_protocol::settings::{EffectiveSettings, HarnessSettings, PresetSettings};
 use tracing::{info, warn};
 
 pub(crate) fn binary_override(value: Option<&str>) -> Option<&str> {
@@ -26,6 +33,66 @@ pub fn resolve_harness_command(
         merged_path,
         None,
     )
+}
+
+pub(crate) struct HarnessLaunch {
+    catalog: Arc<LoadedExtensionCatalog>,
+    index: usize,
+    pub(crate) config: HarnessSettings,
+    pub(crate) preset: PresetSettings,
+    /// Host or folder env (login env + Nix) with the preset env applied.
+    pub(crate) env: HashMap<String, String>,
+}
+
+impl HarnessLaunch {
+    pub(crate) fn harness(&self) -> &LoadedHarness {
+        &self.catalog.harnesses[self.index]
+    }
+}
+
+pub(crate) fn resolve_harness_launch(
+    db: &DatabaseService,
+    folder: Option<&Path>,
+    harness_id: &str,
+    preset: Option<&str>,
+) -> Result<HarnessLaunch, ApiError> {
+    let settings = resolve_effective_settings_for_folder_path(folder)
+        .map_err(ApiError::Internal)?
+        .settings;
+    let catalog = ExtensionService::current();
+    let index = catalog
+        .harnesses
+        .iter()
+        .position(|harness| harness.definition.id == harness_id)
+        .ok_or_else(|| ApiError::InvalidArgument(format!("Unknown harness: {harness_id}")))?;
+    let config = settings
+        .harnesses
+        .get(harness_id)
+        .cloned()
+        .unwrap_or_default();
+    if !config.enabled {
+        return Err(ApiError::InvalidArgument(format!(
+            "Harness disabled by settings: {harness_id}"
+        )));
+    }
+    let preset = match preset {
+        None => PresetSettings::default(),
+        Some(name) => config.presets.get(name).cloned().ok_or_else(|| {
+            ApiError::InvalidArgument(format!("Unknown preset {harness_id}/{name}"))
+        })?,
+    };
+    let mut env = match folder {
+        Some(folder) => folder_env(db, folder),
+        None => EnvironmentService::current().with_nix(None),
+    };
+    env.extend(preset.env.clone());
+    Ok(HarnessLaunch {
+        catalog,
+        index,
+        config,
+        preset,
+        env,
+    })
 }
 
 pub(crate) enum SessionLaunch<'a> {

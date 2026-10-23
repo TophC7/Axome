@@ -7,12 +7,13 @@ use crate::services::{
     files::FileService,
     git::GitService,
     git_watcher::GitWatcherService,
+    history::binding::HistoryBinder,
     issue_bridge::IssueBridgeService,
     issues::IssueService,
     lsp::LspService,
     pty::PtyService,
-    resume_discovery::ResumeDiscoveryService,
     runs::{RunCoordinator, RunKind},
+    session_index::SessionIndexService,
     settings_watcher::SettingsWatcherService,
     tasks::TaskService,
 };
@@ -20,7 +21,6 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use sworm_protocol::activity_map::DiscoveredProject;
 use sworm_protocol::rpc::WorkbenchRun;
 
 /// Services and workflows executing on one development host. The embedding
@@ -42,9 +42,9 @@ pub struct Host {
     pub(crate) settings_watchers: SettingsWatcherService,
     pub file_watchers: FileWatcherService,
     pub(crate) git_watchers: GitWatcherService,
-    pub(crate) resume_discovery: ResumeDiscoveryService,
+    pub(crate) history_binder: HistoryBinder,
+    pub(crate) session_index: Arc<SessionIndexService>,
     pub(crate) nix_eval_locks: Mutex<HashSet<String>>,
-    pub(crate) activity_map_cache: Mutex<Option<Vec<DiscoveredProject>>>,
     pub(crate) events: EventSink<HostEvent>,
 }
 
@@ -56,6 +56,7 @@ impl Host {
         let issues = Arc::new(IssueService::new());
         let git = Arc::new(GitService::new());
         EnvironmentService::current();
+        let session_index = SessionIndexService::new(Arc::clone(&db), Arc::clone(&events));
         Ok(Self {
             admission: Arc::new(tokio::sync::RwLock::new(())),
             db,
@@ -71,9 +72,9 @@ impl Host {
             settings_watchers: SettingsWatcherService::new(Arc::clone(&events)),
             file_watchers: FileWatcherService::new(),
             git_watchers: GitWatcherService::new(git),
-            resume_discovery: ResumeDiscoveryService::new(),
+            history_binder: HistoryBinder::new(),
+            session_index,
             nix_eval_locks: Mutex::new(HashSet::new()),
-            activity_map_cache: Mutex::new(None),
             events,
         })
     }
@@ -183,7 +184,7 @@ impl Host {
     }
 
     pub(crate) fn forget_run(&self, run_id: &str) {
-        self.resume_discovery.cancel(run_id);
+        self.history_binder.cancel(run_id);
         self.tasks.release_singleton_by_run_id(run_id);
     }
 
@@ -252,6 +253,7 @@ impl Host {
     /// Gracefully terminate local PTYs and language servers while detaching
     /// adopted runs whose backend owns their remote lifetime.
     pub fn shutdown(&self) -> (usize, usize) {
+        self.session_index.shutdown();
         let pty_cleaned = self.runs.with_exclusive(|runs| {
             let cleaned = self.pty.kill_all();
             runs.clear();

@@ -16,6 +16,7 @@ import {
 } from '$lib/features/sessions/harnesses/state.svelte'
 import { getHarness, launchLabel } from '$lib/features/sessions/harnesses/catalog'
 import { startSession } from '$lib/features/sessions/service.svelte'
+import { refreshLoadedSessionIndexes } from '$lib/features/sessions/state.svelte'
 import { startShell } from '$lib/features/shells/service.svelte'
 import { getShellListing, reloadShellListings } from '$lib/features/shells/state.svelte'
 import { setSettingsOpen } from '$lib/features/settings/dialog/state.svelte'
@@ -62,11 +63,15 @@ export async function reloadExtensions(): Promise<void> {
   await reloadView()
 }
 
-/** Re-probe the active folder's host environment, then refresh launch listings. */
+/** Re-probe the active folder's host environment, then refresh launch listings and that host's session history. */
 export async function reloadEnvironment(): Promise<void> {
+  const active = getActiveFolderPath()
   try {
-    await backend.environment.reload(getActiveFolderPath())
+    await backend.environment.reload(active)
     await Promise.all([reloadHarnessListings(), reloadShellListings()])
+    refreshLoadedSessionIndexes(
+      (folderPath) => (splitRemotePath(folderPath)?.server ?? null) === (splitRemotePath(active ?? '')?.server ?? null)
+    )
   } catch (error) {
     notify.error('Reload environment failed', getErrorMessage(error))
   }

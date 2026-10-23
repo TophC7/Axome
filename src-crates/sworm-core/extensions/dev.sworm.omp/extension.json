@@ -18,6 +18,7 @@
         "detect": {
           "version_stream": "stdout_or_stderr"
         },
+        "history": { "builtin": "omp" },
         "terminal": {
           "resume_args": ["--resume", "${session_id}"],
           "title_prefixes": ["π", ">"]

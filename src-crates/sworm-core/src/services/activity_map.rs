@@ -1,100 +1,98 @@
-use crate::services::codex_state::CodexStateReader;
-use crate::services::folders::{folder_name, home_dir};
-use chrono::{Local, TimeZone};
-use rusqlite::{Connection, OpenFlags};
-use std::collections::HashMap;
-use std::fs;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+//! Home activity aggregated from cached session-index observations.
+
+use crate::services::{folders::folder_name, session_index::Observation};
+use chrono::{DateTime, Local, TimeZone};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 use sworm_protocol::activity_map::{DiscoveredHarnessActivity, DiscoveredProject};
 
-/// Maximum number of discovered projects to return.
 const MAX_RESULTS: usize = 50;
-
-/// Number of trailing days to track in daily_counts.
 const WINDOW_DAYS: usize = 7;
 
-const HARNESS_CLAUDE_CODE: &str = "claude_code";
-const HARNESS_CODEX: &str = "codex";
-const HARNESS_OMP: &str = "omp";
-
 #[derive(Default)]
-struct Tally {
-    last: i64,
+struct Tally<'a> {
+    last: &'a str,
     daily: [u32; WINDOW_DAYS],
 }
 
-impl Tally {
-    fn record(&mut self, ts: i64, starts: &[i64; WINDOW_DAYS]) {
-        self.last = self.last.max(ts);
-        if let Some(day) = bucket_timestamp(ts, starts) {
-            self.daily[day] += 1;
-        }
-    }
-
-    fn into_activity(self, harness: &str) -> DiscoveredHarnessActivity {
-        DiscoveredHarnessActivity {
-            harness_id: harness.into(),
-            last_active: ts_to_iso(self.last),
-            daily_counts: self.daily,
-        }
-    }
+fn rank(observation: &Observation) -> (bool, Option<&str>) {
+    (
+        observation.key.scope == observation.folder_path,
+        observation.updated_at.as_deref(),
+    )
 }
 
-pub struct ActivityMapService;
-
-impl ActivityMapService {
-    /// Scan all external agent CLIs for project history and merge the
-    /// results per project folder.
-    pub fn scan() -> Vec<DiscoveredProject> {
-        let day_starts = day_boundaries();
-
-        // Collect (path, activity) pairs from each harness
-        let mut by_path: HashMap<String, Vec<DiscoveredHarnessActivity>> = HashMap::new();
-
-        let scanners: [fn(&[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)>; 3] =
-            [scan_claude_code, scan_codex, scan_omp];
-        for scanner in scanners {
-            for (path, activity) in scanner(&day_starts) {
-                by_path.entry(path).or_default().push(activity);
-            }
+pub(crate) fn aggregate(observations: &[Observation]) -> Vec<DiscoveredProject> {
+    let mut sessions: HashMap<(&str, &str, &str), &Observation> = HashMap::new();
+    for observation in observations {
+        if observation.updated_at.is_none() {
+            continue;
         }
-
-        // Build DiscoveredProject for each unique path
-        let mut results: Vec<DiscoveredProject> = by_path
-            .into_iter()
-            .map(|(path, harnesses)| {
-                let last_active = harnesses
-                    .iter()
-                    .map(|p| p.last_active.as_str())
-                    .max()
-                    .unwrap_or("")
-                    .to_string();
-
-                let name = folder_name(Path::new(&path));
-
-                let path_exists = Path::new(&path).is_dir();
-
-                DiscoveredProject {
-                    path,
-                    name,
-                    path_exists,
-                    last_active,
-                    harnesses,
+        sessions
+            .entry((
+                observation.folder_path.as_str(),
+                observation.key.harness_id.as_str(),
+                observation.session_id.as_str(),
+            ))
+            .and_modify(|best| {
+                if rank(observation) > rank(best) {
+                    *best = observation;
                 }
             })
-            .collect();
-
-        results.sort_by(|a, b| b.last_active.cmp(&a.last_active));
-        results.truncate(MAX_RESULTS);
-        results
+            .or_insert(observation);
     }
+    let day_starts = day_boundaries();
+    let mut projects: BTreeMap<&str, BTreeMap<&str, Tally>> = BTreeMap::new();
+    for ((folder, harness, _), observation) in sessions {
+        let Some(updated_at) = observation.updated_at.as_deref() else {
+            continue;
+        };
+        let Ok(time) = DateTime::parse_from_rfc3339(updated_at) else {
+            continue;
+        };
+        let tally = projects
+            .entry(folder)
+            .or_default()
+            .entry(harness)
+            .or_default();
+        tally.last = tally.last.max(updated_at);
+        if let Some(day) = bucket_timestamp(time.timestamp(), &day_starts) {
+            tally.daily[day] += 1;
+        }
+    }
+    let mut results: Vec<DiscoveredProject> = projects
+        .into_iter()
+        .map(|(path, harnesses)| {
+            let harnesses: Vec<DiscoveredHarnessActivity> = harnesses
+                .into_iter()
+                .map(|(harness_id, tally)| DiscoveredHarnessActivity {
+                    harness_id: harness_id.to_owned(),
+                    last_active: tally.last.to_owned(),
+                    daily_counts: tally.daily,
+                })
+                .collect();
+            DiscoveredProject {
+                path: path.to_owned(),
+                name: folder_name(Path::new(path)),
+                path_exists: Path::new(path).is_dir(),
+                last_active: harnesses
+                    .iter()
+                    .map(|harness| harness.last_active.as_str())
+                    .max()
+                    .unwrap_or_default()
+                    .to_owned(),
+                harnesses,
+            }
+        })
+        .collect();
+    results.sort_by(|a, b| b.last_active.cmp(&a.last_active));
+    results.truncate(MAX_RESULTS);
+    results
 }
 
-// -- Timestamp helpers --
-
-/// Compute the start-of-day boundary for each of the trailing 7 days.
-/// day_starts[0] is 6 days ago and day_starts[6] is today.
+/// day_starts[0] is six days ago and day_starts[6] is today, in the local timezone.
 fn day_boundaries() -> [i64; WINDOW_DAYS] {
     let today = Local::now().date_naive();
     let mut starts = [0i64; WINDOW_DAYS];
@@ -109,376 +107,56 @@ fn day_boundaries() -> [i64; WINDOW_DAYS] {
     starts
 }
 
-/// Bucket a unix timestamp into the 7-day window, returning the day index (0-6)
-/// or None if outside the window.
 fn bucket_timestamp(ts: i64, day_starts: &[i64; WINDOW_DAYS]) -> Option<usize> {
     day_starts.iter().rposition(|&start| ts >= start)
 }
 
-/// Format a unix timestamp as ISO 8601.
-fn ts_to_iso(ts: i64) -> String {
-    chrono::DateTime::from_timestamp(ts, 0)
-        .map(|dt| dt.to_rfc3339())
-        .unwrap_or_default()
-}
-
-// -- Per-harness scanners --
-// Each returns Vec<(canonical_path, activity)> and never panics.
-
-fn scan_claude_code(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
-        let projects_dir = home_dir()?.join(".claude/projects");
-        if !projects_dir.is_dir() {
-            return None;
-        }
-
-        let mut results = Vec::new();
-
-        for entry in fs::read_dir(&projects_dir).ok()? {
-            let Ok(entry) = entry else {
-                continue;
-            };
-            let Ok(ft) = entry.file_type() else {
-                continue;
-            };
-            if !ft.is_dir() {
-                continue;
-            }
-
-            let dir_name = entry.file_name().to_string_lossy().to_string();
-            let Some(path) = unmunge_claude_path(&dir_name) else {
-                continue;
-            };
-
-            // Stat all .jsonl files for timestamps
-            let mut tally = Tally::default();
-
-            if let Ok(files) = fs::read_dir(entry.path()) {
-                for file in files.flatten() {
-                    let fname = file.file_name();
-                    if !fname.to_string_lossy().ends_with(".jsonl") {
-                        continue;
-                    }
-                    if let Ok(meta) = file.metadata() {
-                        if let Ok(mtime) = meta.modified() {
-                            let ts = mtime
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs() as i64;
-                            tally.record(ts, day_starts);
-                        }
-                    }
-                }
-            }
-
-            if tally.last > 0 {
-                results.push((path, tally.into_activity(HARNESS_CLAUDE_CODE)));
-            }
-        }
-
-        Some(results)
-    };
-
-    inner().unwrap_or_default()
-}
-
-/// Unmunge a Claude Code project directory name back to an absolute path.
-///
-/// Claude encodes path separators, dots, and hyphens all as `-`, making
-/// the encoding ambiguous. For example `-repo-Nix-mix-nix` could decode
-/// to `/repo/Nix/mix/nix`, `/repo/Nix/mix.nix`, or `/repo/Nix/mix-nix`.
-///
-/// We resolve this by walking the filesystem: at each `-` in the encoded
-/// name, we try interpreting it as `/` (path separator), `.` (dot in name),
-/// or literal `-`, and keep only interpretations that match existing dirs.
-fn unmunge_claude_path(dir_name: &str) -> Option<String> {
-    if !dir_name.starts_with('-') {
-        return None;
-    }
-
-    // Split on `-`, first element is empty (from leading `-`)
-    let segments: Vec<&str> = dir_name.split('-').collect();
-    if segments.len() < 2 {
-        return None;
-    }
-
-    // segments[0] is "" (before the leading -), segments[1..] are the parts
-    let parts: Vec<&str> = segments[1..]
-        .iter()
-        .copied()
-        .filter(|s| !s.is_empty())
-        .collect();
-    if parts.is_empty() {
-        return None;
-    }
-
-    let mut candidates = vec![String::from("/")];
-
-    for (i, part) in parts.iter().enumerate() {
-        if i == 0 {
-            // First segment always joins with `/`
-            candidates = candidates
-                .into_iter()
-                .map(|c| format!("{}{}", c, part))
-                .collect();
-            continue;
-        }
-
-        let mut next_candidates = Vec::new();
-
-        for candidate in &candidates {
-            // Try three interpretations of this `-`:
-            // 1. Path separator: candidate + "/" + part
-            let as_slash = format!("{}/{}", candidate, part);
-            // 2. Dot in filename: candidate + "." + part
-            let as_dot = format!("{}.{}", candidate, part);
-            // 3. Literal hyphen: candidate + "-" + part
-            let as_hyphen = format!("{}-{}", candidate, part);
-
-            // Keep interpretations where the path exists as a directory
-            if Path::new(&as_slash).is_dir() {
-                next_candidates.push(as_slash);
-            }
-            if Path::new(&as_dot).is_dir() {
-                next_candidates.push(as_dot);
-            }
-            if Path::new(&as_hyphen).is_dir() {
-                next_candidates.push(as_hyphen);
-            }
-        }
-
-        if next_candidates.is_empty() {
-            // No valid path found at this level — fall back to all-slash
-            // interpretation for remaining segments and let path_exists
-            // handle it downstream
-            candidates = candidates
-                .into_iter()
-                .map(|c| format!("{}/{}", c, part))
-                .collect();
-        } else {
-            candidates = next_candidates;
-        }
-
-        // Cap candidates to prevent exponential blowup from ambiguous segments
-        candidates.truncate(16);
-    }
-
-    // Prefer the first candidate (typically the correct match)
-    candidates.into_iter().next()
-}
-
-fn scan_codex(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
-        let db_path = CodexStateReader::db_path()?;
-
-        let conn = Connection::open_with_flags(
-            &db_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )
-        .ok()?;
-
-        // Codex stores updated_at as unix epoch milliseconds
-        let mut stmt = conn
-            .prepare(
-                "SELECT cwd, updated_at
-                 FROM threads
-                 WHERE archived = 0 AND cwd IS NOT NULL AND cwd != ''",
-            )
-            .ok()?;
-
-        // Group by cwd
-        let mut by_cwd: HashMap<String, Tally> = HashMap::new();
-
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-            })
-            .ok()?;
-
-        for row in rows.flatten() {
-            let (cwd, updated) = row;
-            // Codex timestamps are milliseconds
-            let ts = updated / 1000;
-            by_cwd.entry(cwd).or_default().record(ts, day_starts);
-        }
-
-        let results = by_cwd
-            .into_iter()
-            .filter(|(_, tally)| tally.last > 0)
-            .map(|(cwd, tally)| (cwd, tally.into_activity(HARNESS_CODEX)))
-            .collect();
-
-        Some(results)
-    };
-
-    inner().unwrap_or_default()
-}
-
-fn scan_omp(day_starts: &[i64; WINDOW_DAYS]) -> Vec<(String, DiscoveredHarnessActivity)> {
-    let inner = || -> Option<Vec<(String, DiscoveredHarnessActivity)>> {
-        let home = home_dir()?;
-        let sessions_dir = home.join(".omp/agent/sessions");
-
-        let mut by_cwd: HashMap<String, Tally> = HashMap::new();
-
-        let Ok(dir_entries) = fs::read_dir(&sessions_dir) else {
-            return Some(Vec::new());
-        };
-
-        for dir in dir_entries.flatten() {
-            if !dir.file_type().ok().map(|t| t.is_dir()).unwrap_or(false) {
-                continue;
-            }
-            let Ok(file_entries) = fs::read_dir(dir.path()) else {
-                continue;
-            };
-            for file in file_entries.flatten() {
-                let path = file.path();
-                if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
-                    continue;
-                }
-                let ts = file
-                    .metadata()
-                    .and_then(|m| m.modified())
-                    .map(|t| {
-                        t.duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs() as i64
-                    })
-                    .unwrap_or(0);
-                if ts <= 0 {
-                    continue;
-                }
-                let Some(cwd) = read_omp_session_cwd(&path) else {
-                    continue;
-                };
-
-                by_cwd.entry(cwd).or_default().record(ts, day_starts);
-            }
-        }
-
-        let results = by_cwd
-            .into_iter()
-            .filter(|(_, tally)| tally.last > 0)
-            .map(|(cwd, tally)| (cwd, tally.into_activity(HARNESS_OMP)))
-            .collect();
-
-        Some(results)
-    };
-
-    inner().unwrap_or_default()
-}
-
-#[derive(serde::Deserialize)]
-struct OmpSessionHeader<'a> {
-    #[serde(borrow)]
-    r#type: &'a str,
-    #[serde(borrow)]
-    cwd: Option<&'a str>,
-}
-
-fn read_omp_session_cwd(path: &Path) -> Option<String> {
-    let file = fs::File::open(path).ok()?;
-    let reader = BufReader::new(file);
-    for line in reader.lines().take(5).flatten() {
-        if let Ok(header) = serde_json::from_str::<OmpSessionHeader>(&line) {
-            if header.r#type == "session" {
-                return header
-                    .cwd
-                    .filter(|cwd| !cwd.trim().is_empty())
-                    .map(ToString::to_string);
-            }
-        }
-    }
-    None
-}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::session_index::SourceKey;
+    use chrono::{SecondsFormat, Utc};
 
-    #[test]
-    fn unmunge_simple_path() {
-        // /home always exists on Linux
-        let result = unmunge_claude_path("-home");
-        assert_eq!(result, Some("/home".into()));
-    }
-
-    #[test]
-    fn unmunge_nested_path() {
-        // /home/toph should resolve through filesystem walking
-        let result = unmunge_claude_path("-home-toph");
-        // The walk will find /home exists, then /home/toph exists
-        assert!(result.is_some());
-        let path = result.unwrap();
-        assert!(path.starts_with("/home"));
-    }
-
-    #[test]
-    fn unmunge_rejects_no_leading_dash() {
-        assert_eq!(unmunge_claude_path("home-toph"), None);
-    }
-
-    #[test]
-    fn unmunge_rejects_empty() {
-        assert_eq!(unmunge_claude_path(""), None);
-        // `-` alone has no segments after the leading dash
-        assert_eq!(unmunge_claude_path("-"), None);
-    }
-
-    #[test]
-    fn unmunge_resolves_dot_in_name() {
-        // `-repo-Nix-mix-nix` should find `/repo/Nix/mix.nix` if it exists,
-        // not `/repo/Nix/mix/nix`. This tests the path-walking disambiguation.
-        let result = unmunge_claude_path("-repo-Nix-mix-nix");
-        if let Some(ref path) = result {
-            // If /repo/Nix/mix.nix exists, it should be preferred
-            if Path::new("/repo/Nix/mix.nix").is_dir() {
-                assert_eq!(path, "/repo/Nix/mix.nix");
-            }
-        }
-    }
-
-    #[test]
-    fn unmunge_resolves_hyphen_in_name() {
-        // `-repo-Nix-niri-flake` should find `/repo/Nix/niri-flake`
-        let result = unmunge_claude_path("-repo-Nix-niri-flake");
-        if let Some(ref path) = result {
-            if Path::new("/repo/Nix/niri-flake").is_dir() {
-                assert_eq!(path, "/repo/Nix/niri-flake");
-            }
+    fn observation(
+        scope: Option<&str>,
+        preset: Option<&str>,
+        folder: &str,
+        id: &str,
+        updated_at: Option<&str>,
+    ) -> Observation {
+        Observation {
+            key: SourceKey::new(scope.map(Path::new), "omp", preset),
+            session_id: id.into(),
+            folder_path: folder.into(),
+            title: None,
+            updated_at: updated_at.map(Into::into),
+            model: None,
+            git_branch: None,
         }
     }
 
     #[test]
     fn bucket_timestamp_edges() {
         let starts = day_boundaries();
-        // A timestamp before the window returns None
         assert_eq!(bucket_timestamp(0, &starts), None);
-        // A timestamp at the last day boundary returns index 6
         assert_eq!(bucket_timestamp(starts[6], &starts), Some(6));
     }
 
     #[test]
-    fn read_omp_session_cwd_extracts_cwd_when_preceded_by_title() {
-        let path =
-            std::env::temp_dir().join(format!("sworm-omp-test-1-{}.jsonl", uuid::Uuid::new_v4()));
-        let content = "{\"type\":\"title\",\"v\":1,\"title\":\"My Session\"}\n{\"type\":\"session\",\"version\":3,\"id\":\"test-id\",\"cwd\":\"/home/toph/dev/my-project\"}\n";
-        fs::write(&path, content).unwrap();
-
-        let cwd = read_omp_session_cwd(&path);
-        let _ = fs::remove_file(&path);
-        assert_eq!(cwd, Some("/home/toph/dev/my-project".to_string()));
-    }
-
-    #[test]
-    fn read_omp_session_cwd_extracts_cwd_on_first_line() {
-        let path =
-            std::env::temp_dir().join(format!("sworm-omp-test-2-{}.jsonl", uuid::Uuid::new_v4()));
-        let content = "{\"type\":\"session\",\"version\":3,\"id\":\"test-id\",\"cwd\":\"/repo/Nix/omp.nix\"}\n";
-        fs::write(&path, content).unwrap();
-
-        let cwd = read_omp_session_cwd(&path);
-        let _ = fs::remove_file(&path);
-        assert_eq!(cwd, Some("/repo/Nix/omp.nix".to_string()));
+    fn duplicate_observations_count_once() {
+        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+        let project = "/work/project";
+        let projects = aggregate(&[
+            observation(Some(project), None, project, "a", Some(&now)),
+            observation(Some(project), Some("work"), project, "a", Some(&now)),
+            observation(None, None, project, "a", Some(&now)),
+            observation(None, Some("work"), project, "a", Some(&now)),
+            observation(Some(project), None, project, "undated", None),
+            observation(None, None, "/work/other", "b", None),
+        ]);
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].path, project);
+        assert_eq!(projects[0].last_active, now);
+        assert_eq!(projects[0].harnesses[0].daily_counts.iter().sum::<u32>(), 1);
     }
 }

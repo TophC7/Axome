@@ -51,6 +51,9 @@ pub fn desktop_event_sink(
             DesktopEvent::Host(HostEvent::NixChanged(folder)) => {
                 app.emit("nix-changed", json!({ "folderPath": folder }))
             }
+            DesktopEvent::Host(HostEvent::SessionsChanged(folder)) => {
+                app.emit("sessions-changed", json!({ "folderPath": folder }))
+            }
             DesktopEvent::Host(HostEvent::IssuesChanged(folder)) => {
                 app.emit("issues-changed", json!({ "folderPath": folder }))
             }

@@ -687,6 +687,14 @@ macro_rules! sworm_rpc_ops {
                 rows: u16,
             ) -> $crate::session::SessionStartInfo;
             #[route(folder_path)]
+            SessionIndexGet => session_index_get(
+                folder_path: String,
+            ) -> $crate::session::SessionIndexSnapshot;
+            #[route(folder_path)]
+            SessionIndexRefresh => session_index_refresh(
+                folder_path: String,
+            ) -> $crate::session::SessionIndexSnapshot;
+            #[route(folder_path)]
             ShellStart => shell_start(
                 run_id: String,
                 folder_path: String,
@@ -923,6 +931,7 @@ pub enum HostEventWire {
     SettingsChanged(crate::settings::SettingsChangedEvent),
     TasksChanged(String),
     NixChanged(String),
+    SessionsChanged(String),
     IssuesChanged(String),
     RecentFoldersChanged(Vec<RecentFolder>),
     /// The workbench registry changed: an attach, takeover, detach, or Close.

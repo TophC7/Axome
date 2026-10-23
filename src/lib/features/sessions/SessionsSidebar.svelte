@@ -1,7 +1,7 @@
 <!--
   @component
-  SessionsSidebar — the folder's sessions and shells as shortcuts.
-  Closed sessions resume when a session id was captured; shells start fresh.
+  SessionsSidebar — the folder's open sessions and shells, indexed history,
+  and recently closed shortcuts not covered by either.
   The header's + starts a new one.
 -->
 
@@ -16,6 +16,7 @@
     ChevronRight,
     HistoryIcon,
     Plus,
+    RefreshCwIcon,
     TerminalIcon,
     X
   } from '$lib/icons/lucideExports'
@@ -29,7 +30,9 @@
     setActiveTab
   } from '$lib/features/workbench/state.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
-  import { countLiveAgents, startSession } from '$lib/features/sessions/service.svelte'
+  import { countLiveAgents, historyRows, startSession } from '$lib/features/sessions/service.svelte'
+  import { getSessionIndex, refreshSessionIndex } from './state.svelte'
+  import SessionHistory from './SessionHistory.svelte'
   import { sessionBrand, svgUrl } from '$lib/features/sessions/harnesses/catalog'
   import { getLaunchOptions } from '$lib/features/sessions/harnesses/state.svelte'
   import { startShell } from '$lib/features/shells/service.svelte'
@@ -56,7 +59,19 @@
     { kind: 'session' as const, label: 'Sessions', tabs: sessions },
     { kind: 'shell' as const, label: 'Shells', tabs: shells }
   ])
-  let closed = $derived([...getClosedSessions(folderPath), ...getClosedShells(folderPath)])
+  let history = $derived(historyRows(folderPath))
+  let index = $derived(getSessionIndex(folderPath))
+  let refreshing = $derived(index.loading || (index.snapshot?.sources.some((source) => source.refreshing) ?? false))
+  let closed = $derived([
+    ...getClosedSessions(folderPath).filter(
+      (snapshot) =>
+        !snapshot.sessionId ||
+        ![...history, ...sessions].some(
+          (session) => session.harnessId === snapshot.harnessId && session.sessionId === snapshot.sessionId
+        )
+    ),
+    ...getClosedShells(folderPath)
+  ])
   let activeTabId = $derived(getActiveTabId())
   let liveAgents = $derived(countLiveAgents(folderPath))
   let launchers = $derived(
@@ -78,6 +93,9 @@
 
 <SidebarPanel title="Sessions">
   {#snippet headerActions()}
+    <IconButton tooltip="Refresh Sessions" disabled={refreshing} onclick={() => void refreshSessionIndex(folderPath)}>
+      <RefreshCwIcon size={12} class={refreshing ? 'animate-spin' : ''} />
+    </IconButton>
     <DropdownMenu.Root>
       <DropdownMenu.Trigger aria-label="New session" class={iconButtonVariants()}>
         <Plus size={12} />
@@ -107,7 +125,7 @@
         <span>{liveAgents} agents share this working tree</span>
       </Alert.Root>
     {/if}
-    {#if sessions.length === 0 && shells.length === 0 && closed.length === 0}
+    {#if sessions.length === 0 && shells.length === 0 && closed.length === 0 && history.length === 0}
       <SidebarRow variant="info" divider={false}>No sessions or shells in this folder yet</SidebarRow>
       {#each launchers as launcher (launcher.id)}
         <SidebarRow
@@ -180,6 +198,10 @@
         {/if}
       {/if}
     {/each}
+
+    {#key folderPath}
+      <SessionHistory {folderPath} rows={history} {section} />
+    {/key}
 
     {#if closed.length > 0}
       {@render section('Recently closed', closed.length, closedCollapsed, () => (closedCollapsed = !closedCollapsed))}

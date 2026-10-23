@@ -569,6 +569,13 @@ fn prepare(
                     .iter()
                     .map(|harness| &harness.command),
             )
+            .chain(
+                manifest
+                    .contributes
+                    .harnesses
+                    .iter()
+                    .filter_map(|harness| harness.history.as_ref()?.command.as_ref()),
+            )
             .any(|command| command.trim().starts_with("./"))
     {
         return Err("bundled extension commands must not be relative".to_string());
@@ -1031,6 +1038,33 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
                 || !color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
         }) {
             return Err(format!("harness {id} gradient colors must be #rrggbb"));
+        }
+        if let Some(history) = &harness.history {
+            match (&history.builtin, &history.command) {
+                (Some(name), None) => {
+                    if !history.args.is_empty() || !history.env.is_empty() {
+                        return Err(format!("harness {id} history args and env need a command"));
+                    }
+                    if crate::services::history::builtin_scanner(name).is_none() {
+                        return Err(format!(
+                            "harness {id} history names unknown builtin scanner {name}"
+                        ));
+                    }
+                }
+                (None, Some(command)) => {
+                    if command.trim().is_empty() {
+                        return Err(format!("harness {id} history command is empty"));
+                    }
+                }
+                _ => {
+                    return Err(format!(
+                        "harness {id} history needs exactly one of builtin or command"
+                    ));
+                }
+            }
+            if harness.terminal.resume_args.is_empty() {
+                return Err(format!("harness {id} history needs terminal resume_args"));
+            }
         }
         for (field, args) in [
             ("resume_args", &harness.terminal.resume_args),

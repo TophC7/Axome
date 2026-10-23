@@ -11,6 +11,7 @@ mod harnesses;
 mod issues;
 mod lsp;
 mod nix;
+mod session_index;
 mod sessions;
 mod settings;
 mod shells;

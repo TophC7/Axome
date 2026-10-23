@@ -17,6 +17,7 @@ pub(crate) fn to_wire(event: HostEvent) -> Option<HostEventWire> {
         }
         HostEvent::TasksChanged(folder) => Some(HostEventWire::TasksChanged(folder)),
         HostEvent::NixChanged(folder) => Some(HostEventWire::NixChanged(folder)),
+        HostEvent::SessionsChanged(folder) => Some(HostEventWire::SessionsChanged(folder)),
         HostEvent::IssuesChanged(folder) => Some(HostEventWire::IssuesChanged(folder)),
         HostEvent::FileMoved { .. } | HostEvent::FileDeleted(_) => None,
     }
@@ -105,6 +106,7 @@ pub(crate) async fn claimed(session: &Mutex<Session>, event: &HostEventWire) -> 
         },
         HostEventWire::TasksChanged(folder)
         | HostEventWire::NixChanged(folder)
+        | HostEventWire::SessionsChanged(folder)
         | HostEventWire::IssuesChanged(folder) => Some(folder.as_str()),
     };
     let session = session.lock().await;

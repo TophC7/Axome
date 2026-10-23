@@ -1,106 +1,24 @@
 use crate::errors::ApiError;
 use crate::host::Host;
-use crate::services::extensions::{
-    missing_requirement, ExtensionService, LoadedExtensionCatalog, LoadedHarness,
-};
+use crate::services::extensions::missing_requirement;
 use crate::services::folders::resolve_folder;
-use crate::services::harness_scanners::Scanner;
-use crate::services::harnesses::{resolve_harness_command, terminal_args, SessionLaunch};
+use crate::services::harnesses::{
+    resolve_harness_command, resolve_harness_launch, terminal_args, SessionLaunch,
+};
+use crate::services::history::{binding::PendingRun, HistorySource};
 use crate::services::omp;
 use crate::services::pty::{CompletedRunSink, PtyRunState, PtySubscriber};
-use crate::services::resume_discovery::PendingRun;
 use crate::services::runs::RunKind;
-use crate::services::settings_resolution::resolve_effective_settings_for_folder_path;
 use parking_lot::Mutex;
-use std::collections::HashMap;
-use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 use std::time::SystemTime;
 use sworm_protocol::session::SessionStartInfo;
-use sworm_protocol::settings::{HarnessSettings, PresetSettings};
 use tracing::{info, warn};
 
-pub(crate) struct HarnessLaunch {
-    catalog: Arc<LoadedExtensionCatalog>,
-    index: usize,
-    pub(crate) config: HarnessSettings,
-    pub(crate) preset: PresetSettings,
-    /// Folder env (login env + Nix) with the preset env applied.
-    pub(crate) env: HashMap<String, String>,
-}
-
-impl HarnessLaunch {
-    pub(crate) fn harness(&self) -> &LoadedHarness {
-        &self.catalog.harnesses[self.index]
-    }
-}
-
-/// Keep the session id only when it exists; otherwise log that the harness's
-/// conversation vanished and start fresh.
-fn validated_session_id(
-    token: Option<String>,
-    label: &str,
-    exists: impl FnOnce(&str) -> bool,
-) -> Option<String> {
-    token.filter(|token| {
-        let exists = exists(token);
-        if !exists {
-            warn!("{label} {token} no longer exists, starting fresh");
-        }
-        exists
-    })
-}
-
 impl Host {
-    pub(crate) fn resolve_harness_launch(
-        &self,
-        folder: &Path,
-        harness_id: &str,
-        preset: Option<&str>,
-    ) -> Result<HarnessLaunch, ApiError> {
-        let effective_settings =
-            resolve_effective_settings_for_folder_path(Some(folder)).map_err(ApiError::Internal)?;
-        let settings = &effective_settings.settings;
-        let mut env = self.folder_env(folder);
-        let catalog = ExtensionService::current();
-        let index = catalog
-            .harnesses
-            .iter()
-            .position(|harness| harness.definition.id == harness_id)
-            .ok_or_else(|| ApiError::InvalidArgument(format!("Unknown harness: {harness_id}")))?;
-        let config = settings
-            .harnesses
-            .get(harness_id)
-            .cloned()
-            .unwrap_or_default();
-        if !config.enabled {
-            return Err(ApiError::InvalidArgument(format!(
-                "Harness disabled by settings: {harness_id}"
-            )));
-        }
-        let preset = match preset {
-            None => PresetSettings::default(),
-            Some(name) => config.presets.get(name).cloned().ok_or_else(|| {
-                ApiError::InvalidArgument(format!("Unknown preset {harness_id}/{name}"))
-            })?,
-        };
-        env.extend(preset.env.clone());
-        let path = env.get("PATH").map(String::as_str).unwrap_or("");
-        if let Some(message) = missing_requirement(&catalog.harnesses[index].requires, path) {
-            return Err(ApiError::InvalidArgument(message));
-        }
-        Ok(HarnessLaunch {
-            catalog,
-            index,
-            config,
-            preset,
-            env,
-        })
-    }
-
     /// Caller holds `session_claims`. Errors when another live terminal run on this host holds the session.
     pub(crate) fn ensure_session_free(
         &self,
@@ -136,6 +54,7 @@ impl Host {
         subscriber: Option<PtySubscriber>,
         owner_id: Option<String>,
     ) -> Result<SessionStartInfo, ApiError> {
+        self.session_index.bind_runtime();
         let _owner = self.runs.owner_activity(owner_id.as_deref())?;
         let folder = resolve_folder(&folder_path)?;
         let kind = RunKind::Session {
@@ -197,8 +116,22 @@ impl Host {
         token: Arc<Mutex<Option<String>>>,
         completed: Option<CompletedRunSink>,
     ) -> Result<SessionStartInfo, ApiError> {
-        let launch = self.resolve_harness_launch(folder, &harness_id, preset.as_deref())?;
+        let launch =
+            resolve_harness_launch(&self.db, Some(folder), &harness_id, preset.as_deref())?;
+        if let Some(message) = missing_requirement(
+            &launch.harness().requires,
+            launch.env.get("PATH").map(String::as_str).unwrap_or(""),
+        ) {
+            return Err(ApiError::InvalidArgument(message));
+        }
         let harness = launch.harness();
+        let label = &harness.definition.label;
+        let history = HistorySource::from_launch(&launch)
+            .unwrap_or_else(|error| {
+                warn!("{label} history unavailable: {error}");
+                None
+            })
+            .map(Arc::new);
         let config = &launch.config;
         let cwd = folder.to_string_lossy().into_owned();
         let id = harness_id;
@@ -207,16 +140,32 @@ impl Host {
             resolve_harness_command(harness, path, config.binary_path_override.as_deref())
                 .map_err(ApiError::InvalidArgument)?;
         let terminal = &harness.definition.terminal;
-        let scanner = Scanner::for_harness(&id);
         let session_id = if terminal.resume_args.is_empty() {
             None
         } else {
-            validated_session_id(session_id, &harness.definition.label, |id| {
-                scanner.map_or(true, |s| s.session_exists(&cwd, id))
+            session_id.filter(|session_id| {
+                let Some(history) = &history else {
+                    return true;
+                };
+                match history.contains(folder, session_id) {
+                    Ok(false) => {
+                        warn!("{label} {session_id} no longer exists, starting fresh");
+                        false
+                    }
+                    Ok(true) => true,
+                    Err(error) => {
+                        warn!("{label} {session_id} history validation failed, keeping session id: {error}");
+                        true
+                    }
+                }
             })
         };
         let minted = (session_id.is_none() && !terminal.new_session_args.is_empty())
             .then(|| uuid::Uuid::new_v4().to_string());
+        let binding = session_id.is_none()
+            && minted.is_none()
+            && !terminal.resume_args.is_empty()
+            && history.is_some();
         let session_launch = match (session_id.as_deref(), minted.as_deref()) {
             (Some(id), _) => SessionLaunch::Resume(id),
             (_, Some(id)) => SessionLaunch::Mint(id),
@@ -249,17 +198,23 @@ impl Host {
             }
         }
 
-        let discovery = self.resume_discovery.clone();
-        let discovering =
-            session_id.is_none() && minted.is_none() && scanner.is_some_and(Scanner::discovers);
-        let exited = discovering.then(|| Arc::new(AtomicBool::new(false)));
+        let binder = self.history_binder.clone();
+        // Only harnesses with a history source are indexed.
+        let index = history.is_some().then(|| Arc::clone(&self.session_index));
+        let exit_folder = folder.to_path_buf();
+        let exit_harness_id = id.clone();
+        let exit_preset = preset.clone();
+        let exited = binding.then(|| Arc::new(AtomicBool::new(false)));
         let exit_flag = exited.clone();
         let on_exit: Box<dyn FnOnce(&str, Option<i32>) + Send> = Box::new(move |rid, code| {
             info!("Run {rid} exited with code {code:?}");
             if let Some(exit_flag) = exit_flag {
                 exit_flag.store(true, Ordering::Release);
             }
-            discovery.cancel(rid);
+            binder.cancel(rid);
+            if let Some(index) = index {
+                index.schedule(&exit_folder, &exit_harness_id, exit_preset.as_deref());
+            }
         });
 
         let _claim = self.session_claims.lock();
@@ -290,24 +245,32 @@ impl Host {
         drop(_claim);
 
         match &session_id {
-            Some(id) => self.resume_discovery.claim(id),
-            None if discovering => {
+            Some(id) => self.history_binder.claim(id),
+            None if binding => {
                 let tracked_run_id = run_id.clone();
-                self.resume_discovery.track(PendingRun {
+                let index = Arc::clone(&self.session_index);
+                let folder = folder.to_path_buf();
+                let bound_folder = folder.clone();
+                let bound_preset = preset.clone();
+                self.history_binder.track(PendingRun {
                     run_id,
-                    scanner: scanner.expect("discoverable harness has scanner"),
-                    cwd,
+                    source: history.expect("binding run has a history source"),
+                    preset,
+                    folder,
                     spawned_at,
                     event_sink,
-                    on_bound: Box::new(move |bound| *token.lock() = Some(bound)),
+                    on_bound: Box::new(move |bound| {
+                        *token.lock() = Some(bound);
+                        index.schedule(&bound_folder, &id, bound_preset.as_deref());
+                    }),
                 });
                 // Exit can beat registration; its callback then had no pending
                 // run to cancel. Check the same flag after registering.
                 if exited
-                    .expect("discoverable run has exit flag")
+                    .expect("binding run has exit flag")
                     .load(Ordering::Acquire)
                 {
-                    self.resume_discovery.cancel(&tracked_run_id);
+                    self.history_binder.cancel(&tracked_run_id);
                 }
             }
             None => {}

@@ -695,6 +695,113 @@ fn workbench_operations_over_paired_quic() -> Result<()> {
 }
 
 #[test]
+fn session_index_over_quic() -> Result<()> {
+    if !support::test_support::isolated("session_index_over_quic") {
+        return Ok(());
+    }
+    let home = std::path::PathBuf::from(std::env::var_os("HOME").context("missing HOME")?);
+    let project = home.join("project");
+    support::init_repo(&project)?;
+    let session_dir = home.join(".omp/agent/sessions/-project");
+    fs::create_dir_all(&session_dir)?;
+    let id = "indexed";
+    fs::write(
+        session_dir.join(format!("2026-01-01T00-00-00-000Z_{id}.jsonl")),
+        format!(
+            "{}\n{}\n",
+            serde_json::json!({"type":"title","title":"Indexed session"}),
+            serde_json::json!({
+                "type":"session",
+                "id":id,
+                "timestamp":"2026-01-01T00:00:00Z",
+                "cwd":path_string(&fs::canonicalize(&project)?)
+            })
+        ),
+    )?;
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(async {
+            let daemon = Daemon::start(None).await?;
+            let client = daemon.paired_client().await?;
+            client
+                .call_as(
+                    &Request::SettingsPatchGlobalSection {
+                        input: PatchSettingsSectionInput {
+                            section: "harnesses".into(),
+                            value: serde_json::json!({
+                                "omp": {
+                                    "enabled": true,
+                                    "binary_path_override": path_string(&home.join("no-such-omp")),
+                                    // Ignore inherited omp profile and store overrides.
+                                    "extra_args": ["--session-dir", path_string(&session_dir)]
+                                }
+                            }),
+                        },
+                    },
+                    Reply::settings_patch_global_section,
+                )
+                .await?;
+            let folder = client
+                .call_as(
+                    &Request::FolderResolve {
+                        path: path_string(&project),
+                    },
+                    Reply::folder_resolve,
+                )
+                .await?;
+            client
+                .call_as(
+                    &Request::FolderClaim {
+                        folder_path: folder.path.clone(),
+                    },
+                    Reply::folder_claim,
+                )
+                .await?;
+            let (_events_send, mut events) = client.open_stream(Open::Events).await?;
+            settings_barrier(&client, &mut events, None).await?;
+            client
+                .call_as(
+                    &Request::SessionIndexRefresh {
+                        folder_path: folder.path.clone(),
+                    },
+                    Reply::session_index_refresh,
+                )
+                .await?;
+            let snapshot = timeout(WAIT, async {
+                loop {
+                    if let HostEventWire::SessionsChanged(path) = next_event(&mut events).await? {
+                        if path != folder.path {
+                            continue;
+                        }
+                        let snapshot = client
+                            .call_as(
+                                &Request::SessionIndexGet {
+                                    folder_path: folder.path.clone(),
+                                },
+                                Reply::session_index_get,
+                            )
+                            .await?;
+                        if !snapshot.sessions.is_empty() {
+                            return Ok::<_, anyhow::Error>(snapshot);
+                        }
+                    }
+                }
+            })
+            .await
+            .context("missing indexed session after sessions-changed event")??;
+            assert_eq!(snapshot.sessions.len(), 1);
+            let session = &snapshot.sessions[0];
+            assert_eq!(session.title.as_deref(), Some("Indexed session"));
+            assert_eq!(session.harness_id, "omp");
+            assert_eq!(session.presets, vec![None]);
+            client.close();
+            daemon.handle.shutdown().await;
+            Ok(())
+        })
+}
+
+#[test]
 fn daemon_persists_presentation_sections_but_rejects_remotes() -> Result<()> {
     if !support::test_support::isolated("daemon_persists_presentation_sections_but_rejects_remotes")
     {

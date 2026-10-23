@@ -615,6 +615,9 @@ fn remote_host_event(server: &str, event: HostEventWire) -> Option<DesktopEvent>
         HostEventWire::NixChanged(folder) => {
             HostEvent::NixChanged(Target::remote_uri(server, &folder))
         }
+        HostEventWire::SessionsChanged(folder) => {
+            HostEvent::SessionsChanged(Target::remote_uri(server, &folder))
+        }
         HostEventWire::IssuesChanged(folder) => {
             HostEvent::IssuesChanged(Target::remote_uri(server, &folder))
         }

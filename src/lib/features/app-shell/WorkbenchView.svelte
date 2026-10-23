@@ -14,6 +14,7 @@
   import { DND_MIME } from '$lib/features/dnd/payload'
   import { LocalTransfer } from '$lib/features/dnd/transfer.svelte'
   import { activateGitFolder } from '$lib/features/git/state.svelte'
+  import { activateSessionsFolder } from '$lib/features/sessions/state.svelte'
   import SidebarRail from '$lib/features/app-shell/sidebar/SidebarRail.svelte'
   import WorkbenchHome from '$lib/features/home/WorkbenchHome.svelte'
   import GitSidebar from '$lib/features/git/GitSidebar.svelte'
@@ -61,7 +62,15 @@
   $effect(() => {
     const path = folderPath
     if (!path) return
-    return activateGitFolder(path)
+    // Activation reads folder stores; tracking them would re-activate on every store write.
+    return untrack(() => {
+      const releaseGit = activateGitFolder(path)
+      const releaseSessions = activateSessionsFolder(path)
+      return () => {
+        releaseGit()
+        releaseSessions()
+      }
+    })
   })
 
   $effect(() => {

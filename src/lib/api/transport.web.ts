@@ -63,6 +63,7 @@ const eventNames: Record<string, string> = {
   recent_folders_changed: 'recent-folders-changed',
   tasks_changed: 'tasks-changed',
   nix_changed: 'nix-changed',
+  sessions_changed: 'sessions-changed',
   issues_changed: 'issues-changed',
   workbenches_changed: 'workbenches-changed'
 }
@@ -434,7 +435,9 @@ export function createWebHostTransport(options: WebHostTransportOptions): WebHos
           const payload =
             frame.event.kind === 'workbenches_changed'
               ? { server: null }
-              : frame.event.kind === 'nix_changed' || frame.event.kind === 'issues_changed'
+              : frame.event.kind === 'nix_changed' ||
+                  frame.event.kind === 'sessions_changed' ||
+                  frame.event.kind === 'issues_changed'
                 ? { folderPath: frame.event.payload }
                 : frame.event.payload
           emitLocal(name, payload)

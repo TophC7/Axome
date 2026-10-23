@@ -16,6 +16,7 @@
           "wordmark_aspect": 4.795455,
           "gradient": ["#a78bfa", "#312e81"]
         },
+        "history": { "builtin": "antigravity" },
         "terminal": {
           "resume_args": ["--conversation", "${session_id}"],
           "shift_encoding": "kitty"

@@ -16,6 +16,7 @@
           "wordmark_aspect": 3.791667,
           "gradient": ["#6ee7b7", "#065f46"]
         },
+        "history": { "builtin": "codex" },
         "terminal": {
           "resume_args": ["resume", "${session_id}"]
         }

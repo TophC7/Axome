@@ -2,7 +2,7 @@ use crate::{
     errors::ApiError,
     events::HostEvent,
     services::{
-        env::EnvironmentService, folders::resolve_folder, nix::NixService,
+        env, folders::resolve_folder, nix::NixService,
         settings_resolution::resolve_effective_settings_for_folder_path,
     },
     Host,
@@ -25,20 +25,7 @@ impl Drop for NixEvalGuard<'_> {
 impl Host {
     /// Resolve one child environment; unavailable Nix state falls back to the host.
     pub(crate) fn folder_env(&self, folder: &Path) -> HashMap<String, String> {
-        let nix = {
-            let db = self.db.read();
-            NixService::load_env_vars(db.conn(), &folder.to_string_lossy())
-        };
-        match nix {
-            Ok(nix) => EnvironmentService::current().with_nix(nix.as_ref()),
-            Err(error) => {
-                tracing::warn!(
-                    "Failed to load Nix env for folder {}: {error}; using host environment",
-                    folder.display()
-                );
-                EnvironmentService::current().with_nix(None)
-            }
-        }
+        env::folder_env(&self.db, folder)
     }
 
     pub fn nix_detect(&self, folder_path: String) -> Result<NixDetection, ApiError> {
