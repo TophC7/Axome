@@ -1,4 +1,4 @@
-import type { ChatBlock, ChatContent, ChatEntry, ChatEntryBody, ChatLive } from '$lib/types/backend'
+import type { ChatBlock, ChatContent, ChatEntry, ChatEntryBody, ChatLive, ChatThinking } from '$lib/types/backend'
 
 export type UserEntry = ChatEntry & { body: Extract<ChatEntryBody, { kind: 'user' }> }
 export type AssistantEntry = ChatEntry & { body: Extract<ChatEntryBody, { kind: 'assistant' }> }
@@ -19,16 +19,20 @@ export type Step =
       (
         | { kind: 'text'; text: string }
         | { kind: 'thinking'; text: string; redacted: boolean }
-        | Extract<ChatEntryBody, { kind: 'notice' | 'modelChange' | 'thinkingChange' | 'compaction' | 'branchSummary' }>
+        | Extract<ChatEntryBody, { kind: 'notice' | 'compaction' | 'branchSummary' }>
       ))
+/** Model and thinking that changed since the previous user message; null where unchanged. */
+export type TurnConfig = { model: string | null; thinking: ChatThinking | null }
 export type Turn = {
   id: string
   user: UserEntry | null
+  config: TurnConfig
   steps: Step[]
   assistants: AssistantEntry[]
-  answer: AssistantEntry | null
   end: Extract<ChatEntryBody, { kind: 'runEnd' }> | null
   running: boolean
+  startedAt: string | null
+  endedAt: string | null
 }
 
 export function transcriptTurns(entries: ChatEntry[], streaming: ChatBlock[] | null, live: ChatLive): Turn[] {
@@ -39,15 +43,28 @@ export function transcriptTurns(entries: ChatEntry[], streaming: ChatBlock[] | n
   }
   const runs = new Map(live.tools.map((run) => [run.callId, run]))
   let current: Turn | undefined
-  function start(user: UserEntry | null): Turn {
+  // axo logs every picker step; only the net settings a message was sent with matter.
+  const settings: TurnConfig = { model: null, thinking: null }
+  let sent: TurnConfig | null = null
+  function start(user: UserEntry | null, timestamp: string | null = user?.timestamp ?? null): Turn {
+    const config: TurnConfig = { model: null, thinking: null }
+    if (user) {
+      if (sent) {
+        if (settings.model !== sent.model) config.model = settings.model
+        if (settings.thinking !== sent.thinking) config.thinking = settings.thinking
+      }
+      sent = { ...settings }
+    }
     const turn: Turn = {
       id: user?.id ?? 'turn:0',
       user,
+      config,
       steps: [],
       assistants: [],
-      answer: null,
       end: null,
-      running: false
+      running: false,
+      startedAt: timestamp,
+      endedAt: null
     }
     turns.push(turn)
     return turn
@@ -81,9 +98,17 @@ export function transcriptTurns(entries: ChatEntry[], streaming: ChatBlock[] | n
       current = start(entry as UserEntry)
       continue
     }
-    if (!current && (body.kind === 'modelChange' || body.kind === 'thinkingChange')) continue
+    if (body.kind === 'modelChange') {
+      settings.model = body.model
+      continue
+    }
+    if (body.kind === 'thinkingChange') {
+      settings.thinking = body.thinking
+      continue
+    }
+    current ??= start(null, entry.timestamp)
+    current.endedAt = entry.timestamp
     if (body.kind === 'toolResult') continue
-    current ??= start(null)
     if (body.kind === 'assistant') {
       current.assistants.push(entry as AssistantEntry)
       blocks(current, body.blocks, entry.id)
@@ -95,36 +120,12 @@ export function transcriptTurns(entries: ChatEntry[], streaming: ChatBlock[] | n
     blocks(current, streaming, null)
   }
   if (current) current.running = live.running
-  for (const turn of turns) {
-    const last = turn.assistants.at(-1)
-    if (
-      !turn.running &&
-      last?.body.blocks.some((block) => block.type === 'text') &&
-      !last.body.blocks.some((block) => block.type === 'toolCall')
-    ) {
-      turn.answer = last
-      turn.steps = turn.steps.filter((step) => step.entryId !== last.id || step.kind !== 'text')
-    }
-  }
   return turns
 }
 
-export function turnFoldOpen(turn: Turn): boolean {
-  return turn.running || !turn.answer || (turn.end !== null && turn.end.outcome !== 'done')
-}
-
-export function turnSummary(turn: Turn): string {
-  return (
-    [
-      ['tool', 'tool call'],
-      ['text', 'message'],
-      ['thinking', 'thought']
-    ] as const
-  )
-    .map(([kind, label]) => {
-      const n = turn.steps.filter((step) => step.kind === kind).length
-      return n ? `${n} ${label}${n === 1 ? '' : 's'}` : ''
-    })
-    .filter(Boolean)
-    .join(' · ')
+export function turnDurationMs(turn: Turn, now: number): number | null {
+  if (turn.startedAt === null || (!turn.running && turn.endedAt === null)) return null
+  const start = Date.parse(turn.startedAt)
+  const end = turn.running ? now : Date.parse(turn.endedAt!)
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : null
 }

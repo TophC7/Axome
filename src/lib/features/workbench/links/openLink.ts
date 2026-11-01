@@ -1,7 +1,7 @@
 import { backend } from '$lib/api/backend'
 import { notify } from '$lib/features/notifications/state.svelte'
 import { getErrorMessage } from '$lib/utils/client-error'
-import { basename, dirname, normalizeRelativePath, toProjectRelativePath } from '$lib/utils/paths'
+import { basename, dirname, isPathWithin, splitRemotePath, toProjectRelativePath } from '$lib/utils/paths'
 import { revealPath } from '$lib/features/files/explorer.svelte'
 import { openFolder } from '$lib/features/workbench/state.svelte'
 import { openTextFile, type TextRevealTarget } from '$lib/features/workbench/surfaces/text/service.svelte'
@@ -47,9 +47,8 @@ async function getGitHubRepo(folderPath: string): Promise<{ owner: string; repo:
  * @param folderPath Active workbench folder path.
  */
 export async function openLink(rawTarget: string, folderPath?: string | null): Promise<boolean> {
-  const target = parseLinkTarget(rawTarget)
-
   try {
+    const target = parseLinkTarget(rawTarget)
     if (target.kind === 'anchor') {
       // Fragment-only link (#section); handled within document or no-op
       return true
@@ -65,7 +64,7 @@ export async function openLink(rawTarget: string, folderPath?: string | null): P
     }
 
     if (target.kind === 'file') {
-      return await handleFileLink(target.path ?? rawTarget, target.reveal, folderPath)
+      return await openFileLocation(target.path ?? rawTarget, target.reveal, folderPath)
     }
   } catch (error) {
     notify.error('Failed to open link', getErrorMessage(error))
@@ -136,7 +135,7 @@ async function handleFileScheme(fullUrl: string, folderPath?: string | null): Pr
     parsedUrl = new URL(fullUrl)
   } catch {
     const rawPath = fullUrl.replace(/^file:\/\//, '')
-    return handleFileLink(rawPath, null, folderPath)
+    return openFileLocation(rawPath, null, folderPath)
   }
 
   let absPath = decodeURIComponent(parsedUrl.pathname)
@@ -152,7 +151,7 @@ async function handleFileScheme(fullUrl: string, folderPath?: string | null): Pr
     reveal = parsed.reveal
   }
 
-  return handleFileLink(absPath, reveal, folderPath)
+  return openFileLocation(absPath, reveal, folderPath)
 }
 
 async function handleIssueOrPrScheme(
@@ -191,93 +190,58 @@ async function handleIssueOrPrScheme(
   return true
 }
 
-async function handleFileLink(
+/** Resolve a literal filesystem path on the active folder's host, without URL or location parsing. */
+export async function resolveFileLocationPath(filePath: string, folderPath?: string | null): Promise<string> {
+  if (filePath.startsWith('sworm://') && splitRemotePath(filePath)) return filePath
+  const server = folderPath ? splitRemotePath(folderPath)?.server : undefined
+  if (filePath === '~' || filePath.startsWith('~/')) {
+    const home = await backend.folders.home(server)
+    return `${home}${filePath.slice(1)}`
+  }
+  if (filePath.startsWith('/')) return server ? `sworm://${server}${filePath}` : filePath
+  if (!folderPath) throw new Error(`No active project folder to resolve relative path "${filePath}"`)
+  // Leave .. and symlinks to the filesystem; lexical normalization changes their meaning.
+  return `${folderPath.replace(/\/+$/, '')}/${filePath}`
+}
+
+/** Open a literal path; unlike openLink, # and : are always filename bytes here. */
+export async function openFileLocation(
   filePath: string,
   reveal?: TextRevealTarget | null,
   folderPath?: string | null
 ): Promise<boolean> {
-  let targetPath = filePath
-  if (targetPath.startsWith('file://')) {
-    try {
-      targetPath = decodeURIComponent(new URL(targetPath).pathname)
-    } catch {
-      targetPath = targetPath.slice(7)
-    }
-  }
-
-  // Expand ~ if folderPath is in /home or /root
-  if (targetPath.startsWith('~/') && folderPath) {
-    const parts = folderPath.split('/')
-    const home = parts[1] === 'home' && parts[2] ? `/home/${parts[2]}` : parts[1] === 'root' ? '/root' : null
-    if (home) {
-      targetPath = `${home}/${targetPath.slice(2)}`
-    }
-  }
-
-  // Compute absolute path if possible
-  const absPath = targetPath.startsWith('/')
-    ? targetPath
-    : folderPath
-      ? `${folderPath}/${normalizeRelativePath(targetPath)}`
-      : null
-
-  // Check if target is an existing directory
-  if (absPath) {
-    try {
-      const resolved = await backend.folders.resolve(absPath)
-      // Subdirectory of current project folder: reveal in files tree
-      if (folderPath && absPath.startsWith(folderPath + '/') && absPath !== folderPath) {
-        const rel = toProjectRelativePath(folderPath, absPath)
-        if (rel) {
-          await revealPath(folderPath, rel)
+  try {
+    const targetPath = await resolveFileLocationPath(filePath, folderPath)
+    const directory = await backend.folders.resolve(targetPath).catch(() => null)
+    if (directory) {
+      if (folderPath && isPathWithin(folderPath, directory.path)) {
+        const relative = toProjectRelativePath(folderPath, directory.path)
+        if (relative) {
+          await revealPath(folderPath, relative)
           return true
         }
       }
-      // External directory or project root: open as folder tab
-      await openFolder(resolved.path)
+      await openFolder(directory.path)
       return true
-    } catch {
-      // Not a directory or does not exist as directory, proceed to open as file
     }
+
+    // Canonicalize the parent, not the filename: preserve .. through symlink parents
+    // and keep filenames containing URL fragments or line-like suffixes untouched.
+    const slash = targetPath.lastIndexOf('/')
+    const file = targetPath.slice(slash + 1)
+    if (!file) throw new Error(`Cannot resolve file "${filePath}"`)
+    const parent = await backend.folders.resolve(targetPath.slice(0, slash + 1))
+    const stat = await backend.files.stat(parent.path, file)
+    if (!stat.regular) throw new Error(`Not a regular file: "${filePath}"`)
+    const absolutePath = `${parent.path.replace(/\/+$/, '')}/${file}`
+    const relative = folderPath ? toProjectRelativePath(folderPath, absolutePath) : null
+    await openTextFile(relative !== null && folderPath ? folderPath : parent.path, relative ?? file, {
+      temporary: false,
+      reveal
+    })
+    return true
+  } catch (error) {
+    notify.error('Cannot open file', getErrorMessage(error))
+    return false
   }
-
-  // File inside current project
-  if (folderPath) {
-    const projectRel = toProjectRelativePath(folderPath, targetPath)
-    const rel = projectRel ?? (!targetPath.startsWith('/') ? normalizeRelativePath(targetPath) : null)
-
-    if (rel !== null) {
-      try {
-        await openTextFile(folderPath, rel, {
-          temporary: false,
-          reveal
-        })
-        return true
-      } catch (e) {
-        notify.error('Cannot open file', getErrorMessage(e))
-        return false
-      }
-    }
-  }
-
-  // Absolute file path outside project folder: open directly in Monaco
-  if (targetPath.startsWith('/')) {
-    const dir = dirname(targetPath)
-    const file = basename(targetPath)
-    if (dir && file) {
-      try {
-        await openTextFile(dir, file, {
-          temporary: false,
-          reveal
-        })
-        return true
-      } catch (e) {
-        notify.error('Cannot open file', getErrorMessage(e))
-        return false
-      }
-    }
-  }
-
-  notify.error('Cannot open file', `No active project folder to resolve relative path "${filePath}"`)
-  return false
 }

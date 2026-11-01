@@ -20,6 +20,15 @@
       "group": "serve"
     },
     {
+      "id": "dev-web",
+      "label": "Web + Daemon",
+      "command": "fish .sworm/scripts/dev-remote.fish --web-only",
+      "singleton": true,
+      "clearOnRerun": false,
+      "icon": "globe",
+      "group": "serve"
+    },
+    {
       "id": "check",
       "label": "Typecheck",
       "command": "bun run check",

@@ -98,7 +98,7 @@ export async function completeFolderSelection(path: string, opening: SelectFolde
   finishSelection(resolved.path)
 }
 
-/** Status-bar folder chip: toggles browsing inside `path`. */
+/** Title-bar folder button: toggles browsing inside `path`. */
 export function toggleBrowser(options: NavigateBrowserRequest = {}): void {
   if (request) closeBrowser()
   else openBrowser(options)

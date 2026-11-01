@@ -3,16 +3,18 @@
   import { IconButton } from '$lib/components/ui/button'
   import {
     RAIL_WIDTH_CLASS,
-    attachSidebarHeaderSlot,
     getShownSidebarFolder,
     getSidebarColumnWidth
   } from '$lib/features/app-shell/sidebar/state.svelte'
+  import SidebarFolder from './SidebarFolder.svelte'
   import AppInfo from './AppInfo.svelte'
   import TitleTabStrip from './TitleTabStrip.svelte'
   import WindowControls from './WindowControls.svelte'
   import { isCommandPaletteOpen, setCommandPaletteOpen } from '$lib/features/command-palette/state.svelte'
   import { CommandIcon } from '$lib/icons/lucideExports'
   import { getCommandShortcut } from '$lib/features/command-palette/shortcuts/registry.svelte'
+
+  const shownFolder = $derived(getShownSidebarFolder())
 </script>
 
 <header class="flex min-h-9 shrink-0 items-center border-b border-edge bg-surface">
@@ -21,13 +23,11 @@
     <AppInfo />
   </div>
 
-  {#if getShownSidebarFolder()}
+  {#if shownFolder}
     <!-- Spans the sidebar panel plus its 1px resize divider, so this border sits on the divider. -->
-    <div
-      class="shrink-0 self-stretch border-r border-edge"
-      style:width="{getSidebarColumnWidth()}px"
-      {@attach attachSidebarHeaderSlot}
-    ></div>
+    <div class="shrink-0 self-stretch border-r border-edge" style:width="{getSidebarColumnWidth()}px">
+      <SidebarFolder folderPath={shownFolder} />
+    </div>
   {/if}
 
   <TitleTabStrip />

@@ -2,7 +2,7 @@
 
 # Dev desktop + local daemon + live web frontend, sandboxed under
 # .sworm/dev-remote and trusting each other up front, so no pairing step and
-# no ~/.config remotes.
+# no ~/.config remotes. `--web-only` skips the desktop app.
 
 set -l repo_root (realpath (status dirname)/../..)
 cd $repo_root
@@ -58,4 +58,9 @@ setpriv --pdeathsig TERM $server \
 # file in-process keeps --pdeathsig on vite itself.
 SWORM_TARGET=web setpriv --pdeathsig TERM bun ./node_modules/.bin/vite dev &
 
-XDG_CONFIG_HOME=$desktop_config_home XDG_DATA_HOME=$desktop_data_home exec bun app:dev
+if contains -- --web-only $argv
+    wait
+else
+    # exec hands this PID to the app, so closing it fires --pdeathsig on the daemon and vite.
+    XDG_CONFIG_HOME=$desktop_config_home XDG_DATA_HOME=$desktop_data_home exec bun app:dev
+end

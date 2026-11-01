@@ -1,16 +1,14 @@
 <script lang="ts">
-  import type { HTMLAttributes } from 'svelte/elements'
   import type { ChatCommand } from '$lib/types/backend'
   import { menuContentVariants, menuItemClass } from '$lib/components/ui/menu-recipe'
   import { cn } from '$lib/utils/cn'
+  import { logicalKey } from '$lib/utils/keyboardEvent'
 
   let {
     text = $bindable(''),
     commands,
-    disabled = false,
-    class: className,
-    ...rest
-  }: HTMLAttributes<HTMLDivElement> & {
+    disabled = false
+  }: {
     text?: string
     commands: ChatCommand[]
     disabled?: boolean
@@ -34,13 +32,21 @@
     return open ? id : undefined
   }
   export function handleKeydown(event: KeyboardEvent): boolean {
-    if (event.isComposing || !open || !['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(event.key))
+    const key = logicalKey(event)
+    if (
+      event.isComposing ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      (key === 'Tab' && event.shiftKey) ||
+      !open ||
+      !['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(key)
+    )
       return false
     event.preventDefault()
-    if (event.key === 'Escape') dismissed = text
-    else if (event.key === 'Enter' || event.key === 'Tab') select(active)
-    else
-      selection = { text, index: (active + (event.key === 'ArrowDown' ? 1 : -1) + filtered.length) % filtered.length }
+    if (key === 'Escape') dismissed = text
+    else if (key === 'Enter' || key === 'Tab') select(active)
+    else selection = { text, index: (active + (key === 'ArrowDown' ? 1 : -1) + filtered.length) % filtered.length }
     return true
   }
 </script>
@@ -52,8 +58,7 @@
     role="listbox"
     aria-label="Commands"
     tabindex="-1"
-    class={cn(menuContentVariants(), 'absolute bottom-full left-0 mb-1 max-h-64 w-full', className)}
-    {...rest}
+    class={cn(menuContentVariants(), 'absolute bottom-full left-0 mb-1 max-h-64 w-full')}
   >
     {#each filtered as command, index (command.name)}
       <button

@@ -68,7 +68,6 @@
   } from '$lib/utils/paths'
 
   let { folderPath }: { folderPath: string } = $props()
-  let folderName = $derived(basename(normalizeAbsolutePath(folderPath)) || folderPath || 'Files')
   let remoteFolder = $derived(splitRemotePath(normalizeAbsolutePath(folderPath)))
 
   let filterQuery = $state('')
@@ -569,7 +568,7 @@
   }
 </script>
 
-<SidebarPanel title={folderName}>
+<SidebarPanel title="Files">
   {#snippet headerActions()}
     <IconButton
       tooltip={tree.showHidden ? 'Hide hidden & ignored files' : 'Show hidden & ignored files'}

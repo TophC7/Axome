@@ -8,6 +8,7 @@
   import DropOverlay from '$lib/features/dnd/DropOverlay.svelte'
   import { gitChangeDragSource, gitDropZone, isGitDropZoneActive } from '$lib/features/dnd/adapters/git.svelte'
   import { IconButton } from '$lib/components/ui/button'
+  import { NetLineChange } from '$lib/components/ui/net-line-change'
   import {
     Check,
     FileDiff,
@@ -236,14 +237,9 @@
   {#snippet fileTrailing(node: FileTreeNode<GitChange>)}
     {#if node.change}
       {#if node.change.status !== 'D' && (node.change.additions != null || node.change.deletions != null)}
-        {@const net = (node.change.additions ?? 0) - (node.change.deletions ?? 0)}
-        {#if net !== 0}
-          <span class="shrink-0 font-mono {net > 0 ? 'text-success' : 'text-danger'}">
-            {net > 0 ? '+' : ''}{net}
-          </span>
-        {:else}
-          <GitStatusBadge status={node.change.status} />
-        {/if}
+        <NetLineChange added={node.change.additions ?? 0} removed={node.change.deletions ?? 0}>
+          {#snippet fallback()}<GitStatusBadge status={node.change!.status} />{/snippet}
+        </NetLineChange>
       {:else}
         <GitStatusBadge status={node.change.status} />
       {/if}

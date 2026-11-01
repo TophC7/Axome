@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FolderHero from '$lib/components/layout/FolderHero.svelte'
   import StageView from '$lib/components/layout/StageView.svelte'
   import { BlurFade } from '$lib/components/ui/blur-fade'
   import { Button } from '$lib/components/ui/button'
@@ -29,7 +30,6 @@
     ArrowDown,
     ArrowUp,
     ArrowUpRightIcon,
-    ChevronRight,
     FilePlusCornerIcon,
     GitBranchIcon,
     MessagesSquareIcon,
@@ -41,12 +41,10 @@
   import { platform } from '$lib/platform'
   import type { TaskDefinition } from '$lib/types/backend'
   import { basename, splitRemotePath } from '$lib/utils/paths'
-  import { getPathColor } from '$lib/utils/pathColor'
 
   let { folderPath }: { folderPath: string } = $props()
 
   let remote = $derived(splitRemotePath(folderPath))
-  let folderName = $derived(basename(remote?.path ?? folderPath) || '/')
   let git = $derived(getGitSummary(folderPath))
   // `changes` lists a path twice when it is both staged and unstaged.
   let changedCount = $derived(git ? new Set(git.changes.map((change) => change.path)).size : 0)
@@ -155,52 +153,37 @@
     </Button>
   {/snippet}
 
-  <BlurFade delay={0.05} duration={0.5} offset={10}>
-    <header class="mb-8 flex flex-col items-center gap-1 text-center">
-      <!-- The chevron hangs left of the name so the name alone is centered. -->
-      <h2 class="relative max-w-full text-3xl text-bright">
-        <ChevronRight
-          size={28}
-          class="absolute top-1/2 right-full -translate-y-1/2"
-          style="color: {getPathColor(folderPath)}"
-          aria-hidden="true"
-        />
-        <span class="block truncate">{folderName}</span>
-      </h2>
-      <p class="max-w-full truncate font-mono text-sm text-subtle" title={folderPath}>
-        {remote?.path ?? folderPath}
-      </p>
-      <div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted">
-        <span class="inline-flex items-center gap-1.5">
-          {#if remote}
-            <ServerIcon size={12} class="shrink-0" /><span class="font-mono">{remote.server}</span>
-          {:else}
-            <MonitorIcon size={12} class="shrink-0" />{localHostLabel()}
-          {/if}
+  <FolderHero {folderPath} class="mb-8">
+    <div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted">
+      <span class="inline-flex items-center gap-1.5">
+        {#if remote}
+          <ServerIcon size={12} class="shrink-0" /><span class="font-mono">{remote.server}</span>
+        {:else}
+          <MonitorIcon size={12} class="shrink-0" />{localHostLabel()}
+        {/if}
+      </span>
+      {#if git?.is_repo}
+        <span class="inline-flex items-center gap-1.5 font-mono">
+          <GitBranchIcon size={12} class="shrink-0" />{git.branch ?? 'Detached'}
+          {#if git.ahead}<span class="inline-flex items-center" title="Commits Ahead"
+              ><ArrowUp size={12} />{git.ahead}</span
+            >{/if}
+          {#if git.behind}<span class="inline-flex items-center" title="Commits Behind"
+              ><ArrowDown size={12} />{git.behind}</span
+            >{/if}
         </span>
-        {#if git?.is_repo}
-          <span class="inline-flex items-center gap-1.5 font-mono">
-            <GitBranchIcon size={12} class="shrink-0" />{git.branch ?? 'Detached'}
-            {#if git.ahead}<span class="inline-flex items-center" title="Commits Ahead"
-                ><ArrowUp size={12} />{git.ahead}</span
-              >{/if}
-            {#if git.behind}<span class="inline-flex items-center" title="Commits Behind"
-                ><ArrowDown size={12} />{git.behind}</span
-              >{/if}
-          </span>
-          <span class="inline-flex items-center gap-1.5">
-            <StatusDot tone={changedCount ? 'waiting' : 'success'} size="sm" />
-            {changedCount ? `${changedCount} Changed` : 'Clean'}
-          </span>
-        {/if}
-        {#if nix}
-          <span class="inline-flex items-center gap-1.5">
-            <MaskIcon src={nixosUrl} width={12} label="Nix" class={statusToneText[nix.tone]} />{nix.text}
-          </span>
-        {/if}
-      </div>
-    </header>
-  </BlurFade>
+        <span class="inline-flex items-center gap-1.5">
+          <StatusDot tone={changedCount ? 'waiting' : 'success'} size="sm" />
+          {changedCount ? `${changedCount} Changed` : 'Clean'}
+        </span>
+      {/if}
+      {#if nix}
+        <span class="inline-flex items-center gap-1.5">
+          <MaskIcon src={nixosUrl} width={12} label="Nix" class={statusToneText[nix.tone]} />{nix.text}
+        </span>
+      {/if}
+    </div>
+  </FolderHero>
 
   <!-- Agents -->
   <div class="grid grid-cols-2 gap-2.5">

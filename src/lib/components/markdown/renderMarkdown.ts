@@ -10,24 +10,9 @@ import rehypeSanitize, { defaultSchema, type Options } from 'rehype-sanitize'
 import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
 import rehypeStringify from 'rehype-stringify'
 import { SKIP, visit } from 'unist-util-visit'
-import type { Highlighter } from 'shiki'
 import { platform } from '$lib/platform'
 import { markdownImageSrc } from '$lib/utils/mediaAssets'
-
-const SHIKI_THEME_NAME = 'sworm'
-let highlighterPromise: Promise<Highlighter> | null = null
-
-function getHighlighter(): Promise<Highlighter> {
-  return (highlighterPromise ??= import('shiki').then(
-    ({ createHighlighter, createCssVariablesTheme, createJavaScriptRegexEngine }) =>
-      createHighlighter({
-        themes: [createCssVariablesTheme({ name: SHIKI_THEME_NAME, variablePrefix: '--shiki-' })],
-        langs: [],
-        // Match Monaco's engine; avoid the desktop runtime's crashing Oniguruma wasm path.
-        engine: createJavaScriptRegexEngine({ forgiving: true })
-      })
-  ))
-}
+import { getHighlighter, SHIKI_THEME_NAME } from '$lib/utils/syntaxHighlight'
 
 const markdownSchema: Options = {
   ...defaultSchema,

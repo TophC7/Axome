@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import type { HTMLAttributes } from 'svelte/elements'
   import type { ChatCommand } from '$lib/types/backend'
-  import { Textarea } from '$lib/components/ui/input'
-  import { cn } from '$lib/utils/cn'
+  import { logicalKey } from '$lib/utils/keyboardEvent'
   import SlashMenu from './PromptInputSlashMenu.svelte'
 
   let {
@@ -13,33 +11,45 @@
     commands,
     onSubmit,
     onAltSubmit,
-    toolbar,
-    class: className,
-    ...rest
-  }: HTMLAttributes<HTMLDivElement> & {
+    start,
+    end
+  }: {
     text?: string
     disabled?: boolean
     placeholder: string
     commands: ChatCommand[]
     onSubmit: () => void
     onAltSubmit: () => void
-    toolbar?: Snippet
+    start?: Snippet
+    end?: Snippet
   } = $props()
   let ref = $state<HTMLTextAreaElement | null>(null)
   let menu = $state<SlashMenu | undefined>()
+
+  export function focus(insert?: string): void {
+    if (!ref || disabled) return
+    ref.focus()
+    if (insert) {
+      ref.setRangeText(insert, ref.selectionStart, ref.selectionEnd, 'end')
+      text = ref.value
+    }
+  }
+
   $effect(() => {
     void text
     if (!ref) return
     ref.style.height = 'auto'
-    ref.style.height = `${Math.min(ref.scrollHeight, 240)}px`
+    ref.style.height = `${ref.scrollHeight}px`
   })
+
   function keydown(event: KeyboardEvent) {
-    if (event.isComposing || disabled) return
-    if (event.key === 'Enter' && event.altKey && !event.shiftKey) {
+    if (event.isComposing || disabled || event.defaultPrevented) return
+    const key = logicalKey(event)
+    if (key === 'Enter' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault()
       onAltSubmit()
     } else if (menu?.handleKeydown(event)) return
-    else if (event.key === 'Enter' && !event.shiftKey) {
+    else if (key === 'Enter' && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault()
       onSubmit()
     }
@@ -50,26 +60,26 @@
   data-slot="prompt-input-root"
   role="group"
   aria-label="Message composer"
-  class={cn('border-t border-edge bg-ground px-4 pt-2 pb-3', className)}
-  {...rest}
+  class="relative flex flex-col rounded-lg border border-edge bg-surface transition-colors focus-within:border-accent"
 >
-  <div
-    class="relative mx-auto max-w-3xl rounded-lg border border-edge bg-surface transition-colors focus-within:border-accent"
-  >
-    <SlashMenu bind:this={menu} bind:text {commands} {disabled} />
-    <Textarea
-      bind:ref
-      bind:value={text}
-      rows={1}
-      {disabled}
-      {placeholder}
-      aria-label={placeholder}
-      aria-autocomplete="list"
-      aria-controls={menu?.listboxId()}
-      aria-activedescendant={menu?.activeDescendant()}
-      class="max-h-60 min-h-10 overflow-y-auto border-0 bg-transparent px-3 py-2 focus:border-0"
-      onkeydown={keydown}
-    />
-    {#if toolbar}{@render toolbar()}{/if}
+  <SlashMenu bind:this={menu} bind:text {commands} {disabled} />
+  <textarea
+    bind:this={ref}
+    bind:value={text}
+    rows={1}
+    {disabled}
+    {placeholder}
+    aria-label={placeholder}
+    aria-autocomplete="list"
+    aria-controls={menu?.listboxId()}
+    aria-activedescendant={menu?.activeDescendant()}
+    class="max-h-60 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-3 pt-2.5 pb-1 text-base leading-normal text-fg outline-none placeholder:text-subtle disabled:opacity-50"
+    onkeydown={keydown}
+  ></textarea>
+  <div class="flex items-center gap-1 px-1.5 pb-1.5">
+    {#if start}{@render start()}{/if}
+    <div class="ms-auto flex min-w-0 items-center gap-1">
+      {#if end}{@render end()}{/if}
+    </div>
   </div>
 </div>

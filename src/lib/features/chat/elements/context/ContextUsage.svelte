@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { ComponentProps } from 'svelte'
   import * as Popover from '$lib/components/ui/popover'
   import { buttonVariants } from '$lib/components/ui/button'
   import { ProgressRing } from '$lib/components/ui/progress'
@@ -7,11 +6,7 @@
   import { formatCost, formatTokens } from '$lib/features/chat/format'
   import { cn } from '$lib/utils/cn'
 
-  let {
-    stats,
-    class: className,
-    ...rest
-  }: Omit<ComponentProps<typeof Popover.Trigger>, 'child' | 'children'> & { stats: ChatStats } = $props()
+  let { stats }: { stats: ChatStats } = $props()
   const fraction = $derived(stats.contextWindow > 0 ? stats.contextTokens / stats.contextWindow : 0)
 </script>
 
@@ -19,13 +14,12 @@
   <Popover.Trigger
     data-slot="context-usage"
     aria-label="Context Usage"
-    class={cn(buttonVariants({ variant: 'ghost', size: 'xs' }), className)}
-    {...rest}
+    class={cn(buttonVariants({ variant: 'ghost', size: 'xs' }), 'hover:bg-raised')}
   >
     <ProgressRing value={fraction} size={14} />
     <span class="font-mono text-xs text-muted">{Math.round(fraction * 100)}%</span>
   </Popover.Trigger>
-  <Popover.Content side="top" class="w-56 p-3">
+  <Popover.Content side="bottom" align="end" class="w-56 p-3">
     <h3 class="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Context</h3>
     <dl class="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
       <dt class="text-muted">Used</dt>

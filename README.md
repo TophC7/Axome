@@ -84,6 +84,8 @@ Run agent sessions and ordinary terminals in tabs, with each tab tied to its fol
 
 The home dashboard reads local Claude Code, Codex, and OMP histories to show projects with a seven-day activity heatmap, so you can find where you left off.
 
+In native Axo chats, `Alt+O` cycles through folded work, call summaries, and open thoughts/tools (including nested calls), then folds everything again, resetting individual folds. Opening calls keeps long outputs truncated; use each output's More control to reveal the remaining lines. Thoughts and tool outputs start folded; pending questions stay accessible.
+
 <details>
 <summary>📷 See the dashboard and an agent workspace</summary>
 
@@ -162,7 +164,7 @@ Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate a
 
 Everything Sworm launches starts from the environment Sworm itself was launched with, minus Sworm's own packaging edits (the GTK wrapper and devshell record each variable's prior value as `SWORM_ORIG_<NAME>`, and Sworm restores it). That environment is resolved through your login shell (`$SHELL -l`, including home-manager session variables), and the folder's Nix environment is layered on top; session values such as `DISPLAY`, `WAYLAND_DISPLAY`, or `SSH_AUTH_SOCK` always come from the host. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Sworm.
 
-The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the sidebar footer shows the current folder.
+The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the title bar cell above the sidebar shows the current folder.
 
 <details>
 <summary>📷 See a terminal session</summary>

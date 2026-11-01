@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { ChatEntry, ChatEntryBody, ChatLive } from '$lib/types/backend'
-import { transcriptTurns, turnFoldOpen, turnSummary } from './turns'
+import { transcriptTurns, turnDurationMs } from './turns'
 
 const live: ChatLive = {
   title: null,
@@ -53,23 +53,20 @@ const result = entry('result', {
 })
 const end = entry('end', { kind: 'runEnd', outcome: 'done', reason: null })
 
-test('trailing markers leave the final message outside the fold and pair tool results', () => {
+test('steps retain final text in order and pair tool results', () => {
   const [turn] = transcriptTurns(
     [user, work, result, message, entry('compact', { kind: 'compaction', summary: 'Summary', tokensBefore: 10 }), end],
     null,
     live
   )
   assert.equal(turn.user, user)
-  assert.equal(turn.answer, message)
   assert.deepEqual(
     turn.steps.map((step) => step.kind),
-    ['thinking', 'text', 'tool', 'compaction']
+    ['thinking', 'text', 'tool', 'text', 'compaction']
   )
   const call = turn.steps[2]
   assert.equal(call.kind === 'tool' && call.result, result.body)
   assert.equal(turn.end, end.body)
-  assert.equal(turnFoldOpen(turn), false)
-  assert.equal(turnSummary(turn), '1 tool call · 1 message · 1 thought')
 })
 
 test('only the last turn runs and streaming and live output belong to it', () => {
@@ -83,9 +80,7 @@ test('only the last turn runs and streaming and live output belong to it', () =>
     }
   )
   assert.equal(turns[0].running, false)
-  assert.equal(turnFoldOpen(turns[0]), false)
   assert.equal(turns[1].running, true)
-  assert.equal(turns[1].answer, null)
   assert.deepEqual(turns[1].steps.at(-1), {
     id: 'streaming:0',
     kind: 'text',
@@ -97,18 +92,9 @@ test('only the last turn runs and streaming and live output belong to it', () =>
   if (call.kind !== 'tool') throw new Error('Expected tool step')
   assert.equal(call.status, 'running')
   assert.deepEqual(call.output, [{ type: 'text', text: 'Partial' }])
-  assert.equal(turnFoldOpen(turns[1]), true)
 })
 
-test('aborted, failed and interrupted turns remain expanded with an answer', () => {
-  for (const outcome of ['aborted', 'failed', 'interrupted'] as const) {
-    const [turn] = transcriptTurns([user, message, entry('end', { kind: 'runEnd', outcome, reason: null })], null, live)
-    assert.equal(turn.answer, message)
-    assert.equal(turnFoldOpen(turn), true)
-  }
-})
-
-test('a tool-call response is not a final answer and failed tool results stay paired', () => {
+test('failed tool results stay paired with their calls', () => {
   const [turn] = transcriptTurns(
     [
       user,
@@ -119,14 +105,12 @@ test('a tool-call response is not a final answer and failed tool results stay pa
     null,
     live
   )
-  assert.equal(turn.answer, null)
   assert.deepEqual(
     turn.steps.map((step) => step.kind),
     ['thinking', 'text', 'tool']
   )
   const call = turn.steps[2]
   assert.equal(call.kind === 'tool' && call.status, 'error')
-  assert.equal(turnFoldOpen(turn), true)
 })
 
 test('leading content has no fabricated user and leading model selections are dropped', () => {
@@ -144,16 +128,70 @@ test('leading content has no fabricated user and leading model selections are dr
   assert.equal(turns.length, 2)
   assert.equal(turns[0].user, null)
   assert.equal(turns[0].id, 'turn:0')
-  assert.deepEqual(turns[0].steps, [])
-  assert.equal(turns[0].answer, message)
+  assert.deepEqual(
+    turns[0].steps.map((step) => step.kind),
+    ['text']
+  )
+  assert.equal(turns[0].startedAt, message.timestamp)
   assert.equal(turns[1].id, user.id)
 })
 
-test('replayed turns collapse without an invented run end', () => {
+test('picker steps fold into the net change carried by the next user message', () => {
+  const thinking = (id: string, level: 'low' | 'medium' | 'high') =>
+    entry(id, { kind: 'thinkingChange', thinking: level })
+  const turns = transcriptTurns(
+    [
+      thinking('t0', 'low'),
+      user,
+      message,
+      thinking('t1', 'medium'),
+      thinking('t2', 'high'),
+      { ...user, id: 'u2' },
+      thinking('t3', 'low'),
+      thinking('t4', 'high'),
+      { ...user, id: 'u3' }
+    ],
+    null,
+    live
+  )
+  assert.deepEqual(
+    turns.map((turn) => turn.config),
+    [
+      { model: null, thinking: null },
+      { model: null, thinking: 'high' },
+      { model: null, thinking: null }
+    ]
+  )
+  assert.ok(turns.every((turn) => turn.steps.every((step) => step.kind === 'text')))
+})
+
+test('replayed turns retain text without an invented run end', () => {
   const [turn] = transcriptTurns([user, message], null, live)
   assert.equal(turn.end, null)
-  assert.equal(turnFoldOpen(turn), false)
-  assert.deepEqual(turn.steps, [])
-  assert.equal(turnSummary(turn), '')
+  assert.deepEqual(
+    turn.steps.map((step) => step.kind),
+    ['text']
+  )
   assert.deepEqual(transcriptTurns([], null, live), [])
+})
+
+test('duration uses entry timestamps when finished and the clock while running', () => {
+  const startedAt = '2026-01-01T00:00:00Z'
+  const endedAt = '2026-01-01T00:00:12Z'
+  const [turn] = transcriptTurns(
+    [
+      { ...user, timestamp: startedAt },
+      { ...message, timestamp: endedAt }
+    ],
+    null,
+    live
+  )
+  assert.equal(turn.startedAt, startedAt)
+  assert.equal(turn.endedAt, endedAt)
+  assert.equal(turnDurationMs(turn, Date.parse(endedAt) + 5000), 12_000)
+  assert.equal(turnDurationMs({ ...turn, running: true }, Date.parse(endedAt) + 5000), 17_000)
+  assert.equal(turnDurationMs({ ...turn, startedAt: null }, Date.now()), null)
+  assert.equal(turnDurationMs({ ...turn, endedAt: null }, Date.now()), null)
+  const [userOnly] = transcriptTurns([user], null, live)
+  assert.equal(userOnly.endedAt, null)
 })

@@ -410,13 +410,14 @@ Rules:
 
 ### 11.2 Button
 
-`variant`: `default | ghost | outline | destructive | accent`
+`variant`: `default | ghost | text | outline | destructive | accent`
 `size`: `default | sm | xs | icon | icon-sm`
 
 | Variant     | Classes                                                                           |
 | ----------- | --------------------------------------------------------------------------------- |
 | default     | `bg-surface border border-edge text-fg hover:border-accent/40 hover:text-bright` (matches the Home project card) |
 | ghost       | `bg-transparent border-none text-muted hover:bg-surface hover:text-bright`        |
+| text        | `bg-transparent border-none rounded-none text-muted hover:text-bright`            |
 | outline     | `bg-transparent border border-edge text-fg hover:border-accent hover:text-bright` |
 | destructive | `bg-danger-bg border border-danger-border text-danger hover:text-danger-bright`   |
 | accent      | `bg-accent-dim border border-accent-dim text-ground hover:bg-accent`              |
@@ -581,7 +582,7 @@ An **applet** is any item docked at the rail foot. Foot order: Nix, then Remotes
 - Don't nest same-level surfaces.
 - Don't use `ring-*`. Use `shadow-focus-ring` or border-swap.
 - Don't use `shadow-sm` / `shadow-md` / other Tailwind default shadows.
-- Don't gradient-fill backgrounds. MagicCard is the only exception.
+- Don't gradient-fill backgrounds. Exceptions: MagicCard, and the chat composer's `ground → transparent` scroll fade (a scrim over scrolling content, not decoration).
 - Don't write `<slot>`. Children are `Snippet` props rendered with `{@render children()}`.
 - Don't emoji. Don't unicode-icon. Don't exclamation-mark in chrome.
 - Don't reach for `bits-ui` in feature code. Use `ui/*` wrappers.

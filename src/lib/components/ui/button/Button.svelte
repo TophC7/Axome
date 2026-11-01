@@ -7,6 +7,7 @@
       variant: {
         default: 'bg-surface border border-edge text-fg hover:border-accent/40 hover:text-bright',
         ghost: 'bg-transparent border-none text-muted hover:text-bright hover:bg-surface',
+        text: 'bg-transparent border-none rounded-none text-muted hover:text-bright',
         outline: 'bg-transparent border border-edge text-fg hover:border-accent hover:text-bright',
         destructive: 'bg-danger-bg border border-danger-border text-danger hover:text-danger-bright',
         accent: 'bg-accent-dim border border-accent-dim text-ground hover:bg-accent'

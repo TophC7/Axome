@@ -10,7 +10,6 @@ let sidebarWidth = $state(280)
 let sidebarCollapsed = $state(false)
 let sidebarView = $state<SidebarView>('files')
 let gitSidebarTab = $state<GitSidebarTab>('graph')
-let sidebarHeaderSlot = $state.raw<HTMLElement | null>(null)
 
 /** Folder whose sidebar panel is on screen; null while collapsed or with no folder open. */
 export function getShownSidebarFolder(): string | null {
@@ -20,19 +19,6 @@ export function getShownSidebarFolder(): string | null {
 /** Panel width plus its 1px ResizeDivider (`w-px`): the sidebar column the title-bar header cell spans. */
 export function getSidebarColumnWidth(): number {
   return sidebarWidth + 1
-}
-
-/** Title bar's header cell, where SidebarPanel portals its header. */
-export function getSidebarHeaderSlot(): HTMLElement | null {
-  return sidebarHeaderSlot
-}
-
-/** Attachment for that cell; clears only if no newer cell replaced it. */
-export function attachSidebarHeaderSlot(node: HTMLElement): () => void {
-  sidebarHeaderSlot = node
-  return () => {
-    if (sidebarHeaderSlot === node) sidebarHeaderSlot = null
-  }
 }
 
 export function getSidebarWidth(): number {

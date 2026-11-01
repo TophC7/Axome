@@ -1,73 +1,58 @@
 <script lang="ts">
-  import type { HTMLAttributes } from 'svelte/elements'
-  import { Button } from '$lib/components/ui/button'
-  import FileIcon from '$lib/icons/FileIcon.svelte'
-  import { diffRows, patchRows } from '$lib/features/chat/lineDiff'
+  import { contentLines, previewDiff, sourceRows } from '$lib/features/chat/lineDiff'
   import type { ToolStep } from '$lib/features/chat/turns'
-  import { toProjectRelativePath } from '$lib/utils/paths'
-  import { cn } from '$lib/utils/cn'
+  import type { BlockView } from '$lib/features/chat/view'
+  import { wordHighlights } from './diffHighlight'
+  import { editDiff, record } from './payload'
+  import ToolCode from './ToolCode.svelte'
+  import ToolOutput from './ToolOutput.svelte'
 
   let {
     call,
     folderPath,
-    onOpen,
-    class: className,
-    ...rest
-  }: HTMLAttributes<HTMLDivElement> & {
+    view,
+    onExpand
+  }: {
     call: ToolStep
     folderPath: string
-    onOpen: () => void
+    view: BlockView
+    onExpand: () => void
   } = $props()
-  const args = $derived(
-    call.arguments !== null && typeof call.arguments === 'object' ? (call.arguments as Record<string, unknown>) : {}
-  )
-  const path = $derived(typeof args.path === 'string' ? args.path : '')
-  const details = $derived(
-    call.result?.details !== null && typeof call.result?.details === 'object'
-      ? (call.result.details as Record<string, unknown>)
-      : {}
-  )
-  const d = $derived(
-    call.name === 'edit' && typeof details.patch === 'string'
-      ? patchRows(details.patch)
-      : call.name === 'write' && typeof args.content === 'string'
-        ? diffRows(null, args.content)
+
+  const limit = $derived(view === 'preview' ? 40 : null)
+  const isEdit = $derived(call.name === 'edit')
+  const args = $derived(record(call.arguments))
+  const rows = $derived(
+    isEdit
+      ? (editDiff(call.result?.details)?.rows ?? null)
+      : typeof args.content === 'string'
+        ? sourceRows(contentLines(args.content), 1)
         : null
   )
+  // Hunk budgeting only applies to changes; written content is plain source that ToolCode slices.
+  const preview = $derived(isEdit && limit !== null ? previewDiff(rows ?? [], limit, 8) : undefined)
+  const emphasis = $derived(isEdit ? wordHighlights(rows ?? []) : undefined)
 </script>
 
-{#if d}
-  <div data-slot="tool-diff" class={cn('flex min-w-0 flex-col gap-1.5', className)} {...rest}>
-    <div class="flex items-center gap-1.5 text-xs">
-      <FileIcon filename={path} size={12} />
-      <span class="truncate font-mono text-fg">{toProjectRelativePath(folderPath, path) ?? path}</span>
-      <span class="font-mono text-success">+{d.added}</span>
-      <span class="font-mono text-danger">−{d.removed}</span>
-      <Button variant="ghost" size="xs" class="ms-auto" onclick={onOpen}>Open</Button>
-    </div>
-    <div class="max-h-80 overflow-auto rounded-md border border-edge bg-surface font-mono text-xs">
-      {#each d.rows.slice(0, 400) as row}
-        {#if row.kind === 'gap'}
-          <div class="px-2 whitespace-pre text-subtle">{row.count ? `${row.count} unchanged lines` : 'Diff hunk'}</div>
-        {:else}
-          <div
-            class={cn(
-              'flex whitespace-pre',
-              row.kind === 'add'
-                ? 'bg-success-bg text-success-bright'
-                : row.kind === 'del'
-                  ? 'bg-danger-bg text-danger-bright'
-                  : 'text-muted'
-            )}
-          >
-            <span class="w-[1ch] shrink-0" aria-hidden="true"
-              >{row.kind === 'add' ? '+' : row.kind === 'del' ? '−' : ' '}</span
-            ><span>{row.text}</span>
-          </div>
-        {/if}
-      {/each}
-      {#if d.rows.length > 400}<div class="px-2 text-subtle">{d.rows.length - 400} more lines</div>{/if}
-      {#if !d.rows.length}<div class="px-2 text-subtle">No changes</div>{/if}
-    </div>
-  </div>
-{/if}
+<div data-slot="tool-diff" class="min-w-0 font-mono text-xs">
+  {#if rows}
+    {#if rows.length}
+      <ToolCode
+        {rows}
+        path={typeof args.path === 'string' ? args.path : ''}
+        {folderPath}
+        {limit}
+        {onExpand}
+        {preview}
+        {emphasis}
+        neutral={!isEdit}
+      />
+    {:else}
+      <div class="text-subtle">No changes</div>
+    {/if}
+  {:else if call.output.some((part) => part.type === 'image' || part.text.trim())}
+    <ToolOutput parts={call.output} {view} {onExpand} />
+  {:else}
+    <div class="text-subtle">{call.result ? 'No diff recorded' : 'Waiting for result'}</div>
+  {/if}
+</div>

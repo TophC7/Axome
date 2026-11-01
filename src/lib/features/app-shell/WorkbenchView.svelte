@@ -21,7 +21,6 @@
   import FilesSidebar from '$lib/features/files/FilesSidebar.svelte'
   import IssuesSidebar from '$lib/features/issues/IssuesSidebar.svelte'
   import SessionsSidebar from '$lib/features/sessions/SessionsSidebar.svelte'
-  import SidebarFooter from '$lib/features/app-shell/sidebar/SidebarFooter.svelte'
   import { ResizeDivider } from '$lib/components/ui/resize-divider'
   import {
     getShownSidebarFolder,
@@ -92,18 +91,15 @@
   {#if sidebarFolder}
     {#key sidebarFolder}
       <div class="flex shrink-0 flex-col overflow-hidden" style="width: {sidebarWidth}px;" bind:this={sidebarPanelEl}>
-        <div class="min-h-0 flex-1 overflow-hidden">
-          {#if sidebarView === 'sessions'}
-            <SessionsSidebar folderPath={sidebarFolder} />
-          {:else if sidebarView === 'git'}
-            <GitSidebar folderPath={sidebarFolder} />
-          {:else if sidebarView === 'issues'}
-            <IssuesSidebar folderPath={sidebarFolder} />
-          {:else if sidebarView === 'files'}
-            <FilesSidebar folderPath={sidebarFolder} />
-          {/if}
-        </div>
-        <SidebarFooter folderPath={sidebarFolder} />
+        {#if sidebarView === 'sessions'}
+          <SessionsSidebar folderPath={sidebarFolder} />
+        {:else if sidebarView === 'git'}
+          <GitSidebar folderPath={sidebarFolder} />
+        {:else if sidebarView === 'issues'}
+          <IssuesSidebar folderPath={sidebarFolder} />
+        {:else if sidebarView === 'files'}
+          <FilesSidebar folderPath={sidebarFolder} />
+        {/if}
       </div>
     {/key}
 
