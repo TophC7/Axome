@@ -50,7 +50,6 @@ export class TerminalManager {
   private ptyActive = false
   private inputEnabled = true
   private disposed = false
-  private viewportPosition = 0
   private lastError: string | null = null
   private readonly barrier = new RenderBarrier()
   private transferBarrierActive = false
@@ -192,9 +191,6 @@ export class TerminalManager {
     requestAnimationFrame(() => {
       if (this.container !== container || !this.terminal) return
       this.fitTerminal()
-      if (this.viewportPosition > 0) {
-        this.terminal?.scrollToLine(this.viewportPosition)
-      }
       this.terminal.refresh(0, this.terminal.rows - 1)
     })
   }
@@ -205,7 +201,6 @@ export class TerminalManager {
       return
     }
 
-    this.viewportPosition = ((this.terminal as any).buffer?.active?.viewportY as number | undefined) ?? 0
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     this.webglContextLossDisposable?.dispose()
@@ -401,7 +396,6 @@ export class TerminalManager {
     terminal.resize(state.cols, state.rows)
     await this.writeAndWait(state.serializedBuffer)
     terminal.scrollToLine(state.viewportPosition)
-    this.viewportPosition = state.viewportPosition
     const runId = state.runId
     if (runId == null) {
       this.ptyActive = false
@@ -622,8 +616,10 @@ export class TerminalManager {
     })
     this.fontDisposable = followTerminalFont(this.terminal, () => this.fitAndSyncSize())
     this.fitAddon = new FitAddon()
-    // xterm core does not render SIXEL / iTerm / Kitty image payloads; it needs the parser addon.
-    this.imageAddon = new ImageAddon()
+    // xterm core does not render SIXEL / iTerm images; it needs the parser addon.
+    // Kitty stays off: the addon lacks Unicode placeholders (U=1) yet would answer
+    // Kitty queries, so placement-aware CLIs would draw placeholder glyphs over text.
+    this.imageAddon = new ImageAddon({ kittySupport: false })
     this.serializeAddon = new SerializeAddon()
     this.terminal.loadAddon(this.fitAddon)
     this.terminal.loadAddon(this.imageAddon)

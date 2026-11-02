@@ -7,7 +7,6 @@ import { isAnyModalOpen } from '$lib/utils/modalRegistry.svelte'
 const BASE_OPTIONS: ITerminalOptions = {
   cursorBlink: true,
   scrollback: 3000,
-  convertEol: true,
   vtExtensions: { kittyKeyboard: true },
   theme: {
     background: '#131313',

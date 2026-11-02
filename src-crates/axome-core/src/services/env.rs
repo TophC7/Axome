@@ -91,7 +91,7 @@ pub(crate) fn folder_nix(db: &DatabaseService, folder: &Path) -> Option<HashMap<
 
 pub struct EnvironmentService {
     pub detected_shell: String,
-    /// Launch environment (launcher edits undone), resolved through the login shell, plus terminal defaults.
+    /// Launch environment (launcher edits undone), resolved through the login shell.
     pub base: HashMap<String, String>,
 }
 
@@ -99,23 +99,10 @@ impl EnvironmentService {
     fn new() -> Self {
         let detected_shell = detect_login_shell();
         let launch = &*LAUNCH_ENV;
-        let mut base = probe_login_env(&detected_shell, launch).unwrap_or_else(|| {
+        let base = probe_login_env(&detected_shell, launch).unwrap_or_else(|| {
             warn!("Login environment probe failed; children get the launch environment");
             launch.clone()
         });
-
-        // The launching terminal's capabilities win; the probe ran without a terminal.
-        for (key, default) in [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")] {
-            match launch.get(key) {
-                Some(value) => {
-                    base.insert(key.to_string(), value.clone());
-                }
-                None => {
-                    base.entry(key.to_string())
-                        .or_insert_with(|| default.to_string());
-                }
-            }
-        }
 
         Self {
             detected_shell,

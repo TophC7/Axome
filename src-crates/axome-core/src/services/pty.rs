@@ -23,6 +23,35 @@ static NEXT_ATTACHMENT: AtomicU64 = AtomicU64::new(1);
 static NEXT_CHILD: AtomicU64 = AtomicU64::new(1);
 pub(crate) const PROCESS_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Variables naming the emulator Axome was launched from; every Axome PTY renders in xterm.js instead.
+const HOST_TERMINAL_VARS: &[&str] = &[
+    "TERM_PROGRAM",
+    "TERM_PROGRAM_VERSION",
+    "LC_TERMINAL",
+    "LC_TERMINAL_VERSION",
+    "KITTY_WINDOW_ID",
+    "KITTY_PID",
+    "GHOSTTY_RESOURCES_DIR",
+    "GHOSTTY_BIN_DIR",
+    "GHOSTTY_SHELL_FEATURES",
+    "WEZTERM_PANE",
+    "WEZTERM_EXECUTABLE",
+    "WEZTERM_UNIX_SOCKET",
+    "ITERM_SESSION_ID",
+    "VSCODE_PID",
+    "ALACRITTY_WINDOW_ID",
+    "ALACRITTY_SOCKET",
+    "WT_SESSION",
+    "KONSOLE_VERSION",
+    "VTE_VERSION",
+    "WINDOWID",
+    "TMUX",
+    "TMUX_PANE",
+    "STY",
+    "ZELLIJ",
+    "ZELLIJ_SESSION_NAME",
+];
+
 /// OS wait acknowledgement, independent of transcript/event finalization.
 #[derive(Default)]
 pub(crate) struct ChildExit {
@@ -1149,6 +1178,11 @@ impl PtyService {
                 cmd_builder.env(key, value);
             }
         }
+        for key in HOST_TERMINAL_VARS {
+            cmd_builder.env_remove(key);
+        }
+        cmd_builder.env("TERM", "xterm-256color");
+        cmd_builder.env("COLORTERM", "truecolor");
 
         let child = pair
             .slave
@@ -2060,6 +2094,49 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pty_children_get_xterm_identity_not_host_terminal() {
+        let fixture = LocalFixture::new();
+        let env: HashMap<String, String> = [
+            ("PATH".to_string(), std::env::var("PATH").unwrap_or_default()),
+            ("TERM".to_string(), "ghostty".to_string()),
+            ("COLORTERM".to_string(), "24bit".to_string()),
+            ("TERM_PROGRAM".to_string(), "ghostty".to_string()),
+            ("GHOSTTY_RESOURCES_DIR".to_string(), "/x".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        fixture
+            .service
+            .spawn(
+                "identity".into(),
+                &fixture.root,
+                "sh",
+                &[
+                    "-c",
+                    "printf '%s|%s|%s|%s' \"$TERM\" \"$COLORTERM\" \"${TERM_PROGRAM-unset}\" \"${GHOSTTY_RESOURCES_DIR-unset}\" > identity.out",
+                ],
+                Some(fixture.root.to_str().unwrap()),
+                Some(&env),
+                80,
+                24,
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        wait_for(|| {
+            std::fs::read_to_string(fixture.root.join("identity.out"))
+                .is_ok_and(|s| s.ends_with("unset|unset"))
+        });
+        assert_eq!(
+            std::fs::read_to_string(fixture.root.join("identity.out")).unwrap(),
+            "xterm-256color|truecolor|unset|unset"
+        );
     }
 
     #[cfg(unix)]
