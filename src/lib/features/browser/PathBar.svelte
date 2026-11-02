@@ -19,7 +19,7 @@
   } = $props()
 
   let remote = $derived(splitRemotePath(path))
-  let root = $derived(remote ? `sworm://${remote.server}/` : '/')
+  let root = $derived(remote ? `axome://${remote.server}/` : '/')
   let pathRoot = $state<PathRoot | null>(null)
   let anchor = $derived(pathRoot && pathRoot.path !== root && isEqualOrParent(pathRoot.path, path) ? pathRoot : null)
   let crumbs = $derived.by(() => {

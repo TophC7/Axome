@@ -1,6 +1,6 @@
 <!--
   @component
-  Switch — bits-ui wrapper with Sworm design tokens.
+  Switch — bits-ui wrapper with Axome design tokens.
 
   A binary on/off control styled as a soft toggle. Use where
   the action is an immediate state flip (enable/disable) rather

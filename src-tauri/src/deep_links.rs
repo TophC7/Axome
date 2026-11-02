@@ -11,17 +11,17 @@ pub(crate) fn deep_link_arg(argv: &[String]) -> Option<tauri::Url> {
     let [_, arg] = argv else { return None };
     tauri::Url::parse(arg)
         .ok()
-        .filter(|url| matches!(url.scheme(), "sworm-pair" | "sworm"))
+        .filter(|url| matches!(url.scheme(), "axome-pair" | "axome"))
 }
 
 /// Resolve existing launch paths lexically, preserving symlink path forms.
-/// `sworm://` remote workspaces name no local file; they are only decoded.
+/// `axome://` remote workspaces name no local file; they are only decoded.
 pub(crate) fn launch_path_args(argv: &[String], cwd: Option<&Path>) -> Vec<String> {
     argv.iter()
         .skip(1)
         .filter(|arg| !arg.starts_with('-'))
         .filter_map(|arg| {
-            if arg.starts_with("sworm://") {
+            if arg.starts_with("axome://") {
                 return parse_workspace_link(arg);
             }
             let path = match tauri::Url::parse(arg) {
@@ -38,16 +38,16 @@ pub(crate) fn launch_path_args(argv: &[String], cwd: Option<&Path>) -> Vec<Strin
             } else {
                 cwd?.join(path)
             };
-            let path = sworm_core::services::folders::normalize_absolute_path(&path);
+            let path = axome_core::services::folders::normalize_absolute_path(&path);
             (path.is_file() || path.is_dir()).then(|| path.to_string_lossy().into_owned())
         })
         .collect()
 }
 
-/// Decode an external `sworm://server/path` link exactly once into the opaque
+/// Decode an external `axome://server/path` link exactly once into the opaque
 /// internal workspace path; downstream code never decodes it again.
 pub(crate) fn parse_workspace_link(link: &str) -> Option<String> {
-    let rest = link.strip_prefix("sworm://")?;
+    let rest = link.strip_prefix("axome://")?;
     let server = &rest[..rest.find('/').unwrap_or(rest.len())];
     // Only a bare server id: userinfo, ports, queries, and fragments would make
     // the target ambiguous.
@@ -76,7 +76,7 @@ pub(crate) fn parse_workspace_link(link: &str) -> Option<String> {
         return None;
     }
     let path = percent_decode_str(encoded).decode_utf8().ok()?;
-    (!path.contains('\0')).then(|| format!("sworm://{server}{path}"))
+    (!path.contains('\0')).then(|| format!("axome://{server}{path}"))
 }
 
 #[derive(Default)]
@@ -114,7 +114,7 @@ fn open(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
     let mut pairing: Vec<String> = Vec::new();
     for url in urls {
         match url.scheme() {
-            "sworm" => match parse_workspace_link(url.as_str()) {
+            "axome" => match parse_workspace_link(url.as_str()) {
                 Some(path) => {
                     if let Err(error) = app.state::<AppState>().windows.route_open_path(app, &path)
                     {
@@ -123,7 +123,7 @@ fn open(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
                 }
                 None => tracing::warn!("Ignoring malformed workspace link: {url}"),
             },
-            "sworm-pair" => pairing.push(url.into()),
+            "axome-pair" => pairing.push(url.into()),
             _ => {}
         }
     }
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn only_target_window_can_claim_each_delivery_once() {
-        let link = "sworm-pair://pair?token=secret";
+        let link = "axome-pair://pair?token=secret";
         let mut pending = PendingLinks {
             window: Some("workbench-a".into()),
             urls: vec![link.into()],
@@ -213,7 +213,7 @@ mod tests {
         std::fs::create_dir_all(&project).unwrap();
 
         // argv[0] is the binary; leading '-' flags must be skipped.
-        let argv = vec!["sworm".into(), "--some-flag".into(), "../project".into()];
+        let argv = vec!["axome".into(), "--some-flag".into(), "../project".into()];
         let resolved = launch_path_args(&argv, Some(cwd.as_path()));
 
         assert_eq!(resolved, vec![project.to_string_lossy().into_owned()]);
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn launch_path_args_returns_empty_for_missing_path() {
-        let argv = vec!["sworm".into(), "/nonexistent/path/xyz".into()];
+        let argv = vec!["axome".into(), "/nonexistent/path/xyz".into()];
         assert!(launch_path_args(&argv, None).is_empty());
     }
 
@@ -230,13 +230,13 @@ mod tests {
     #[test]
     fn launch_path_args_decodes_remote_workspace_uris() {
         let argv = vec![
-            "sworm".into(),
-            "sworm://homelab/home/me/my%20project".into(),
-            "sworm://homelab/home/me/%ZZ".into(),
+            "axome".into(),
+            "axome://homelab/home/me/my%20project".into(),
+            "axome://homelab/home/me/%ZZ".into(),
         ];
         assert_eq!(
             launch_path_args(&argv, None),
-            vec!["sworm://homelab/home/me/my project".to_owned()]
+            vec!["axome://homelab/home/me/my project".to_owned()]
         );
     }
 
@@ -244,15 +244,15 @@ mod tests {
     fn workspace_links_decode_once_and_reject_ambiguous_forms() {
         for (link, expected) in [
             (
-                "sworm://BuildBox/my%20repo/%E6%96%87%E4%BB%B6",
-                "sworm://BuildBox/my repo/文件",
+                "axome://BuildBox/my%20repo/%E6%96%87%E4%BB%B6",
+                "axome://BuildBox/my repo/文件",
             ),
             (
-                "sworm://BuildBox/literal%2520name",
-                "sworm://BuildBox/literal%20name",
+                "axome://BuildBox/literal%2520name",
+                "axome://BuildBox/literal%20name",
             ),
-            ("sworm://BuildBox/a%23b%3Fc", "sworm://BuildBox/a#b?c"),
-            ("sworm://BuildBox", "sworm://BuildBox/"),
+            ("axome://BuildBox/a%23b%3Fc", "axome://BuildBox/a#b?c"),
+            ("axome://BuildBox", "axome://BuildBox/"),
         ] {
             assert_eq!(
                 parse_workspace_link(link).as_deref(),
@@ -261,18 +261,18 @@ mod tests {
             );
         }
         for link in [
-            "sworm://user@host/repo",
-            "sworm://host:7420/repo",
-            "sworm:///repo",
-            "sworm://host/repo?query",
-            "sworm://host/repo#fragment",
-            "sworm://host/repo?",
-            "sworm://host/repo#",
-            "sworm://host/%ZZ",
-            "sworm://host/%C0%AF",
-            "sworm://host/%00",
-            "sworm://host/repo\n",
-            "sworm://host/my repo",
+            "axome://user@host/repo",
+            "axome://host:7420/repo",
+            "axome:///repo",
+            "axome://host/repo?query",
+            "axome://host/repo#fragment",
+            "axome://host/repo?",
+            "axome://host/repo#",
+            "axome://host/%ZZ",
+            "axome://host/%C0%AF",
+            "axome://host/%00",
+            "axome://host/repo\n",
+            "axome://host/my repo",
         ] {
             assert_eq!(parse_workspace_link(link), None, "{link:?}");
         }
@@ -290,7 +290,7 @@ mod tests {
             uri.as_str().replacen("file:///", "file://localhost/", 1),
         ] {
             assert_eq!(
-                launch_path_args(&["sworm".into(), uri], None),
+                launch_path_args(&["axome".into(), uri], None),
                 vec![expected.clone()]
             );
         }
@@ -299,7 +299,7 @@ mod tests {
             format!("{uri}?query"),
             format!("{uri}#fragment"),
         ] {
-            assert!(launch_path_args(&["sworm".into(), uri], None).is_empty());
+            assert!(launch_path_args(&["axome".into(), uri], None).is_empty());
         }
     }
 
@@ -312,7 +312,7 @@ mod tests {
         std::fs::create_dir_all(&real).unwrap();
         std::os::unix::fs::symlink(&real, &link).unwrap();
 
-        let argv = vec!["sworm".into(), link.to_string_lossy().into_owned()];
+        let argv = vec!["axome".into(), link.to_string_lossy().into_owned()];
         let resolved = launch_path_args(&argv, None);
 
         assert_eq!(resolved, vec![link.to_string_lossy().into_owned()]);

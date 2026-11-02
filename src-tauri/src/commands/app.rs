@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::router::Target;
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::Serialize;
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Serialize)]
@@ -16,7 +16,7 @@ pub struct ClipboardFiles {
 pub async fn app_runtime_info(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<sworm_protocol::app::AppRuntimeInfo, ApiError> {
+) -> Result<axome_protocol::app::AppRuntimeInfo, ApiError> {
     let package = app.package_info();
     state
         .router
@@ -50,7 +50,7 @@ fn encode_path(path: &str) -> impl std::fmt::Display + '_ {
     utf8_percent_encode(path, URI_PATH)
 }
 
-/// Clipboard URI to the path or `sworm://` URI Sworm names files by, or `None`
+/// Clipboard URI to the path or `axome://` URI Axome names files by, or `None`
 /// for a scheme naming something no workspace can reach.
 ///
 /// Other applications write RFC 3986, so a name holding a space or `#` arrives
@@ -65,14 +65,14 @@ fn clipboard_uri_to_path(uri: &str) -> Option<String> {
         }
         return Some(percent_decode_str(path).decode_utf8_lossy().into_owned());
     }
-    let remote = uri.strip_prefix("sworm://")?;
+    let remote = uri.strip_prefix("axome://")?;
     let separator = remote.find('/')?;
     let (server, path) = remote.split_at(separator);
     if server.is_empty() {
         return None;
     }
     let path = percent_decode_str(path).decode_utf8_lossy();
-    Some(format!("sworm://{server}{path}"))
+    Some(format!("axome://{server}{path}"))
 }
 
 /// Copy file paths to the system clipboard in file-manager format.
@@ -95,7 +95,7 @@ pub async fn clipboard_copy_files(paths: Vec<String>, op: String) -> Result<(), 
         .iter()
         .map(|path| match Target::parse(path)? {
             Target::Local => Ok(format!("file://{}", encode_path(path))),
-            Target::Remote { server, path } => Ok(format!("sworm://{server}{}", encode_path(path))),
+            Target::Remote { server, path } => Ok(format!("axome://{server}{}", encode_path(path))),
         })
         .collect::<Result<Vec<String>, ApiError>>()?;
     // Format: "op\nuri1\nuri2"; NO trailing newline.
@@ -242,15 +242,15 @@ mod tests {
             assert_eq!(clipboard_uri_to_path(&uri).as_deref(), Some(path));
         }
 
-        let remote = "sworm://loop/srv/repo/a b.txt";
+        let remote = "axome://loop/srv/repo/a b.txt";
         assert_eq!(
-            clipboard_uri_to_path("sworm://loop/srv/repo/a%20b.txt").as_deref(),
+            clipboard_uri_to_path("axome://loop/srv/repo/a%20b.txt").as_deref(),
             Some(remote)
         );
 
         // What Nautilus puts on the clipboard for a spaced name.
         let files = parse_gnome_copied_files(
-            "cut\nfile:///home/toph/my%20report%20%231.txt\nsworm://loop/srv/repo/a%20b.txt",
+            "cut\nfile:///home/toph/my%20report%20%231.txt\naxome://loop/srv/repo/a%20b.txt",
         )
         .expect("two files");
         assert_eq!(files.op, "cut");
@@ -261,6 +261,6 @@ mod tests {
 
         // Schemes no workspace can reach are dropped, not pasted blindly.
         assert_eq!(clipboard_uri_to_path("sftp://host/srv/x"), None);
-        assert_eq!(clipboard_uri_to_path("sworm://loop"), None);
+        assert_eq!(clipboard_uri_to_path("axome://loop"), None);
     }
 }

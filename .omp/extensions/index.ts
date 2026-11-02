@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
-export default function swormHooks(pi: ExtensionAPI): void {
+export default function axomeHooks(pi: ExtensionAPI): void {
 	// 1. Enforce Bun: block npm, pnpm, node commands
 	pi.on("tool_call", async (event) => {
 		if (event.toolName !== "bash") return;

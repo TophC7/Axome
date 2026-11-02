@@ -2,7 +2,7 @@
 //
 // Fetches lazily on first access and refreshes when the backend emits
 // a `tasks-changed` event (triggered by the notify watcher on
-// `.sworm/tasks.jsonc`). Never throws on load failure — returns an
+// `.axome/tasks.jsonc`). Never throws on load failure — returns an
 // empty list so the palette and menus stay responsive when the file
 // is missing or malformed.
 

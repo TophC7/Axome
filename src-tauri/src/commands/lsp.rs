@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::host_events::channel_sink;
-use sworm_core::errors::ApiError;
-use sworm_protocol::lsp::LspEvent;
+use axome_core::errors::ApiError;
+use axome_protocol::lsp::LspEvent;
 
 #[tauri::command]
 pub async fn lsp_start(

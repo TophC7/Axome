@@ -16,7 +16,7 @@ pub mod window;
 pub mod workbench;
 
 use crate::app_state::AppState;
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 
 macro_rules! forward_command {
     (#[route($route:ident)] FolderClaim => $($row:tt)*) => {};
@@ -77,7 +77,7 @@ macro_rules! forward_commands {
     };
 }
 
-sworm_protocol::sworm_rpc_ops!(forward_commands);
+axome_protocol::axome_rpc_ops!(forward_commands);
 
 pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
@@ -149,7 +149,7 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         extensions_reload,
         // Environment commands
         environment_reload,
-        // Config schema commands (drives Monaco autocomplete for .sworm/*.json)
+        // Config schema commands (drives Monaco autocomplete for .axome/*.json)
         config_schemas_list,
         // Drag and drop commands
         dnd::dnd_save_dropped_bytes,
@@ -212,7 +212,7 @@ pub(crate) fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + S
         // Formatter commands
         formatting_format,
         formatting_list_formatters,
-        // Task commands (folder-scoped .sworm/tasks.jsonc)
+        // Task commands (folder-scoped .axome/tasks.jsonc)
         tasks_list,
         tasks::tasks_start,
         tasks_stop,

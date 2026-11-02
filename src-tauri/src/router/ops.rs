@@ -12,12 +12,12 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::{EventSink, HostEvent},
     services::pty::PtySubscriber,
 };
-use sworm_protocol::{
+use axome_protocol::{
     pty::PtyEvent,
     rpc::{Reply, Request, RunStatus},
 };
@@ -742,7 +742,7 @@ macro_rules! define_router_operation {
             $folder_path: $folder_path_type,
             $server_definition_id: $server_definition_id_type,
             $root_path: $root_path_type,
-            events: EventSink<sworm_protocol::lsp::LspEvent>,
+            events: EventSink<axome_protocol::lsp::LspEvent>,
         ) -> Result<$return_type, ApiError> {
             if let Target::Remote { server, path } = Target::parse(&$folder_path)? {
                 self.inner.remember_claim(server, path, None, false);
@@ -869,7 +869,7 @@ macro_rules! define_router_operations {
     };
 }
 
-sworm_protocol::sworm_rpc_ops!(define_router_operations);
+axome_protocol::axome_rpc_ops!(define_router_operations);
 
 impl WorkspaceRouter {
     async fn stop_registered(
@@ -908,7 +908,7 @@ impl WorkspaceRouter {
         request: Request,
         output: EventSink<Vec<u8>>,
         events: EventSink<PtyEvent>,
-        decode: impl FnOnce(Reply) -> Result<T, sworm_protocol::rpc::WireError>,
+        decode: impl FnOnce(Reply) -> Result<T, axome_protocol::rpc::WireError>,
     ) -> Result<T, ApiError> {
         self.inner.remote_runs.validate_start(
             &self.inner.host,

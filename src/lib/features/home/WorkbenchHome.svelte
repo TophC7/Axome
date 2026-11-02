@@ -26,7 +26,7 @@
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
   import { FolderOpenIcon, RefreshCwIcon } from '$lib/icons/lucideExports'
-  import appIconUrl from '$lib/assets/sworm.svg?url'
+  import appIconUrl from '$lib/assets/axome.svg?url'
   import type { GitBrief, WorkbenchInfo } from '$lib/types/backend'
   import ContinueRow from './ContinueRow.svelte'
   import ProjectCard from './ProjectCard.svelte'
@@ -144,7 +144,7 @@
       <header class="flex items-center gap-3">
         <img src={appIconUrl} alt="" class="size-7.5 shrink-0" />
         <div class="min-w-0 flex-1">
-          <h1 class="m-0 text-2xl font-medium text-bright">Sworm</h1>
+          <h1 class="m-0 text-2xl font-medium text-bright">Axome</h1>
           <p class="m-0 text-base text-muted">Agentic Development Environment</p>
         </div>
         <Button size="sm" onclick={() => openBrowser()}>
@@ -178,7 +178,7 @@
           {@render heading('Projects')}
           <InfoTooltip ariaLabel="What are Projects?">
             <p class="max-w-60 text-sm leading-snug">
-              Folders opened in Sworm, plus folders where coding agents ran on this machine. Agent history is scanned
+              Folders opened in Axome, plus folders where coding agents ran on this machine. Agent history is scanned
               locally; nothing leaves the device.
             </p>
           </InfoTooltip>

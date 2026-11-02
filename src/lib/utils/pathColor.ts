@@ -32,7 +32,7 @@ const MAX_CACHE_ENTRIES = 256
 
 /**
  * Deterministic CSS color for a project path. Hashes the server-local path, so
- * a remote folder keeps its color whether reached as `sworm://<server>/...`
+ * a remote folder keeps its color whether reached as `axome://<server>/...`
  * from desktop or as a plain path from that server's web client.
  */
 export function getPathColor(path: string): string {

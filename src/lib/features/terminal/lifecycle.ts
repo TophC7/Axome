@@ -18,7 +18,7 @@ export async function restartTerminalProcess(tab: TerminalTab): Promise<void> {
   if (tab.kind === 'task') {
     const task = findTask(tab.folderPath, tab.taskId)
     if (!task) {
-      notify.error('Cannot restart task', `Task "${tab.taskId}" is no longer defined in .sworm/tasks.jsonc`)
+      notify.error('Cannot restart task', `Task "${tab.taskId}" is no longer defined in .axome/tasks.jsonc`)
       return
     }
     await restartTaskTab(tab, task)

@@ -2,16 +2,16 @@ mod common;
 
 use serde_json::json;
 use std::{collections::HashSet, fs, sync::Arc, time::Duration};
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::{EventSink, HostEvent},
     Host,
 };
-use sworm_lib::host_events::DesktopEvent;
-use sworm_lib::router::{Target, WorkspaceRouter};
-use sworm_protocol::{pty::PtyEvent, rpc::AttachMode, settings::PatchSettingsSectionInput};
-use sworm_remote::Identity;
-use sworm_server::{serve, ServeOptions};
+use axome_lib::host_events::DesktopEvent;
+use axome_lib::router::{Target, WorkspaceRouter};
+use axome_protocol::{pty::PtyEvent, rpc::AttachMode, settings::PatchSettingsSectionInput};
+use axome_remote::Identity;
+use axome_server::{serve, ServeOptions};
 use tempfile::tempdir;
 use tokio::{sync::mpsc, time::timeout};
 
@@ -161,7 +161,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     common::init_repo(&repository)?;
     fs::create_dir(repository.join("src"))?;
     fs::write(repository.join("src/lib.rs"), "pub fn sentinel() {}\n")?;
-    let repository_settings = repository.join(".sworm");
+    let repository_settings = repository.join(".axome");
     fs::create_dir(&repository_settings)?;
     fs::write(
         repository_settings.join("settings.jsonc"),
@@ -171,7 +171,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     let (server, desktop_identity, remote_settings) = common::start_loop(temporary.path()).await?;
     let server_address = server.local_addr;
     let server_fingerprint = server.fingerprint;
-    let settings_path = temporary.path().join("config-home/sworm/settings.jsonc");
+    let settings_path = temporary.path().join("config-home/axome/settings.jsonc");
 
     let (host_events_send, mut host_events_receive) = mpsc::unbounded_channel();
     let host_events: EventSink<DesktopEvent> = Arc::new(move |event| {
@@ -181,7 +181,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     });
     let desktop = Arc::clone(&host_events);
     let host = Arc::new(Host::new(
-        temporary.path().join("sworm.db"),
+        temporary.path().join("axome.db"),
         Arc::new(move |event| desktop(DesktopEvent::Host(event))),
     )?);
     let router = WorkspaceRouter::with_events(Arc::clone(&host), host_events);
@@ -196,14 +196,14 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         web_assets_dir: None,
     })
     .await?;
-    let token = sworm_server::auth::write_pairing_token(&pairing_config)?;
+    let token = axome_server::auth::write_pairing_token(&pairing_config)?;
     let pair_link = format!(
-        "sworm-pair://{}/{}/{}",
+        "axome-pair://{}/{}/{}",
         pairing_server.local_addr, pairing_server.fingerprint, token
     );
     let before_pair = fs::read(&settings_path)?;
     let wrong_link = format!(
-        "sworm-pair://{}/{}/wrong-token",
+        "axome-pair://{}/{}/wrong-token",
         pairing_server.local_addr, pairing_server.fingerprint
     );
     assert!(router
@@ -220,7 +220,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         .is_err());
     assert_eq!(fs::read(&settings_path)?, after_pair);
     let wrong_pin = format!(
-        "sworm-pair://{}/SHA256:{}/{}",
+        "axome-pair://{}/SHA256:{}/{}",
         pairing_server.local_addr,
         "00".repeat(32),
         token
@@ -247,7 +247,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         }
     })
     .await?;
-    let remote_repository = format!("sworm://loop{}", repository.display());
+    let remote_repository = format!("axome://loop{}", repository.display());
     let canonical_repository = fs::canonicalize(&repository)?;
     let canonical_uri = Target::remote_uri("loop", &canonical_repository.to_string_lossy());
 
@@ -262,7 +262,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         .await?;
     assert!(matches!(
         attached,
-        Some(sworm_protocol::rpc::WorkbenchAttached::Ready { .. })
+        Some(axome_protocol::rpc::WorkbenchAttached::Ready { .. })
     ));
     let (started, mut leased_output) =
         start_terminal(&router, "leased-run", &remote_repository, "lease-window").await;
@@ -278,7 +278,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         workbench
             .running
             .iter()
-            .any(|run| matches!(run, sworm_protocol::rpc::WorkbenchRun::Shell { .. })),
+            .any(|run| matches!(run, axome_protocol::rpc::WorkbenchRun::Shell { .. })),
         "shell must belong to workbench, not connection"
     );
     assert!(router
@@ -347,7 +347,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
             .unwrap()
             .running
             .iter()
-            .any(|run| matches!(run, sworm_protocol::rpc::WorkbenchRun::Shell { .. })),
+            .any(|run| matches!(run, axome_protocol::rpc::WorkbenchRun::Shell { .. })),
         "daemon run must remain alive after releasing its desktop proxy"
     );
     router
@@ -679,7 +679,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
         )
         .await?;
     assert!(matches!(
-        Target::parse("sworm://"),
+        Target::parse("axome://"),
         Err(ApiError::InvalidArgument(_))
     ));
 
@@ -1021,7 +1021,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     drop(host);
 
     let host = Arc::new(Host::new(
-        temporary.path().join("sworm-restarted.db"),
+        temporary.path().join("axome-restarted.db"),
         Arc::new(|_| Ok(())),
     )?);
     let router = WorkspaceRouter::new(Arc::clone(&host));
@@ -1077,11 +1077,11 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     drop(host);
 
     let host = Arc::new(Host::new(
-        temporary.path().join("sworm-replayed.db"),
+        temporary.path().join("axome-replayed.db"),
         Arc::new(|_| Ok(())),
     )?);
     let router = WorkspaceRouter::new(Arc::clone(&host));
-    let Some(sworm_protocol::rpc::WorkbenchAttached::Ready {
+    let Some(axome_protocol::rpc::WorkbenchAttached::Ready {
         controller_token: replayed_token,
         ..
     }) = router
@@ -1133,7 +1133,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
                 section: "remotes".into(),
                 value: json!({
                     "loop": {
-                        "address": "sworm-unreachable.invalid:7420",
+                        "address": "axome-unreachable.invalid:7420",
                         "fingerprint": server_fingerprint.to_string(),
                     }
                 }),
@@ -1148,7 +1148,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
     drop(router);
     drop(host);
     let host = Arc::new(Host::new(
-        temporary.path().join("sworm-replayed.db"),
+        temporary.path().join("axome-replayed.db"),
         Arc::new(|_| Ok(())),
     )?);
     let router = WorkspaceRouter::new(Arc::clone(&host));
@@ -1214,7 +1214,7 @@ async fn desktop_remote_router_loopback() -> anyhow::Result<()> {
                 section: "remotes".into(),
                 value: json!({
                     "loop": {
-                        "address": "sworm-unreachable.invalid:7420",
+                        "address": "axome-unreachable.invalid:7420",
                         "fingerprint": server_fingerprint.to_string(),
                     }
                 }),

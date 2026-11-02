@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Sworm",
-  "identifier": "dev.sworm",
+  "productName": "Axome",
+  "identifier": "dev.axome",
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
@@ -11,7 +11,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["sworm-pair", "sworm"]
+        "schemes": ["axome-pair", "axome"]
       }
     }
   },
@@ -32,10 +32,10 @@
     "active": true,
     "targets": ["deb"],
     "publisher": "Chris Toph <toph@ryot.foo>",
-    "homepage": "https://github.com/TophC7/Sworm",
+    "homepage": "https://github.com/TophC7/Axome",
     "category": "DeveloperTool",
     "shortDescription": "Linux-first desktop app for coding-agent CLIs",
-    "longDescription": "Sworm is a Linux-first desktop development environment for working with coding-agent CLIs.",
+    "longDescription": "Axome is a Linux-first desktop development environment for working with coding-agent CLIs.",
     "icon": [
       "icons/16x16.png",
       "icons/22x22.png",
@@ -59,10 +59,10 @@
       "deb": {
         "depends": ["git", "libwebkit2gtk-4.1-0", "libgtk-3-0"],
         "files": {
-          "/usr/share/doc/sworm/LICENSE": "../LICENSE"
+          "/usr/share/doc/axome/LICENSE": "../LICENSE"
         },
         "section": "devel",
-        "desktopTemplate": "sworm.desktop"
+        "desktopTemplate": "axome.desktop"
       }
     }
   }

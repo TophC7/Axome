@@ -5,9 +5,9 @@ use super::{
 };
 use crate::host_events::DesktopEvent;
 use std::{collections::HashMap, sync::Arc};
-use sworm_core::errors::ApiError;
-use sworm_protocol::rpc::{AttachMode, Request, WorkbenchAttached, WorkbenchInfo};
-use sworm_remote::{RemoteClient, RemoteError};
+use axome_core::errors::ApiError;
+use axome_protocol::rpc::{AttachMode, Request, WorkbenchAttached, WorkbenchInfo};
+use axome_remote::{RemoteClient, RemoteError};
 use tokio::sync::Mutex as AsyncMutex;
 
 #[derive(Clone, Debug)]

@@ -9,10 +9,10 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export GDK_BACKEND="x11"
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS="1"
-LOG="$HOME/sworm.log"
+LOG="$HOME/axome.log"
 
 git init --quiet "$HOME/project"
-sworm "$HOME/project" >"$LOG" 2>&1 &
+axome "$HOME/project" >"$LOG" 2>&1 &
 APP_PID=$!
 
 if timeout 30s xdotool search --sync --onlyvisible --pid "$APP_PID" >/dev/null 2>&1; then

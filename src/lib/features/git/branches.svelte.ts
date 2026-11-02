@@ -307,7 +307,7 @@ export async function handleOccupiedWorktreeError(folderPath: string, error: unk
   }
   const host = splitRemotePath(folderPath)
   const occupiedPath =
-    occupied?.path ?? (host && !splitRemotePath(error.path) ? `sworm://${host.server}${error.path}` : error.path)
+    occupied?.path ?? (host && !splitRemotePath(error.path) ? `axome://${host.server}${error.path}` : error.path)
   const proceed = await confirmAsync({
     title: 'Open Worktree?',
     message: `The branch "${error.branch}" is checked out in ${occupiedPath}.\n\nOpen that worktree? Any recovery stash already created is retained.`,

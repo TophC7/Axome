@@ -428,6 +428,129 @@ dependencies = [
 ]
 
 [[package]]
+name = "axome"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "axome-core",
+ "axome-protocol",
+ "axome-remote",
+ "axome-server",
+ "chrono",
+ "gethostname",
+ "parking_lot",
+ "percent-encoding",
+ "quinn",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "wl-clipboard-rs",
+]
+
+[[package]]
+name = "axome-core"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axo",
+ "axo-agent",
+ "axo-ai",
+ "axome-protocol",
+ "chrono",
+ "globset",
+ "ignore",
+ "jsonc-parser 0.32.4",
+ "jsonschema 0.55.0",
+ "libc",
+ "notify",
+ "parking_lot",
+ "portable-pty",
+ "refinery",
+ "rusqlite",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "trash",
+ "uuid",
+ "which",
+]
+
+[[package]]
+name = "axome-protocol"
+version = "0.0.0"
+dependencies = [
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "axome-remote"
+version = "0.0.0"
+dependencies = [
+ "axome-protocol",
+ "hex",
+ "quinn",
+ "rcgen",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
+name = "axome-server"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "axome-core",
+ "axome-protocol",
+ "axome-remote",
+ "axum",
+ "chrono",
+ "clap",
+ "futures-util",
+ "jsonc-parser 0.32.4",
+ "libc",
+ "parking_lot",
+ "quinn",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tokio",
+ "tokio-tungstenite 0.28.0",
+ "tokio-util",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "axum"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5250,129 +5373,6 @@ dependencies = [
  "base64 0.21.7",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "sworm"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "chrono",
- "gethostname",
- "parking_lot",
- "percent-encoding",
- "quinn",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sworm-core",
- "sworm-protocol",
- "sworm-remote",
- "sworm-server",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "wl-clipboard-rs",
-]
-
-[[package]]
-name = "sworm-core"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axo",
- "axo-agent",
- "axo-ai",
- "chrono",
- "globset",
- "ignore",
- "jsonc-parser 0.32.4",
- "jsonschema 0.55.0",
- "libc",
- "notify",
- "parking_lot",
- "portable-pty",
- "refinery",
- "rusqlite",
- "schemars 0.8.22",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sworm-protocol",
- "thiserror 2.0.21",
- "tokio",
- "tokio-util",
- "tracing",
- "trash",
- "uuid",
- "which",
-]
-
-[[package]]
-name = "sworm-protocol"
-version = "0.0.0"
-dependencies = [
- "schemars 0.8.22",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "sworm-remote"
-version = "0.0.0"
-dependencies = [
- "hex",
- "quinn",
- "rcgen",
- "rustls",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sworm-protocol",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
-]
-
-[[package]]
-name = "sworm-server"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "clap",
- "futures-util",
- "jsonc-parser 0.32.4",
- "libc",
- "parking_lot",
- "quinn",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sworm-core",
- "sworm-protocol",
- "sworm-remote",
- "tempfile",
- "tokio",
- "tokio-tungstenite 0.28.0",
- "tokio-util",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

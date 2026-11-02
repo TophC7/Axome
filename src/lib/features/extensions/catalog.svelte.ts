@@ -6,7 +6,7 @@ import type { ExtensionCatalog, LanguageFormatterPolicy, SettingsPage } from '$l
 let catalogs = $state.raw<Record<string, ExtensionCatalog>>({})
 const loads = new Map<string, Promise<ExtensionCatalog>>()
 
-/** '' for this host (desktop, or the server in the web UI); the server name for sworm:// paths. */
+/** '' for this host (desktop, or the server in the web UI); the server name for axome:// paths. */
 export function extensionHostKey(folderPath?: string | null): string {
   return splitRemotePath(folderPath ?? '')?.server ?? ''
 }

@@ -1,6 +1,6 @@
 <!--
   @component
-  ShortcutPreview: renders a keybinding sequence as Sworm keycaps.
+  ShortcutPreview: renders a keybinding sequence as Axome keycaps.
 
   @param spec - normalized or user-facing shortcut sequence
   @param large - larger keycaps for active recording states

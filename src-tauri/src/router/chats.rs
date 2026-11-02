@@ -8,12 +8,12 @@ use std::{
     },
     time::Duration,
 };
-use sworm_core::{errors::ApiError, events::EventSink, Host};
-use sworm_protocol::{
+use axome_core::{errors::ApiError, events::EventSink, Host};
+use axome_protocol::{
     chat::ChatEvent,
     rpc::{ChatDown, Open, WireError},
 };
-use sworm_remote::wire::read_frame;
+use axome_remote::wire::read_frame;
 use tokio::task::JoinHandle;
 
 pub(crate) struct ChatAttachments {

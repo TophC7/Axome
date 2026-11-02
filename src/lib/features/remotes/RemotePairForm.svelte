@@ -1,8 +1,8 @@
 <!--
   @component
   RemotePairForm — pairing on the Remote Servers settings page. One field
-  takes either a host (answers with the `sworm-server pair` command to run)
-  or a `sworm-pair://` link (previews it, suggests a name, pairs). A link
+  takes either a host (answers with the `axome-server pair` command to run)
+  or a `axome-pair://` link (previews it, suggests a name, pairs). A link
   for a saved server, or a name that is already saved, re-pairs it.
 -->
 
@@ -22,7 +22,7 @@
 
   const input = $derived(pairForm.input.trim())
   const link = $derived(parsePairLink(input))
-  const typingLink = $derived(input.startsWith('sworm-pair:'))
+  const typingLink = $derived(input.startsWith('axome-pair:'))
   const linkAddress = $derived(link ? `${link.host.includes(':') ? `[${link.host}]` : link.host}:${link.port}` : null)
   const fingerprintKey = (fingerprint: string) => fingerprint.replace(/^SHA256:/i, '').toLowerCase()
 
@@ -121,7 +121,7 @@
       id="remote-pair-input"
       type={typingLink ? 'password' : 'text'}
       bind:value={pairForm.input}
-      placeholder="homelab.local  or  sworm-pair://…"
+      placeholder="homelab.local  or  axome-pair://…"
       aria-label="Server host or pairing link"
       autocomplete="off"
       spellcheck={false}
@@ -136,10 +136,10 @@
         <Button size="xs" type="button" onclick={() => void copy(command)}>Copy</Button>
       </div>
       <p class="text-xs text-subtle">
-        Run it, then paste the sworm-pair:// link it prints. Links expire after 10 minutes.
+        Run it, then paste the axome-pair:// link it prints. Links expire after 10 minutes.
       </p>
     {:else if typingLink && !link}
-      <p class="text-sm text-danger" role="alert">Incomplete link. Copy the whole line starting with sworm-pair://.</p>
+      <p class="text-sm text-danger" role="alert">Incomplete link. Copy the whole line starting with axome-pair://.</p>
     {/if}
 
     {#if link}

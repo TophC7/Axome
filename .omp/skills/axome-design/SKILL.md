@@ -1,0 +1,632 @@
+---
+name: axome-design
+description: Axome's authoritative design system. Tokens, surfaces, type scale, shadows, motion, iconography, voice, and component recipes. Use this skill whenever you touch UI in Axome — building new components, refactoring styling, updating primitives, reviewing design choices, or designing a new surface (dialog, panel, row, menu). Trigger on any edit to src/app.css, src/lib/components/ui/**, or Svelte files under src/lib. Also use when questions arise about Axome's palette, typography, surface hierarchy, focus states, shadows, radii, or iconography. Supersedes extensions/handoff/ and extensions/Axome Design System/.
+---
+
+# Axome Design System
+
+Warm base16 terminal palette. Peach accent. Dark-only. Dense by default. Flat chrome, rounded popovers, one accent color used sparingly. Type is small, tight, unhurried. The interface should disappear behind the work.
+
+This file is the single source of truth. The live tokens live in `src/app.css`. When the two disagree, this file wins and `src/app.css` gets updated to match.
+
+---
+
+## 1 · How the system is consumed
+
+Three places interact with tokens:
+
+| Surface                                            | What it uses                             | Rule                                                                                     |
+| -------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/app.css` `@theme` block                       | The canonical token set                  | Edit here first; Tailwind v4 emits utilities from it.                                    |
+| Svelte components under `src/lib/components/ui/**` | Tailwind utilities emitted from `@theme` | Consume via utilities (`bg-surface`, `text-base`, `shadow-popover`). Never hardcode hex. |
+| Feature components under `src/lib/components/**`   | Primitives from `ui/*`                   | Never reach for `bits-ui` directly. Never restyle what a primitive already does.         |
+
+If you need a token that does not exist, add it to `@theme`, update this doc in the same commit.
+
+---
+
+## 2 · Color tokens
+
+### 2.1 Base16 reference
+
+Axome's palette is a warm base16 scheme. These are the raw ANSI slots. You rarely reference them directly; the named roles below are the usable API.
+
+| Slot | Hex       | Role                |
+| ---- | --------- | ------------------- |
+| 00   | `#131313` | ground / black      |
+| 01   | `#ff7672` | danger / red        |
+| 02   | `#98ff7f` | success / green     |
+| 03   | `#ffe572` | warning / yellow    |
+| 04   | `#f29d84` | accent-dim / orange |
+| 05   | `#763724` | warm brown          |
+| 06   | `#ffb59f` | accent / peach      |
+| 07   | `#fff3ef` | bright              |
+| 08   | `#a59c99` | muted gray          |
+| 09   | `#ffa29f` | danger-bright       |
+| 10   | `#b7ffa5` | success-bright      |
+| 11   | `#ffeea5` | warning-bright      |
+| 12   | `#ffc0ad` | accent-bright       |
+| 13   | `#ffcbbb` | pink                |
+| 14   | `#ffddd3` | peach               |
+| 15   | `#fffaf8` | max                 |
+
+### 2.2 Surface hierarchy
+
+Four steps, darkest to lightest. Every element sits on exactly one.
+
+| Token     | Hex       | Where it lives                                                                                           |
+| --------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `ground`  | `#131313` | App background, terminal pane, editor canvas, active project tab fuses with this.                        |
+| `surface` | `#201c1a` | Title bar, sidebars, panel headers, inputs, default buttons, Home project cards.                         |
+| `raised`  | `#2f2926` | Active sidebar tabs, command palette body, cards inside a panel, tooltip/dropdown body.                   |
+| `overlay` | `#3c3532` | Menus, context menus, tooltips when they need extra lift above a `raised` surface.                       |
+
+**Stepping rule.** Step up or down when you nest. Never same-level nesting (`raised` inside `raised`). If the container is `raised`, children step to `surface` (down) or `overlay` (up). Feature cards inside a `bg-raised` dialog go to `bg-overlay`; an input inside an `bg-overlay` card goes to `bg-surface`.
+
+### 2.3 Borders
+
+| Token         | Hex       | Use                                                              |
+| ------------- | --------- | ---------------------------------------------------------------- |
+| `edge`        | `#3a322e` | Default — dividers, panel borders, input borders, card outlines. |
+| `edge-strong` | `#4a403a` | Emphasized separators under pressure. Rare.                      |
+
+### 2.4 Foreground hierarchy
+
+Strict. Darker values carry less visual weight. Use the _lowest_ level that works — the whole interface should feel calm.
+
+| Token    | Hex       | Use                                                                               |
+| -------- | --------- | --------------------------------------------------------------------------------- |
+| `max`    | `#fffaf8` | Top-of-hierarchy labels: on-accent text (black-on-peach buttons), hero wordmarks. |
+| `bright` | `#fff3ef` | Dialog titles, active states, card titles, hover-emphasized text.                 |
+| `fg`     | `#e2e2e2` | Body text, default content, form labels.                                          |
+| `muted`  | `#a59c99` | Secondary text, captions, default icon color, inactive tab labels.                |
+| `subtle` | `#6e6864` | Disabled text, timestamps, tertiary detail, placeholder.                          |
+
+### 2.5 Accent
+
+One warm peach. The brand color. Used for activity, focus, the active-view indicator in the activity bar, primary CTAs, commit hashes, the agent "working" pulse.
+
+| Token           | Hex                      | Use                                                                                 |
+| --------------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| `accent`        | `#ffb59f`                | Foreground accent. Text, icons, focused input border, tab underline.                |
+| `accent-dim`    | `#f29d84`                | Filled accent surface — primary CTA background.                                     |
+| `accent-bright` | `#ffc0ad`                | Hover of a filled accent surface. Primary button hover goes _brighter_, not darker. |
+| `accent-bg`     | `rgba(255,181,159,0.13)` | Tinted fill for selected rows, active-accent chips.                                 |
+
+**Rule.** One accent, used sparingly. If you catch yourself painting decoration with it, stop.
+
+### 2.6 Semantic
+
+| Purpose     | `fg`      | `bright`         | `bg`         | `border`        |
+| ----------- | --------- | ---------------- | ------------ | --------------- |
+| **Danger**  | `danger`  | `danger-bright`  | `danger-bg`  | `danger-border` |
+| **Success** | `success` | `success-bright` | `success-bg` | `success/40`    |
+| **Warning** | `warning` | `warning-bright` | `warning-bg` | `warning/40`    |
+
+**Alert recipe:**
+
+```html
+<div class="border border-danger-border bg-danger-bg text-danger-bright">…</div>
+```
+
+Session state lives on **status dots**, not on badges or alert banners.
+
+### 2.7 Extended decorative
+
+`selection` (text-selection bg), `warm` (deep brown), `pink`, `peach` (peach-light). Use only for decorative highlights. Never for semantic state.
+
+---
+
+## 3 · Type
+
+### 3.1 Families
+
+**Interface (`font-sans`):** `Paper Mono UI`, bundled default. Paper Mono v1.000 (100–800) with all six features on the face: coding ligatures `ss01`, duospace `ss02`, narrow space `ss03`, small arrows `ss04`, single-story a `cv01`, slashed zero `zero`. Everything that isn't code, a path, or a key cap. The `--font-sans` chain is `'Paper Mono UI', 'Symbols Nerd Font Mono', system-ui, sans-serif`.
+
+**Code (`font-mono`):** `Paper Mono`, bundled default. Same file, but only `ss01`, `ss04`, `cv01`, `zero`; duospace and narrow space change advance widths and would break Monaco columns and the xterm cell grid. Used by the editor, diffs, mono UI text and terminal; terminal ligatures come from the xterm character joiner (`terminal/ligatures.ts`). The `--font-mono` chain is `'Paper Mono', 'Symbols Nerd Font Mono', monospace` — no SF Mono, JetBrains, or Cascadia in the chain.
+
+**Icon fallback:** Symbols Nerd Font Mono (Nerd Fonts v3.5.1) is bundled behind Paper Mono in both chains and fills Nerd Font icon glyphs per glyph. Keep its face free of `unicode-range` so the terminal font preload fetches it before xterm builds its glyph atlas.
+
+**Features live on `@font-face`, not on elements.** Never add `font-feature-settings` to components; a user-chosen family must not inherit Paper Mono's stylistic sets.
+
+**User override:** Settings → Appearance → Typography (`typography` in global `settings.jsonc`) puts a freeform family ahead of each bundled chain at runtime; terminals may override the code font. Components therefore reference `font-sans` / `font-mono` / `var(--font-*)` and never hardcode a family; canvas-measured surfaces (Monaco, xterm) read `settings/state/typography.svelte.ts`.
+
+**Brand exception:** OMP provider wordmark may use bundled Plantin MT Pro via `--font-plantin`.
+
+Mono is for _data_: session IDs, file paths, kbd keys, timestamps, branch names, kicker labels, terminal output.
+
+### 3.2 Scale
+
+All sizes ship as Tailwind utilities (`text-2xs` … `text-5xl`). Use the named scale; no new `text-[…]` literals in new code.
+
+| Utility     | Size             | Line height | Weight default | Use                                               |
+| ----------- | ---------------- | ----------- | -------------- | ------------------------------------------------- |
+| `text-2xs`  | 10.4px · 0.65rem | 1.2         | 500            | Micro-labels, badges, kbd.                        |
+| `text-xs`   | 10.9px · 0.68rem | 1.25        | 500            | Section labels (UPPERCASE), button-xs, subtitles. |
+| `text-sm`   | 11.5px · 0.72rem | 1.3         | 400            | Small buttons, dense list rows, tooltips, tabs.   |
+| `text-base` | 13.1px · 0.82rem | 1.4         | 400            | **Default UI body.** Buttons, inputs, labels.     |
+| `text-md`   | 13.6px · 0.85rem | 1.4         | 600            | Card titles, provider labels, emphasized rows.    |
+| `text-lg`   | 14.4px · 0.9rem  | 1.4         | 600            | Section headers inside dialogs.                   |
+| `text-xl`   | 16px · 1rem      | 1.35        | 700            | Dialog titles, view headers.                      |
+| `text-2xl`  | 17.6px · 1.1rem  | 1.3         | 700            | Card titles in hero contexts.                     |
+| `text-3xl`  | 20px · 1.25rem   | 1.2         | 700            | Empty-state headings, section hero.               |
+| `text-4xl`  | 24px · 1.5rem    | 1.15        | 500            | Settings H2, page titles.                         |
+| `text-5xl`  | 32px · 2rem      | 1.1         | 500            | Onboarding hero, wordmark.                        |
+
+**Weights move with the scale.** Chrome sizes (`xxs`/`xs`) sit at 500, body sizes (`sm`/`base`) at 400, emphasis (`md`/`lg`) at 600, headings (`xl`/`2xl`) at 700, hero (`4xl`/`5xl`) at 500 so the warm background does the emotional lifting.
+
+### 3.3 Tracking
+
+- Default tracking for Paper Mono.
+- `tracking-wide` + `uppercase` on section labels (`START`, `RECENT`).
+- `tracking-tight` (letter-spacing: -0.01em) on hero wordmarks only.
+
+---
+
+## 4 · Iconography
+
+### 4.1 Lucide for UI chrome
+
+- All UI icons come from `@lucide/svelte`, re-exported via `src/lib/icons/lucideExports.ts`.
+- Default stroke width 2.
+- Sizes by context:
+  - **9–11px** — badges, status glyphs.
+  - **12px** — inline with `text-sm` chrome (kbd hints, command palette icons).
+  - **14–16px** — buttons, menu items, panel header actions.
+  - **18px** — titlebar logo.
+  - **28–30px** — empty-state hero icons.
+- Color inherited from `color:`. Match the surrounding text role (`text-muted` secondary, `text-bright` hover, `text-accent` active, `text-danger`/`text-success`/`text-warning` for semantics).
+- When adding a new icon, re-export it from `lucideExports.ts` with the `*Icon` suffix convention (`MenuIcon`, `SearchIcon`, `SettingsIcon`). Exceptions kept for short iconic names (`X`, `Plus`, `Check`).
+
+### 4.2 Brand SVGs
+
+Raw assets live under `src/lib/assets/` and are imported (`?url`), never served from a public folder, so Vite hashes them and a missing file fails the build. There is no `static/` directory.
+
+- `axome.svg` — app logo. `github.svg`, `nixos.svg`.
+- Provider marks and wordmarks: `providers/*.svg`, wired in `src/lib/features/sessions/providers/catalog.ts`.
+- Monochrome marks (wordmarks, Nix) paint through `MaskIcon` so they take the text color. Supply `label` for meaningful standalone images; omit it for decorative marks inside labelled controls.
+- Generic options are not brands: Terminal and New File use Lucide (`TerminalIcon`, `FilePlusCornerIcon`) via `ProviderIcon`, colored by tokens like any other UI icon.
+
+**Provider presence rule.** Provider logos render full-color when the provider is detected, `grayscale + 50% opacity` when not. This is how Axome communicates "connected vs not available" — no extra dot, no extra label.
+
+### 4.3 File-type icons
+
+`src/lib/assets/bearded/*.svg` (Bearded Icons, ~400 files, plus Axome's logo). `src/lib/icons/fileIconMap.ts` resolves a filename or path to an icon name, using upstream Bearded's file-name and extension mappings plus Axome overrides; `FileIcon` maps the name to its bundled URL.
+
+### 4.4 Emoji ban
+
+Never. No unicode-character-as-icon either. If you need a glyph, use Lucide or a bundled brand SVG.
+
+---
+
+## 5 · Radii
+
+Axome is flat by default. Rounding exists only where a surface visibly _floats_ or a chip explicitly wants to read as a pill.
+
+| Utility        | Size   | Use                                                                                                             |
+| -------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
+| `rounded-none` | 0      | Title bar chrome, tabs, activity bar icons, window controls, panel headers. The default for chrome.             |
+| `rounded-sm`   | 2px    | Tiny chips, kbd shadows at low resolution.                                                                      |
+| `rounded`      | 4px    | Inputs, small buttons. The lightest rounding that reads as "this element is a control."                       |
+| `rounded-md`   | 6px    | Kbd chips, code blocks, secondary buttons.                                                                      |
+| `rounded-lg`   | 8px    | Default buttons, primary CTAs, dialog content, dropdown content, context menu content. Floating surfaces.       |
+| `rounded-xl`   | 12px   | Command palette, markdown-rendered `kbd`. The largest used anywhere in chrome.                                  |
+| `rounded-full` | 9999px | Status dots, avatars.                                                                                           |
+
+**Rule.** Chrome (title bar, sidebars, tabs) is square. Only things that _detach from_ the chrome — buttons, dialogs, menus, tooltips, the command palette — carry rounding. Status dots are circles because they are dots.
+
+---
+
+## 6 · Shadows
+
+Elevation shadow is reserved for **floating surfaces only**. Cards, buttons, inputs, sidebars, panel headers — no shadow. They use surface steps + borders to establish hierarchy.
+
+| Token               | Value                              | Use                                                                        |
+| ------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| `shadow-popover`    | `0 16px 48px rgba(0,0,0,0.5)`      | Command palette, dropdowns, context menus, tooltips, toasts. Nothing else. |
+| `shadow-kbd-inset`  | `inset 0 -1px 0 var(--color-edge)` | Kbd chips — the key-cap bottom-edge cue.                                   |
+| `shadow-focus-ring` | `0 0 0 2px rgba(255,181,159,0.35)` | Focus outline for interactive non-input elements. See §8.                  |
+
+**Never use Tailwind's default `shadow-sm` / `shadow-md`**. Their values don't match the warm background. If you feel a card needs elevation, you probably need to step to the next surface token instead.
+
+---
+
+## 7 · Motion
+
+### 7.1 Easing
+
+| Utility          | Value                           | Use                                                           |
+| ---------------- | ------------------------------- | ------------------------------------------------------------- |
+| `ease-out-expo`  | `cubic-bezier(0.16, 1, 0.3, 1)` | Dramatic entrances — dialog appear, command palette drop.     |
+| `ease-out-quart` | `cubic-bezier(0.25, 1, 0.5, 1)` | Default for everything else.                                  |
+| `ease-default`   | `cubic-bezier(0.2, 0, 0, 1)`    | Pane-level transitions where `ease-out-quart` feels too soft. |
+
+### 7.2 Duration
+
+| Utility            | Value | Use                                                            |
+| ------------------ | ----- | -------------------------------------------------------------- |
+| `duration-instant` | 80ms  | Color shifts on color-only hover that shouldn't feel animated. |
+| `duration-fast`    | 150ms | **Default** for color/border/opacity transitions.              |
+| `duration-med`     | 240ms | Dropdown open, tooltip appear, toast in.                       |
+| `duration-slow`    | 400ms | Dialog open, pane drag settle.                                 |
+
+### 7.3 Named animations
+
+| Class          | What it does                             | Where                                                    |
+| -------------- | ---------------------------------------- | -------------------------------------------------------- |
+| `beam-sweep`   | 3s horizontal gradient sweep             | Active project tab underline.                            |
+
+The beam is not generic. If you want to animate something else, use color/opacity transitions with the duration + easing tokens above.
+
+### 7.4 Interaction rules
+
+- **No scale on press.** Axome is a dev tool; shrinking on click feels wrong.
+- **Color shifts toward `bright`**, never brightness filters.
+- **Swept lists are instant, pointed controls fade.** Any list the cursor sweeps across — file tree, sidebar lists, diff stacks, menu items, settings nav and list rows — takes no color transition at all: the highlight applies and clears on the first frame, VS Code-style. A fade never becomes visible during a fast sweep, so don't put `transition-colors` on row hovers. Single click targets (buttons, inputs, chips, tabs) keep the `transition-colors` fade.
+- **Resize handles are instant.** No animation on drag.
+- **Entrance fade** via CSS `BlurFade` stays limited to stage-level entrances: empty state, new-session picker. Fixed 6px blur and upward Y entrance; defaults are `duration={0.4}` and `yOffset={8}`, with `delay` for sequencing. Headers may use `duration={0.5}` and `yOffset={10}`. Don't blanket every render.
+
+---
+
+## 8 · Focus states
+
+Axome uses two mechanisms depending on element type. Pick the right one per primitive.
+
+### 8.1 Border-swap (inputs)
+
+Inputs, textareas, the command input — change border color on focus.
+
+```html
+<input class="border border-edge bg-surface outline-none focus:border-accent" />
+```
+
+No outline, no ring. The border change is the whole focus indicator.
+
+### 8.2 Focus ring (non-input interactive elements)
+
+Buttons, icon buttons, tabs, menu triggers, list rows — show a ring on `:focus-visible` only so it stays invisible to mouse users.
+
+```html
+<button class="focus-visible:shadow-focus-ring focus-visible:outline-none">…</button>
+```
+
+**Never use Tailwind's `ring-*` utilities.** They layer another shadow on top of whatever the element already has; we use the token `shadow-focus-ring` directly so it's clearly a focus indicator, not decoration.
+
+If an element already has a `shadow-popover` (dropdowns, tooltips that are themselves focusable), you may combine with `shadow-[var(--shadow-focus-ring),var(--shadow-popover)]` — the focus ring wins on top.
+
+---
+
+## 9 · Spacing & density
+
+Axome is dense but not cramped. Stay on the Tailwind 4px scale. Common rhythms:
+
+- **Inline gap** — `gap-1.5` (6px) tight, `gap-2.5` (10px) default, `gap-4` (16px) generous.
+- **Row height** — `h-7`/`h-8` (28–32px) for list rows, `h-6` (24px) for compact sidebars.
+- **Card padding** — `p-3` default, `p-4`/`p-5` for dialog content.
+- **Panel headers** — `px-3 py-2` (12px horiz × 8px vert).
+- **List item padding** — `px-3 py-1.5`.
+
+Fixed chrome dimensions (these are load-bearing):
+
+- Title bar: **36px** min height.
+- Sidebar rail: **36px** wide (`RAIL_WIDTH_CLASS`, `w-9`), matches the title bar's logo column.
+- Kbd chip: **24px** tall (`h-6`).
+- Status dot: **8px** circle.
+
+If you catch yourself writing `p-[11px]` or `h-[33px]`, step back to one of the above.
+
+---
+
+## 10 · Voice & tone
+
+Terse, terminal-native, developer-to-developer. No marketing copy. The reader has shipped software before.
+
+### Casing
+
+- **Title Case** — menu labels, buttons, tab titles (`Open Repository`, `New Session`, `Discard All`).
+- **UPPERCASE + letter-spacing** — sidebar section dividers (`START`, `RECENT`), via `text-xs font-semibold tracking-wide uppercase text-muted`.
+- **lowercase.with-dots** / **kebab-case** — filenames, branches, commands (`main`, `src-tauri`, `app:dev`).
+- **Sentence case** — longer prose inside dialogs and empty-state bodies.
+
+### Pronouns
+
+- **"You"** is used sparingly and only when the user performed the action: _"You have 3 unsaved files."_
+- Never _"we"_ or _"our"_. Axome does not personify itself.
+
+### Vocabulary
+
+- **Session** — a running coding-agent process tied to a project.
+- **Project** — a local git repository the user has added.
+- **Provider** — the backing CLI.
+- **Pane / Tab** — visual containers inside a project view.
+- **Stage / Unstage / Discard / Stash** — git verbs, never translated.
+- **Live / Idle / Exited / Failed** — session statuses.
+
+### Examples
+
+- Empty state: _"Axome"_ / _"Agentic Development Environment"_.
+- Destructive confirm: _"This will permanently discard all unstaged changes and remove untracked files. This cannot be undone."_
+- Session exit: _"Session exited. Showing restored terminal history."_
+
+### Banned
+
+- Emoji. Emoticons. Exclamation marks in chrome.
+- _"Let's get started!"_, _"Sure thing!"_, _"Oops!"_, _"Whoops"_, _"Awesome!"_.
+- Generic "Are you sure?" confirms. State what will happen, factually.
+
+---
+
+## 11 · Component recipes
+
+These are the authoritative sizes + variants for each primitive. If a primitive in `src/lib/components/ui/*` disagrees with what's here, the primitive is wrong.
+
+### 11.1 Component shape
+
+Every primitive under `ui/*` follows this exact shape:
+
+```svelte
+<script lang="ts" module>
+  import { tv, type VariantProps } from 'tailwind-variants'
+
+  export const fooVariants = tv({
+    base: '…',
+    variants: { variant: { … }, size: { … } },
+    defaultVariants: { variant: '…', size: '…' }
+  })
+
+  export type FooVariant = VariantProps<typeof fooVariants>['variant']
+  export type FooSize = VariantProps<typeof fooVariants>['size']
+</script>
+
+<script lang="ts">
+  import { cn } from '$lib/utils/cn'
+  import type { HTMLAttributes } from 'svelte/elements'
+  import type { Snippet } from 'svelte'
+
+  let {
+    variant = '…',
+    class: className,
+    children,
+    ...rest
+  }: HTMLAttributes<HTMLElement> & {
+    variant?: FooVariant
+    class?: string
+    children?: Snippet
+  } = $props()
+</script>
+
+<element data-slot="foo" class={cn(fooVariants({ variant }), className)} {...rest}>
+  {#if children}{@render children()}{/if}
+</element>
+```
+
+Rules:
+
+- `<script lang="ts" module>` for variants + types.
+- `data-slot="foo"` on root.
+- `cn(fooVariants({…}), className)` — user `className` always last so callers can override.
+- `{...rest}` spread last.
+- `{#if children}{@render children()}{/if}` — never unconditional.
+- Filename is PascalCase, prefixed with the component so editor tabs stay unambiguous (`DropdownMenuItem.svelte`, `SidebarRow.svelte`); the folder is kebab-case (`dropdown-menu/`, `sidebar-row/`).
+- Folder has `index.ts` re-exporting default + variant types.
+- Compound components (`dropdown-menu`, `context-menu`, `dialog`, `popover`, `tabs`, `tooltip`, `command`, `alert`, `breadcrumb`, `resizable`) export short part names (`Root`, `Trigger`, `Content`, `Item`, …) and are consumed as a namespace: `import * as DropdownMenu from '$lib/components/ui/dropdown-menu'` → `<DropdownMenu.Item>`, `<Dialog.Content>`, `<Alert.Root>`. Never long names like `DropdownMenuItem`. The namespace name wins collisions: rename the local identifier, and inside `ui/*` alias raw bits imports (`Dialog as DialogPrimitive`).
+- Standalone components, variant functions and types stay named exports, imported alongside the namespace: `import { InfoTooltip } from '$lib/components/ui/tooltip'`, `import { PaletteDialog, commandItemVariants } from '$lib/components/ui/command'`.
+
+### 11.2 Button
+
+`variant`: `default | ghost | text | outline | destructive | accent`
+`size`: `default | sm | xs | icon | icon-sm`
+
+| Variant     | Classes                                                                           |
+| ----------- | --------------------------------------------------------------------------------- |
+| default     | `bg-surface border border-edge text-fg hover:border-accent/40 hover:text-bright` (matches the Home project card) |
+| ghost       | `bg-transparent border-none text-muted hover:bg-surface hover:text-bright`        |
+| text        | `bg-transparent border-none rounded-none text-muted hover:text-bright`            |
+| outline     | `bg-transparent border border-edge text-fg hover:border-accent hover:text-bright` |
+| destructive | `bg-danger-bg border border-danger-border text-danger hover:text-danger-bright`   |
+| accent      | `bg-accent-dim border border-accent-dim text-ground hover:bg-accent`              |
+
+| Size    | Classes                 |
+| ------- | ----------------------- |
+| default | `px-3.5 py-2 text-base` |
+| sm      | `px-2.5 py-1 text-sm`   |
+| xs      | `px-2 py-0.5 text-xs`   |
+| icon    | `w-7 h-7 p-0`           |
+| icon-sm | `w-5 h-5 p-0`           |
+
+Base: `inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:shadow-focus-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50`.
+
+### 11.3 IconButton
+
+Wraps `Button` with tooltip + `aria-label`. Always accepts `tooltip: string` and an optional `shortcut: string`. For titlebar/chrome flat icon buttons, use a `shape: 'flat'` variant (see roadmap — not yet landed).
+
+`active` also supplies `aria-pressed`: omitted for non-toggles, explicitly `false` for inactive toggles. Tooltip placement defaults to `bottom`; callers specify only other sides.
+
+### 11.4 Input / Select / Textarea
+
+`inputVariants` in `ui/input/Input.svelte` owns the shared field recipe, re-exported from `ui/input`:
+
+`w-full bg-surface border border-edge rounded px-2.5 py-1.5 text-base text-fg outline-none placeholder:text-subtle focus:border-accent transition-colors`.
+
+Select uses the same recipe; Textarea adds only `resize-none`. Native attributes pass through; Textarea exposes typed `HTMLTextareaAttributes` and `data-slot="textarea"`.
+
+Focus uses border-swap (see §8.1). No outline.
+
+### 11.5 Kbd
+
+`inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md border border-edge bg-surface font-mono text-sm font-medium text-fg shadow-kbd-inset select-none pointer-events-none`.
+
+### 11.6 Badge
+
+Pill, `rounded-full`. `inline-flex items-center px-2 py-0.5 text-xs uppercase tracking-wide font-medium`.
+
+| Variant | Classes                      |
+| ------- | ---------------------------- |
+| default | `bg-edge text-muted`         |
+| success | `bg-success/15 text-success` |
+| warning | `bg-warning/15 text-warning` |
+| danger  | `bg-danger/15 text-danger`   |
+| accent  | `bg-accent-bg text-accent`   |
+
+Badges carry **information**, not state. Session state lives on status dots.
+
+### 11.7 Status dot
+
+`ui/status-dot`: `StatusDot` with `tone`, `size` (`sm` = `size-1.5`, `md` = `size-2` default, `lg` = `size-2.5`) and `corner` (pinned bottom-right of an icon, cut out with a `border-ground` border since `ring-*` is banned). Pass `label` when the dot is the only carrier of its state. `statusToneText` maps a tone to its text colour; `ToneStatus { tone, text }` is the shared state shape for anything that shows a dot plus a description.
+
+| Status    | Fill         | Animation      |
+| --------- | ------------ | -------------- |
+| `idle`    | `bg-muted`   | —              |
+| `working` | `bg-accent`  | —              |
+| `waiting` | `bg-warning` | —              |
+| `success` | `bg-success` | —              |
+| `danger`  | `bg-danger`  | —              |
+
+Active states (`working`, `danger`) may add a 3px halo via `shadow-[0_0_0_3px_rgba(…)]` at 15% opacity.
+
+### 11.8 Tab
+
+**Project variant** (lives in titlebar): `h-8 rounded-none`. Active = `bg-raised text-bright border border-edge border-b-0` + animated **bottom** accent line (2px, `bg-accent`, `beam-sweep` 3s). Inactive = `hover:bg-raised hover:text-bright`.
+
+The beam is always `accent`. Session state is carried by the status dot inside the tab, not by the beam color.
+
+**Pane variant** (sessions/files/diffs/commits): `self-stretch text-sm`. Active = `bg-surface text-fg`. No beam; the bg change is the indicator. Temporary (preview) tabs render italic until promoted via double-click.
+
+Close affordance: hidden until hover, `text-muted hover:bg-edge hover:text-bright`.
+
+`TabButton` keeps its native `auxclick` listener bound and checks the optional consumer callback inside it. Locking disables the callback, not the listener; conditionally removing a spread handler can leave a stale native listener calling `undefined`.
+
+### 11.9 Dialog
+
+`Dialog.Content` = `bg-raised border border-edge rounded-2xl shadow-popover p-5`. Inside it, cards step to `bg-overlay`; inputs step to `bg-surface`. Dialog title uses `text-xl font-semibold text-bright`.
+
+Overlay: `fixed inset-0 bg-ground/70 backdrop-blur-sm`. The one place blur is used.
+
+### 11.10 Dropdown / context menu
+
+`src/lib/components/ui/menu-recipe.ts` owns the shared content, item, indicator, group-heading, shortcut and separator classes for both families. Every wrapper in `ui/dropdown-menu` and `ui/context-menu` sits on it, follows shadcn-svelte's shape (bits primitive props + bindable `ref` + `data-slot`), and the two families export identical parts: `Content`, `Item`, `CheckboxItem`, `RadioGroup`, `RadioItem`, `Group`, `GroupHeading`, `Separator`, `Shortcut`, `SubTrigger`, `SubContent`, plus `Root`/`Trigger`/`Sub` primitive re-exports. Bits options (`closeOnSelect`, `textValue`, `side`, `sideOffset`, `align`, …) pass straight through.
+
+Content (`menuContentVariants`) = `z-50 min-w-[180px] overflow-x-hidden overflow-y-auto rounded-lg border border-edge bg-raised py-1 text-sm shadow-popover`, capped at the bits available-height var so tall menus scroll. **Menus default to `text-sm`**; don't re-add it per call site. SubContent uses the same recipe.
+
+Items = `relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-fg select-none outline-none focus-visible:shadow-focus-ring`. State is all data attributes, so consumers never pass styling state:
+
+- Highlight: `data-highlighted:bg-surface` (no `hover:`/`focus:`). Fills are guarded with `not-data-disabled:`.
+- Disabled (`data-disabled`): `cursor-not-allowed text-muted/50`, no fill. Bits rejects selection before running the consumer action.
+- Destructive (`destructive` prop → `data-destructive`): `text-danger`, highlight `bg-danger-bg`, icons `text-danger`.
+- `inset` prop → `data-inset:ps-8`, lining text up with checkbox/radio labels. Available on Item, SubTrigger and GroupHeading.
+- Icons: `[&_svg]:shrink-0`; SVGs without a `text-` class render `text-muted`. No automatic size: pass lucide `size={14}`.
+
+Use `onSelect` on Item for mouse and keyboard activation; `onclick` is not part of the wrapper contract. Bits checks disabled before the action and closes afterwards, so an action may mark itself busy or open a dialog without leaving its menu and body lock behind. `event.preventDefault()` on the selection event cancels closing; `closeOnSelect={false}` keeps the menu open intentionally.
+
+CheckboxItem / RadioItem = item recipe + `ps-8`, with the indicator (`Check`, or a `Circle` at `size-2 fill-current`) absolutely placed in the left padding. `closeOnSelect={false}` keeps the menu open.
+
+GroupHeading = `px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted`. It must sit inside `Group` or `RadioGroup` (bits group context).
+
+Shortcut = `<span>` with `ms-auto ps-6 text-xs text-subtle`, placed last in an item.
+
+Separator = `mx-2 my-1 h-px bg-edge`.
+
+### 11.11 MagicCard (exception)
+
+`src/lib/components/ui/magic-card/MagicCard.svelte` is the **one** decorative surface in the system. At rest it is the Home project card: `bg-surface`, 1px `edge` border, `rounded-lg`, no scale. On hover its border lights with a cursor-following radial gradient in the option's own colors (`gradientFrom` → `gradientTo`), and the fill lifts toward `raised` around the cursor.
+
+The two cursor gradients have a fixed 200px radius; the spotlight uses `var(--color-raised)` at 0.8 opacity. Only `gradientFrom` / `gradientTo`, `disabled`, `onclick`, children and class are public knobs.
+
+**Scope is tight:** currently used only on the new tab page's start options (providers, Terminal, New File). Do not extend to other surfaces without updating this doc first. If a new use case appears, propose it.
+
+### 11.12 Command palette
+
+`bg-raised border border-edge rounded-xl shadow-popover` with `Dialog.Overlay` backdrop. `PaletteDialog` in `ui/command` imports Bits UI directly and owns the shared shell for `CommandCenter.svelte` and the location browser: `max-w-3xl` (48rem), 12px viewport gutters, top at 15vh, height capped at 80dvh. The dialog boundary is the visible palette so backdrop clicks dismiss it. Reuse `PaletteSearch`, `PaletteFooter`, and `commandItemVariants` for both surfaces; folder previews step down to `bg-surface`. Features use this wrapper, not raw dialog parts.
+
+### 11.13 Toast / notification
+
+Use `shadow-popover` + surface `bg-overlay`. Enter with `toastIn` (fade + slight Y offset, `duration-med` with `ease-out-expo`).
+
+### 11.14 Alert (inline, non-floating)
+
+```html
+<div class="border-{semantic}/40 bg-{semantic}-bg text-{semantic}-bright border">…</div>
+```
+
+Variants: `info` (use `accent`), `success`, `warning`, `danger`. Leading icon uses the strong color (`[&>svg]:text-{semantic}`). Alerts are inline — no shadow.
+
+`layout`: `card` (default, `rounded-lg px-3 py-2.5 text-sm`) | `banner` (`rounded-none border-x-0 border-t-0 px-2.5 py-1.5 text-xs`). Use `banner` for edge-to-edge Git notices instead of overriding card classes.
+
+### 11.15 Rail and applets
+
+Everything at the sidebar rail is a `RailButton` (`app-shell/sidebar/RailButton.svelte`): an `IconButton size="md"` with a right-side tooltip, `active` pinning the hover look, and a bottom-right `StatusDot corner` unless the status is idle. Bits triggers wrap it through their `child` snippet.
+
+An **applet** is any item docked at the rail foot. Foot order: Nix, then Remotes (desktop) or Server (web), then Notifications, then Settings (`AppMenu`, a dropdown menu). Panel applets (Nix, Remotes, Server) wrap the button in `RailApplet`: a popover with a header (icon tile, label, status line), a body and an action row. Every applet:
+
+- renders nothing when it has nothing to offer;
+- exposes its state as one `ToneStatus { tone, text }`; the corner dot, the tooltip `"<label> · <text>"`, the aria name and the panel status line all derive from it, so state is never shown by colour alone;
+- stays cheap while closed: work it owns runs only while open; per-folder activation belongs to `WorkbenchView`;
+- styles panel rows with `appletRowClass` (menu-item highlight to `bg-surface`, no hover transition) and section labels with `appletHeadingClass`.
+
+### 11.16 Spinner
+
+`ui/progress`: `Spinner` is the one loading indicator: Lucide `RefreshCw` whose paths spin around the viewBox center (`*:origin-[12px_12px] *:animate-spin`). Never spin the element box: at fractional display scales WebKit snaps a spinning layer to device pixels and the glyph swings off-center. It paints in `currentColor`, so tint it with a text class (`text-muted` in headers, inherited inside filled chips). Pass `label` when it is the only loading cue; it then reads as `role="status"`.
+
+Views that keep themselves current carry no Refresh buttons; a section shows a `Spinner` beside its heading or in its toolbar only while a background refresh runs. A view with no live source, like Home's activity map, keeps its Rescan button and swaps the icon for `Spinner` while scanning. Don't hand-roll another spinning icon.
+
+---
+
+## 12 · Do / Don't
+
+### Do
+
+- Use semantic tokens (`bg-surface`, `text-muted`, `border-edge`) exclusively.
+- Use the named type scale (`text-base`, `text-md`, `text-lg`).
+- Use `tailwind-variants` for every primitive with >1 state.
+- Pass `className` through `cn()` with user class **last**.
+- Use mono for data (IDs, paths, timestamps, kbd chips).
+- Use status dots for session/process state.
+- Use surface _steps_ to imply hierarchy; skip shadows.
+- Pulse accent only on things that are actively working.
+
+### Don't
+
+- Don't write raw hex codes in Svelte files.
+- Don't use Tailwind palette colors (`text-orange-400`, `bg-slate-800`).
+- Don't add new `text-[…]` literals. Named scale only.
+- Don't nest same-level surfaces.
+- Don't use `ring-*`. Use `shadow-focus-ring` or border-swap.
+- Don't use `shadow-sm` / `shadow-md` / other Tailwind default shadows.
+- Don't gradient-fill backgrounds. Exceptions: MagicCard, and the chat composer's `ground → transparent` scroll fade (a scrim over scrolling content, not decoration).
+- Don't write `<slot>`. Children are `Snippet` props rendered with `{@render children()}`.
+- Don't emoji. Don't unicode-icon. Don't exclamation-mark in chrome.
+- Don't reach for `bits-ui` in feature code. Use `ui/*` wrappers.
+- Don't copy-paste a 300-char class string. Extract a primitive.
+
+---
+
+## 13 · Review checklist
+
+Before handing UI work back, run this against your diff.
+
+1. **Svelte 5.** No `export let`, no `$:`, no `createEventDispatcher`, no `<slot>`. `$props() / $state / $derived / $effect` only. `$effect` only for real side effects, never to mirror state.
+2. **TypeScript.** Every `<script>` is `<script lang="ts">`. Props explicitly typed. Variant types exported from module script. No `any`.
+3. **Tokens.** Grep diff for `\#[0-9a-fA-F]{3,8}` → no results in `.svelte` files. No palette colors. No new `text-[…]` literals.
+4. **Component shape.** `data-slot` on root. `cn(variants({…}), className)` with user class last. `{#if children}{@render children()}{/if}`. `{...rest}` last.
+5. **Surfaces.** Every element on exactly one of `ground | surface | raised | overlay`. No same-level nesting.
+6. **Accent.** Used only for activity, focus, primary CTA, working indicators. Pulse only on working things.
+7. **Focus.** Input = border-accent swap. Everything else = `focus-visible:shadow-focus-ring`.
+8. **Shadows.** Only on floating/popover surfaces.
+9. **Motion.** Uses named easing + duration tokens. Not hand-rolled cubic-beziers.
+10. **Voice.** No emoji, no fluff, Title Case on CTAs.
+11. **Primitive reuse.** No raw `bits-ui` imports in feature code. No restyle of what a primitive already does.
+
+Output a short block at the end of a UI task:
+
+```
+Design review:
+✓ Svelte 5 runes, no export let / $: / dispatchers / slots
+✓ TS typed, variant types exported
+✓ Tokens only — grepped for hex, none
+✓ Surfaces compose cleanly (surface → raised → overlay)
+✓ Accent confined to <specific interactions>
+✓ Focus uses shadow-focus-ring / border-accent as appropriate
+✓ No forbidden shadows
+✓ Named motion tokens used
+✓ Voice matches house style
+```

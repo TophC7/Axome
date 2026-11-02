@@ -41,7 +41,7 @@ function canAccept(payload: DragPayload | null, folderPath: string): boolean {
  * root, so inserting it into this shell would be wrong.
  *
  * A remote workspace's shell sees the daemon's filesystem, so it gets the
- * host-native path rather than the `sworm://` URI that names it here.
+ * host-native path rather than the `axome://` URI that names it here.
  */
 function collectPathsFromPayload(payload: DragPayload, folderPath: string): string[] | null {
   const paths: string[] = []
@@ -119,7 +119,7 @@ export function terminalDropObserver(args: TerminalDropObserverArgs) {
       if (!dropEnabled(args)) return false
       if (payload) return canAccept(payload, args.folderPath)
       return (
-        types.includes(DND_MIME.SWORM_FILE) ||
+        types.includes(DND_MIME.AXOME_FILE) ||
         (acceptsOsFiles(args.folderPath) && types.includes(DND_MIME.FILES)) ||
         types.includes(DND_MIME.TEXT)
       )
@@ -147,7 +147,7 @@ export function terminalDropObserver(args: TerminalDropObserverArgs) {
       const transfer = event.dataTransfer
       if (
         !transfer ||
-        transfer.getData(DND_MIME.SWORM_ITEM) ||
+        transfer.getData(DND_MIME.AXOME_ITEM) ||
         !transfer.types.includes(DND_MIME.TEXT) ||
         !dropEnabled(args) ||
         !isCenterDropPoint(element, event.clientX, event.clientY)

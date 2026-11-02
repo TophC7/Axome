@@ -1,12 +1,12 @@
 {
-  "name": "sworm",
+  "name": "axome",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "dev:web": "SWORM_TARGET=web vite dev",
+    "dev:web": "AXOME_TARGET=web vite dev",
     "build": "vite build",
-    "build:web": "SWORM_TARGET=web vite build",
+    "build:web": "AXOME_TARGET=web vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",

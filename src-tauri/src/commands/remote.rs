@@ -1,6 +1,6 @@
 use crate::{app_state::AppState, router::RemoteStatus};
-use sworm_core::errors::ApiError;
-use sworm_protocol::settings::RemoteSettings;
+use axome_core::errors::ApiError;
+use axome_protocol::settings::RemoteSettings;
 
 #[tauri::command]
 pub async fn pair_remote(

@@ -5,25 +5,25 @@ mod common;
 
 use serde_json::json;
 use std::{fs, future::Future, path::PathBuf, sync::Arc, time::Duration};
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::{EventSink, HostEvent},
     Host,
 };
-use sworm_lib::host_events::DesktopEvent;
-use sworm_lib::router::{Target, WorkspaceRouter};
-use sworm_protocol::folder::PathRootKind;
-use sworm_protocol::rpc::{AttachMode, RecentFolder, Request};
-use sworm_protocol::{lsp::LspEvent, pty::PtyEvent, settings::PatchSettingsSectionInput};
-use sworm_remote::{Identity, RemoteClient};
-use sworm_server::ServerHandle;
+use axome_lib::host_events::DesktopEvent;
+use axome_lib::router::{Target, WorkspaceRouter};
+use axome_protocol::folder::PathRootKind;
+use axome_protocol::rpc::{AttachMode, RecentFolder, Request};
+use axome_protocol::{lsp::LspEvent, pty::PtyEvent, settings::PatchSettingsSectionInput};
+use axome_remote::{Identity, RemoteClient};
+use axome_server::ServerHandle;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
 
 /// Names nothing that exists. A routed operation therefore fails on the daemon
 /// instead of mutating a real workspace, and a fall-through to the desktop's
-/// own host still shows up as a `sworm://` path in the error.
-const PROBE: &str = "sworm-matrix-probe";
+/// own host still shows up as a `axome://` path in the error.
+const PROBE: &str = "axome-matrix-probe";
 
 /// One daemon and one desktop configuration for this binary, owned by the
 /// runtime that also serves the daemon. The server runs as tasks on that
@@ -79,7 +79,7 @@ impl Fixture {
             Arc::new(move |event| desktop(DesktopEvent::Host(event))),
         )?);
         let router = WorkspaceRouter::with_events(Arc::clone(&host), sink);
-        let remote = format!("sworm://loop{}", path.display());
+        let remote = format!("axome://loop{}", path.display());
         Ok(Workspace {
             host,
             router,
@@ -93,7 +93,7 @@ impl Fixture {
 struct Workspace {
     host: Arc<Host>,
     router: WorkspaceRouter,
-    /// The `sworm://` URI the frontend would hand every command.
+    /// The `axome://` URI the frontend would hand every command.
     remote: String,
     path: PathBuf,
     events: mpsc::UnboundedReceiver<DesktopEvent>,
@@ -125,7 +125,7 @@ fn assert_routed<T>(method: &str, result: Result<T, ApiError>) {
     };
     let message = error.to_string();
     assert!(
-        !message.contains("sworm://"),
+        !message.contains("axome://"),
         "{method} handed a remote URI to a local host: {message}"
     );
     if let ApiError::NotFound(detail) = &error {
@@ -178,7 +178,7 @@ async fn remote_spawns_leases_and_uris_stay_on_daemon() -> anyhow::Result<()> {
 async fn passive_discovery_does_not_claim_remote_worktrees(
     fixture: &Fixture,
 ) -> anyhow::Result<()> {
-    use sworm_protocol::git::{GitWorktreeOp, GitWorktreeResult};
+    use axome_protocol::git::{GitWorktreeOp, GitWorktreeResult};
     let workspace = fixture.workspace("passive-discovery")?;
     for args in [
         &["add", "hello.txt"][..],
@@ -213,7 +213,7 @@ async fn passive_discovery_does_not_claim_remote_worktrees(
         router.git_get_brief(workspace.remote.clone()).await?;
         router.git_get_brief(remote_linked.clone()).await?;
         router.folder_resolve(remote_linked.clone()).await?;
-        router.folder_resolve("sworm://loop/".into()).await?;
+        router.folder_resolve("axome://loop/".into()).await?;
         router
             .folder_list_entries(
                 Target::remote_uri("loop", fixture.root.path().to_str().unwrap()),
@@ -237,8 +237,8 @@ async fn passive_discovery_does_not_claim_remote_worktrees(
     router.claim_folder(remote_linked.clone()).await?;
     assert!(matches!(
         client.call(&request()).await,
-        Err(sworm_remote::RemoteError::Wire(
-            sworm_protocol::rpc::WireError::InvalidArgument { .. }
+        Err(axome_remote::RemoteError::Wire(
+            axome_protocol::rpc::WireError::InvalidArgument { .. }
         ))
     ));
     router.release_folder_strict(remote_linked.clone()).await?;
@@ -247,7 +247,7 @@ async fn passive_discovery_does_not_claim_remote_worktrees(
     router.folder_resolve(remote_linked).await?;
     assert!(matches!(
         client
-            .call_as(&request(), sworm_protocol::rpc::Reply::git_worktree)
+            .call_as(&request(), axome_protocol::rpc::Reply::git_worktree)
             .await?,
         GitWorktreeResult::Removed
     ));
@@ -258,7 +258,7 @@ async fn passive_discovery_does_not_claim_remote_worktrees(
 async fn local_leases_follow_authority_and_transfer_identity(
     fixture: &Fixture,
 ) -> anyhow::Result<()> {
-    use sworm_protocol::rpc::WorkbenchAttached;
+    use axome_protocol::rpc::WorkbenchAttached;
     let workspace = fixture.workspace("lease-identities")?;
     let router = &workspace.router;
     let id = "lease-identities".to_owned();
@@ -494,7 +494,7 @@ async fn independent_servers_do_not_share_transition_gates(
     .expect("healthy server waited behind stalled server")?;
     assert!(matches!(
         attached,
-        Some(sworm_protocol::rpc::WorkbenchAttached::Ready { .. })
+        Some(axome_protocol::rpc::WorkbenchAttached::Ready { .. })
     ));
     assert!(
         !blocked.is_finished(),
@@ -592,13 +592,13 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
     )
     .await?;
     assert!(
-        folder_file.path.starts_with("sworm://loop/"),
+        folder_file.path.starts_with("axome://loop/"),
         "folder settings on a remote workspace must name the daemon's file: {}",
         folder_file.path
     );
-    assert!(folder_file.path.ends_with(".sworm/settings.jsonc"));
+    assert!(folder_file.path.ends_with(".axome/settings.jsonc"));
     assert!(
-        fs::read_dir(workspace.path.join(".sworm")).is_ok(),
+        fs::read_dir(workspace.path.join(".axome")).is_ok(),
         "the daemon must have created the folder settings file"
     );
     let workbench_id = "matrix-workbench".to_owned();
@@ -615,7 +615,7 @@ async fn remote_spawn_arms_and_workspace_uris(fixture: &Fixture) -> anyhow::Resu
     .await?;
     assert!(matches!(
         attached,
-        Some(sworm_protocol::rpc::WorkbenchAttached::Ready { .. })
+        Some(axome_protocol::rpc::WorkbenchAttached::Ready { .. })
     ));
     assert!(bounded("workbench_list", router.workbench_list("loop"))
         .await?
@@ -874,7 +874,7 @@ async fn remote_paste_stays_on_source_host(fixture: &Fixture) -> anyhow::Result<
         .join("hello.txt")
         .to_string_lossy()
         .into_owned();
-    let remote_source = format!("sworm://loop{local_source}");
+    let remote_source = format!("axome://loop{local_source}");
     fs::create_dir(workspace.path.join("copies"))?;
     fs::create_dir(workspace.path.join("moved"))?;
 
@@ -939,7 +939,7 @@ async fn remote_paste_stays_on_source_host(fixture: &Fixture) -> anyhow::Result<
         workspace.router.file_paste_collisions(
             workspace.remote.clone(),
             String::new(),
-            vec!["sworm://other/srv/repo/hello.txt".to_owned()],
+            vec!["axome://other/srv/repo/hello.txt".to_owned()],
         ),
     )
     .await
@@ -951,7 +951,7 @@ async fn remote_paste_stays_on_source_host(fixture: &Fixture) -> anyhow::Result<
         workspace.router.file_paste_collisions(
             workspace.path.to_string_lossy().into_owned(),
             String::new(),
-            vec!["sworm://loop/srv/repo/hello.txt".to_owned()],
+            vec!["axome://loop/srv/repo/hello.txt".to_owned()],
         ),
     )
     .await
@@ -963,9 +963,9 @@ async fn remote_paste_stays_on_source_host(fixture: &Fixture) -> anyhow::Result<
 
 async fn settings_effective_merges_desktop_sections(fixture: &Fixture) -> anyhow::Result<()> {
     let workspace = fixture.workspace("settings-repo")?;
-    fs::create_dir_all(workspace.path.join(".sworm"))?;
+    fs::create_dir_all(workspace.path.join(".axome"))?;
     fs::write(
-        workspace.path.join(".sworm/settings.jsonc"),
+        workspace.path.join(".axome/settings.jsonc"),
         r#"{"typography":{"code_font_size":11},"nix":{"eval_timeout_secs":123}}"#,
     )?;
     bounded(
@@ -1035,7 +1035,7 @@ async fn local_only_ops_stay_on_desktop(fixture: &Fixture) -> anyhow::Result<()>
         )
         .await?
         .app_state_get()
-        .map_err(sworm_remote::RemoteError::Wire)?,
+        .map_err(axome_remote::RemoteError::Wire)?,
         None,
         "router's local-only KV write must not reach daemon DB"
     );
@@ -1052,7 +1052,7 @@ async fn local_only_ops_stay_on_desktop(fixture: &Fixture) -> anyhow::Result<()>
         None
     );
 
-    let local_uri = "sworm://loop/srv/opaque folder/%2F?literal".to_owned();
+    let local_uri = "axome://loop/srv/opaque folder/%2F?literal".to_owned();
     let paths = |folders: Vec<RecentFolder>| -> Vec<String> {
         folders.into_iter().map(|folder| folder.path).collect()
     };
@@ -1141,7 +1141,7 @@ async fn local_only_ops_stay_on_desktop(fixture: &Fixture) -> anyhow::Result<()>
         }
     })
     .await?;
-    let remote_recent = "sworm://remote-only/not-a-desktop-path".to_owned();
+    let remote_recent = "axome://remote-only/not-a-desktop-path".to_owned();
     assert_eq!(
         bounded(
             "daemon recent_folders_touch",
@@ -1151,7 +1151,7 @@ async fn local_only_ops_stay_on_desktop(fixture: &Fixture) -> anyhow::Result<()>
         )
         .await?
         .recent_folders_touch()
-        .map_err(sworm_remote::RemoteError::Wire)?
+        .map_err(axome_remote::RemoteError::Wire)?
         .into_iter()
         .map(|folder| folder.path)
         .collect::<Vec<_>>(),

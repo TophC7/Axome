@@ -1,7 +1,7 @@
 @import 'github-markdown-css/github-markdown.css';
 @reference '../../../app.css';
 
-/* GitHub markdown layout, using Sworm's palette and type scale. */
+/* GitHub markdown layout, using Axome's palette and type scale. */
 .markdown-body {
   color-scheme: dark;
   font-family: var(--font-sans);

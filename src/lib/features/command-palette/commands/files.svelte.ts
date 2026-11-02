@@ -19,7 +19,7 @@ export interface FileQuery {
 /**
  * Parse a file-mode query of shape `path` or `path:line`. The line
  * suffix is only honored when the trailing token is purely digits;
- * paths happen to contain colons on Windows but Sworm is Linux-first
+ * paths happen to contain colons on Windows but Axome is Linux-first
  * and POSIX paths never include `:`.
  */
 export function parseFileQuery(raw: string): FileQuery {

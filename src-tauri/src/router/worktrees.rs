@@ -4,8 +4,8 @@ use super::{
 };
 use crate::windows::WindowCoordinatorService;
 use std::sync::Arc;
-use sworm_core::errors::ApiError;
-use sworm_protocol::{
+use axome_core::errors::ApiError;
+use axome_protocol::{
     branch::BranchSummary,
     git::{GitWorktreeCheckout, GitWorktreeList, GitWorktreeOp, GitWorktreeResult},
     rpc::Request,
@@ -264,19 +264,19 @@ impl WorkspaceRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sworm_protocol::rpc::WireError;
-    use sworm_remote::RemoteError;
+    use axome_protocol::rpc::WireError;
+    use axome_remote::RemoteError;
 
     #[test]
     fn nested_worktree_paths_never_cross_hosts() {
         assert_eq!(
-            worktree_host_path("sworm://one/repo", "sworm://one/new").unwrap(),
+            worktree_host_path("axome://one/repo", "axome://one/new").unwrap(),
             "/new"
         );
-        for path in ["/new", "sworm://two/new"] {
-            assert!(worktree_host_path("sworm://one/repo", path).is_err());
+        for path in ["/new", "axome://two/new"] {
+            assert!(worktree_host_path("axome://one/repo", path).is_err());
         }
-        assert!(worktree_host_path("/repo", "sworm://one/new").is_err());
+        assert!(worktree_host_path("/repo", "axome://one/new").is_err());
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod tests {
             }),
         );
         assert!(
-            matches!(error, ApiError::BranchInWorktree { path, .. } if path == "sworm://one/worktrees/topic")
+            matches!(error, ApiError::BranchInWorktree { path, .. } if path == "axome://one/worktrees/topic")
         );
         let error = remote_error(
             "one",
@@ -299,7 +299,7 @@ mod tests {
             }),
         );
         assert!(
-            matches!(error, ApiError::WorktreeHasChanges { path, .. } if path == "sworm://one/worktrees/topic")
+            matches!(error, ApiError::WorktreeHasChanges { path, .. } if path == "axome://one/worktrees/topic")
         );
     }
 
@@ -307,7 +307,7 @@ mod tests {
     async fn cancelled_local_waiter_does_not_unfence_blocking_host_work() {
         let folder = tempfile::tempdir().unwrap();
         let host = Arc::new(
-            sworm_core::Host::new(folder.path().join("state.db"), Arc::new(|_| Ok(()))).unwrap(),
+            axome_core::Host::new(folder.path().join("state.db"), Arc::new(|_| Ok(()))).unwrap(),
         );
         let router = WorkspaceRouter::new(Arc::clone(&host));
         let (entered, started) = tokio::sync::oneshot::channel();

@@ -9,7 +9,7 @@ export function workbenchHref(id: string): string {
 
 // Takeover authority rides one navigation only: the arriving page consumes it
 // before its first handshake, so a later reload or duplicated tab never inherits it.
-const takeoverKey = (id: string) => `sworm:takeover:${id}`
+const takeoverKey = (id: string) => `axome:takeover:${id}`
 
 /** Call only after dirty confirmation; disarm the document's guard before navigating. */
 export function takeOverWorkbench(id: string, leave: () => void, reload = false): void {

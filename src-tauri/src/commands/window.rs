@@ -5,8 +5,8 @@ use crate::windows::{
     ClaimFileResult, OpenTarget, TabTransferExportPayload, TabTransferInitiateParams,
 };
 use std::path::{Path, PathBuf};
-use sworm_core::{errors::ApiError, services::pty::PtySubscriber};
-use sworm_protocol::pty::PtyEvent;
+use axome_core::{errors::ApiError, services::pty::PtySubscriber};
+use axome_protocol::pty::PtyEvent;
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 
 #[tauri::command]
@@ -290,13 +290,13 @@ pub fn window_close(window: WebviewWindow) -> Result<(), ApiError> {
 }
 
 /// Claims are string keys, and a remote file has no local path to
-/// canonicalize, so its `sworm://` URI is the key.
+/// canonicalize, so its `axome://` URI is the key.
 fn resolve_file_path(file_path: &str) -> Result<PathBuf, ApiError> {
     if let Target::Remote { .. } = Target::parse(file_path)? {
         return Ok(PathBuf::from(file_path));
     }
     let path = std::path::absolute(Path::new(file_path))?;
-    Ok(sworm_core::services::folders::normalize_absolute_path(
+    Ok(axome_core::services::folders::normalize_absolute_path(
         &path,
     ))
 }

@@ -4,7 +4,7 @@ import { logicalKey } from '$lib/utils/keyboardEvent'
 // Terminal keymap — single source of truth for keys consumed inside a
 // session terminal.
 //
-// The keyboard model in Sworm is layered:
+// The keyboard model in Axome is layered:
 //
 //   Tier 1 — App shortcuts        keybindings.svelte.ts (window capture)
 //   Tier 2 — Surface keymaps      this file + (future) editorKeymap.ts

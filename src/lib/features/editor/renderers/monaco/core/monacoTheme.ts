@@ -1,4 +1,4 @@
-// Sworm Monaco theme — maps the warm base16 palette from app.css
+// Axome Monaco theme — maps the warm base16 palette from app.css
 // to Monaco's editor and token color system.
 //
 // Token-to-color mappings are defined once in TOKEN_PALETTE and derived
@@ -8,7 +8,7 @@
 import type * as Monaco from 'monaco-editor'
 import type { ThemeRegistration } from 'shiki'
 
-export const SWORM_THEME_NAME = 'sworm'
+export const AXOME_THEME_NAME = 'axome'
 
 // ── Token palette (single source of truth) ──────────────────────────
 // Each entry maps TextMate scopes (used by both Shiki and Monaco) to a
@@ -214,16 +214,16 @@ const EDITOR_COLORS: Record<string, string> = {
 // ── Exports ─────────────────────────────────────────────────────────
 
 /** Shiki theme for the highlighter (TextMate tokenColors + editor chrome). */
-export const SWORM_SHIKI_THEME: ThemeRegistration = {
-  name: SWORM_THEME_NAME,
+export const AXOME_SHIKI_THEME: ThemeRegistration = {
+  name: AXOME_THEME_NAME,
   type: 'dark',
   colors: EDITOR_COLORS,
   tokenColors: toShikiTokenColors()
 }
 
 /** Register the Monaco theme (Monarch + TextMate rules + editor chrome). */
-export function registerSwormTheme(monaco: typeof Monaco) {
-  monaco.editor.defineTheme(SWORM_THEME_NAME, {
+export function registerAxomeTheme(monaco: typeof Monaco) {
+  monaco.editor.defineTheme(AXOME_THEME_NAME, {
     base: 'vs-dark',
     inherit: false,
     rules: toMonacoRules(),

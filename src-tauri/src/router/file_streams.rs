@@ -4,14 +4,14 @@ use super::{
 };
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use sworm_core::errors::ApiError;
-use sworm_protocol::rpc::Open;
+use axome_core::errors::ApiError;
+use axome_protocol::rpc::Open;
 
 /// Each streamed assembly holds up to 256 MiB; more than this queue.
 const MAX_FILE_STREAMS: usize = 2;
 
 fn append_file_chunk(bytes: &mut Vec<u8>, chunk: &[u8], total: u64) -> Result<(), ApiError> {
-    let cap = sworm_protocol::rpc::MAX_STREAM_FILE_BYTES;
+    let cap = axome_protocol::rpc::MAX_STREAM_FILE_BYTES;
     if chunk.len() > cap.saturating_sub(bytes.len())
         || bytes.len() as u64 + chunk.len() as u64 > total
     {
@@ -66,7 +66,7 @@ impl FileStreams {
         version: String,
         size: u64,
         progress: impl Fn(u64, u64) + Send,
-    ) -> Result<sworm_protocol::files::FileContent, ApiError> {
+    ) -> Result<axome_protocol::files::FileContent, ApiError> {
         if request_id.is_empty() || request_id.len() > 128 {
             return Err(ApiError::InvalidArgument(
                 "Invalid file-read request id".into(),
@@ -130,10 +130,10 @@ impl FileStreams {
         version: String,
         size: u64,
         progress: impl Fn(u64, u64) -> Result<(), ApiError> + Send,
-    ) -> Result<sworm_protocol::files::FileContent, ApiError> {
+    ) -> Result<axome_protocol::files::FileContent, ApiError> {
         use sha2::{Digest, Sha256};
-        use sworm_protocol::rpc::{FileReadDown, MAX_FILE_CHUNK_BYTES, MAX_STREAM_FILE_BYTES};
-        use sworm_remote::wire::{read_tagged_frame_with_limit, Frame};
+        use axome_protocol::rpc::{FileReadDown, MAX_FILE_CHUNK_BYTES, MAX_STREAM_FILE_BYTES};
+        use axome_remote::wire::{read_tagged_frame_with_limit, Frame};
         if size > MAX_STREAM_FILE_BYTES as u64 {
             return Err(ApiError::TooLarge {
                 size,
@@ -206,7 +206,7 @@ impl FileStreams {
         }
         let content = String::from_utf8(bytes)
             .map_err(|_| ApiError::InvalidArgument("File is not valid UTF-8".into()))?;
-        Ok(sworm_protocol::files::FileContent {
+        Ok(axome_protocol::files::FileContent {
             content,
             version: final_version,
         })
@@ -227,7 +227,7 @@ impl WorkspaceRouter {
         version: String,
         size: u64,
         progress: impl Fn(u64, u64) + Send,
-    ) -> Result<sworm_protocol::files::FileContent, ApiError> {
+    ) -> Result<axome_protocol::files::FileContent, ApiError> {
         self.inner
             .file_streams
             .read(

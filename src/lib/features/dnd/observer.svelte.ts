@@ -126,7 +126,7 @@ export function dragObserver(options: DragObserverOptions) {
       const frame = rectCache ? frameFrom(event) : null
       clearActiveState()
       options.onLeave?.()
-      const payload = LocalTransfer.peek() ?? parsePayload(event.dataTransfer?.getData(DND_MIME.SWORM_ITEM))
+      const payload = LocalTransfer.peek() ?? parsePayload(event.dataTransfer?.getData(DND_MIME.AXOME_ITEM))
       if (!payload) return
       await options.onDrop?.(event, payload, frame)
     }

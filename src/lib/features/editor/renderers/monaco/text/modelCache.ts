@@ -55,9 +55,9 @@ function untitledKey(folderPath: string, tabId: string): string {
 }
 
 /** Scheme of remote model URIs; authority identifies the server. */
-export const REMOTE_MODEL_SCHEME = 'sworm'
+export const REMOTE_MODEL_SCHEME = 'axome'
 
-/** A remote workspace keeps its `sworm://<server>` authority in the model URI:
+/** A remote workspace keeps its `axome://<server>` authority in the model URI:
  * two servers' identical absolute paths must stay distinct models.
  *
  * Split by hand rather than parsed: `Uri.parse` reads `#` and `?` in a file

@@ -6,9 +6,9 @@ export interface RemotePath {
   path: string
 }
 
-/** Split `sworm://<server>/<absolute path>`; `null` for a local or malformed path. */
+/** Split `axome://<server>/<absolute path>`; `null` for a local or malformed path. */
 export function splitRemotePath(value: string): RemotePath | null {
-  const match = /^sworm:\/\/([^/]+)(\/.*)?$/.exec(normalizeSlashes(value))
+  const match = /^axome:\/\/([^/]+)(\/.*)?$/.exec(normalizeSlashes(value))
   return match ? { server: match[1], path: match[2] || '/' } : null
 }
 
@@ -27,10 +27,10 @@ export function normalizeRelativePath(path: string): string {
 
 export function normalizeAbsolutePath(path: string): string {
   const cleaned = normalizeSlashes(path)
-  if (!cleaned.startsWith('sworm://')) return normalizeLocalAbsolutePath(cleaned)
+  if (!cleaned.startsWith('axome://')) return normalizeLocalAbsolutePath(cleaned)
   const remote = splitRemotePath(cleaned)
   if (!remote) return normalizeLocalAbsolutePath(cleaned)
-  return `sworm://${remote.server}${normalizeLocalAbsolutePath(remote.path)}`
+  return `axome://${remote.server}${normalizeLocalAbsolutePath(remote.path)}`
 }
 
 export function resolveProjectFile(folderPath: string, filePath: string): string {
@@ -47,8 +47,8 @@ export function isEqualOrParent(parentPath: string, childPath: string): boolean 
 /** Component-boundary containment on one host; remote and local paths never overlap. */
 export function isPathWithin(rootPath: string, candidatePath: string): boolean {
   // Inputs are canonical Linux paths: backslashes and newlines are filename bytes, not separators.
-  const rootRemote = /^sworm:\/\/([^/]+)(\/[\s\S]*)?$/.exec(rootPath)
-  const candidateRemote = /^sworm:\/\/([^/]+)(\/[\s\S]*)?$/.exec(candidatePath)
+  const rootRemote = /^axome:\/\/([^/]+)(\/[\s\S]*)?$/.exec(rootPath)
+  const candidateRemote = /^axome:\/\/([^/]+)(\/[\s\S]*)?$/.exec(candidatePath)
   if (rootRemote?.[1] !== candidateRemote?.[1]) return false
   const root = (rootRemote ? rootRemote[2] || '/' : rootPath).replace(/\/+$/, '') || '/'
   const candidate = (candidateRemote ? candidateRemote[2] || '/' : candidatePath).replace(/\/+$/, '') || '/'

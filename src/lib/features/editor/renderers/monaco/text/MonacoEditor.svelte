@@ -22,7 +22,7 @@
     unregisterMountedTextSurface,
     type MountedTextSurfaceController
   } from '$lib/features/workbench/surfaces/text/service.svelte'
-  import { SWORM_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+  import { AXOME_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
   import { CODE_LINE_HEIGHT, getCodeFontFamily, getCodeFontSize } from '$lib/features/settings/state/typography.svelte'
   import { isAnyModalOpen } from '$lib/utils/modalRegistry.svelte'
   import { onMount } from 'svelte'
@@ -111,7 +111,7 @@
 
       editor = m.editor.create(containerEl, {
         model,
-        theme: SWORM_THEME_NAME,
+        theme: AXOME_THEME_NAME,
         readOnly: readonly || locked || largeFile,
         minimap: { enabled: false },
         folding: !largeFile,

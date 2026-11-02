@@ -44,12 +44,13 @@ function extractFiles(payload: DragPayload, folderPath: string, staged: boolean)
 
 export function gitChangeDragSource(args: GitSourceArgs) {
   return dragSource(
-    () => args.changes().map((change) => ({
-      kind: 'git-change',
-      path: change.path,
-      staged: change.staged,
-      folderPath: args.folderPath
-    })),
+    () =>
+      args.changes().map((change) => ({
+        kind: 'git-change',
+        path: change.path,
+        staged: change.staged,
+        folderPath: args.folderPath
+      })),
     () => {
       const prefix = `${args.folderPath}:`
       for (const key of zoneStore) if (key.startsWith(prefix)) zoneStore.delete(key)
@@ -65,7 +66,7 @@ export function gitDropZone(args: GitDropZoneArgs) {
     if (files.length > 0) await args.onDropFiles(files, args.staged)
   }
   const observer = dragObserver({
-    accept: (payload, types) => (payload ? canAccept(payload, args.staged) : types.includes(DND_MIME.SWORM_GIT_CHANGE)),
+    accept: (payload, types) => (payload ? canAccept(payload, args.staged) : types.includes(DND_MIME.AXOME_GIT_CHANGE)),
     onOver: () => zoneStore.add(zoneKey(args.folderPath, args.staged)),
     onLeave: clear,
     onDrop: (_event, payload) => drop(payload)

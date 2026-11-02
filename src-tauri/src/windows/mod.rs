@@ -7,10 +7,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use sworm_core::services::app_state_kv::AppStateKvService;
-use sworm_core::services::pty::{PtyService, PtySubscriber};
-use sworm_core::services::settings_resolution::resolve_effective_settings_for_folder_path;
-use sworm_protocol::settings::{ExternalFileOpenMode, ExternalFolderOpenMode, WindowSettings};
+use axome_core::services::app_state_kv::AppStateKvService;
+use axome_core::services::pty::{PtyService, PtySubscriber};
+use axome_core::services::settings_resolution::resolve_effective_settings_for_folder_path;
+use axome_protocol::settings::{ExternalFileOpenMode, ExternalFolderOpenMode, WindowSettings};
 use tauri::{
     Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
@@ -181,7 +181,7 @@ fn canonical_claim_path(path: &Path) -> Result<PathBuf, String> {
     loop {
         match ancestor.canonicalize() {
             Ok(canonical) => {
-                return Ok(sworm_core::services::folders::normalize_absolute_path(
+                return Ok(axome_core::services::folders::normalize_absolute_path(
                     &canonical.join(
                         absolute
                             .strip_prefix(ancestor)
@@ -1645,7 +1645,7 @@ fn bounds_intersect_rect(
 }
 
 fn git_root(file: &Path) -> Option<PathBuf> {
-    sworm_core::services::git::GitService::repo_root(file.parent()?)
+    axome_core::services::git::GitService::repo_root(file.parent()?)
 }
 
 pub(crate) fn focus_window(app: &tauri::AppHandle, label: &str) {
@@ -1988,7 +1988,7 @@ mod tests {
     fn transfer_subscriber() -> (
         PtySubscriber,
         Receiver<Vec<u8>>,
-        Receiver<sworm_protocol::pty::PtyEvent>,
+        Receiver<axome_protocol::pty::PtyEvent>,
     ) {
         let (output, output_rx) = channel();
         let (events, event_rx) = channel();
@@ -2017,9 +2017,9 @@ mod tests {
         text
     }
 
-    fn receive_exit(receiver: &Receiver<sworm_protocol::pty::PtyEvent>, run_id: &str) {
+    fn receive_exit(receiver: &Receiver<axome_protocol::pty::PtyEvent>, run_id: &str) {
         loop {
-            if let sworm_protocol::pty::PtyEvent::Exit { run_id: id, code } = receiver
+            if let axome_protocol::pty::PtyEvent::Exit { run_id: id, code } = receiver
                 .recv_timeout(Duration::from_secs(5))
                 .expect("receive PTY exit")
             {
@@ -2032,8 +2032,8 @@ mod tests {
 
     #[test]
     fn native_transfer_of_local_pty_preserves_owner_and_delivery_cursors() {
-        use sworm_core::services::pty::PtyRunState;
-        use sworm_core::Host;
+        use axome_core::services::pty::PtyRunState;
+        use axome_core::Host;
 
         let temporary = tempfile::tempdir().expect("test directory");
         let service = Arc::new(WindowCoordinatorService::new());
@@ -2047,7 +2047,7 @@ mod tests {
                 .expect("create transfer window");
         }
         let host = Arc::new(
-            Host::new(temporary.path().join("sworm.db"), Arc::new(|_| Ok(())))
+            Host::new(temporary.path().join("axome.db"), Arc::new(|_| Ok(())))
                 .expect("create local host"),
         );
         let router = crate::router::WorkspaceRouter::new(Arc::clone(&host));
@@ -2091,7 +2091,7 @@ mod tests {
                 .recv_timeout(Duration::from_secs(5))
                 .expect("Started")
             {
-                sworm_protocol::pty::PtyEvent::Started {
+                axome_protocol::pty::PtyEvent::Started {
                     run_id: id,
                     pid: Some(pid),
                 } => {
@@ -2225,7 +2225,7 @@ mod tests {
                     .expect("restored source replays after detached abort");
                 assert!(matches!(
                     new_events.recv_timeout(Duration::from_secs(5)).expect("replayed Started"),
-                    sworm_protocol::pty::PtyEvent::Started { run_id: id, pid: Some(pid) }
+                    axome_protocol::pty::PtyEvent::Started { run_id: id, pid: Some(pid) }
                         if id == run_id && pid == source_pid
                 ));
                 let replayed = receive_output_until(&new_output, "<during>");
@@ -2494,17 +2494,17 @@ mod tests {
         let service = WindowCoordinatorService::new();
         add_window(&service, "caller", 1);
         add_window(&service, "other", 2);
-        let root = "sworm://shared/repo/a".to_owned();
+        let root = "axome://shared/repo/a".to_owned();
         service
-            .claim_folder("other", PathBuf::from("sworm://shared/repo/a/./child"))
+            .claim_folder("other", PathBuf::from("axome://shared/repo/a/./child"))
             .unwrap();
         assert!(service
             .reserve_worktree_roots(std::slice::from_ref(&root))
             .is_err());
         service
-            .release_folder("other", Path::new("sworm://shared/repo/a/./child"))
+            .release_folder("other", Path::new("axome://shared/repo/a/./child"))
             .unwrap();
-        for unrelated in ["/repo/a", "sworm://other/repo/a", "sworm://shared/repo/a2"] {
+        for unrelated in ["/repo/a", "axome://other/repo/a", "axome://shared/repo/a2"] {
             service
                 .claim_folder("other", PathBuf::from(unrelated))
                 .unwrap();
@@ -2513,30 +2513,30 @@ mod tests {
             .reserve_worktree_roots(std::slice::from_ref(&root))
             .unwrap();
         for overlap in [
-            "sworm://shared/repo/a",
-            "sworm://shared/repo/a/child",
-            "sworm://shared/repo",
+            "axome://shared/repo/a",
+            "axome://shared/repo/a/child",
+            "axome://shared/repo",
         ] {
             assert!(service
                 .claim_folder("caller", PathBuf::from(overlap))
                 .is_err());
         }
         assert!(service
-            .claim_file_record("caller", Path::new("sworm://shared/repo/a/file"), "text")
+            .claim_file_record("caller", Path::new("axome://shared/repo/a/file"), "text")
             .is_err());
         assert!(service
             .transfer_file_claim(
                 "other",
                 "caller",
-                Path::new("sworm://shared/repo/a/file"),
+                Path::new("axome://shared/repo/a/file"),
                 "text"
             )
             .is_err());
         assert!(service
-            .claim_file_record("caller", Path::new("sworm://shared/repo/a2/file"), "normal")
+            .claim_file_record("caller", Path::new("axome://shared/repo/a2/file"), "normal")
             .is_ok());
         assert!(service
-            .reserve_worktree_roots(&["sworm://shared/../../repo".into()])
+            .reserve_worktree_roots(&["axome://shared/../../repo".into()])
             .is_err());
         drop(held);
         service
@@ -2550,7 +2550,7 @@ mod tests {
         add_window(&service, "queued", 1);
         add_window(&service, "ready", 2);
         service.records.lock().get_mut("ready").unwrap().ready = true;
-        let root = "sworm://shared/repo/a".to_owned();
+        let root = "axome://shared/repo/a".to_owned();
         let queued = OpenTarget::Folder {
             folder_path: format!("{root}/child"),
         };
@@ -2577,7 +2577,7 @@ mod tests {
             .queue_open_record(
                 "ready",
                 OpenTarget::Folder {
-                    folder_path: "sworm://shared/repo/a2".into(),
+                    folder_path: "axome://shared/repo/a2".into(),
                 }
             )
             .is_ok());
@@ -2589,7 +2589,7 @@ mod tests {
         let service = WindowCoordinatorService::new();
         add_window(&service, "source", 1);
         add_window(&service, "target", 2);
-        let root = "sworm://shared/repo/a".to_owned();
+        let root = "axome://shared/repo/a".to_owned();
         service
             .claim_folder("source", PathBuf::from(&root))
             .unwrap();
@@ -2606,7 +2606,7 @@ mod tests {
             .reserve_worktree_roots(std::slice::from_ref(&root))
             .is_err());
         assert!(service
-            .reserve_worktree_roots(&["sworm://different/repo/a".into()])
+            .reserve_worktree_roots(&["axome://different/repo/a".into()])
             .is_ok());
         service.active_transfers.lock().remove(&id);
         service.records.lock().transfer_intents.remove(&id);
@@ -2623,7 +2623,7 @@ mod tests {
             let (service, start, finish) = (service.clone(), start.clone(), finish.clone());
             std::thread::spawn(move || {
                 start.wait();
-                let held = service.reserve_worktree_roots(&["sworm://shared/repo/a".into()]);
+                let held = service.reserve_worktree_roots(&["axome://shared/repo/a".into()]);
                 let won = held.is_ok();
                 finish.wait();
                 won
@@ -2634,7 +2634,7 @@ mod tests {
             std::thread::spawn(move || {
                 start.wait();
                 let won = service
-                    .claim_folder("entrant", PathBuf::from("sworm://shared/repo/a/child"))
+                    .claim_folder("entrant", PathBuf::from("axome://shared/repo/a/child"))
                     .is_ok();
                 finish.wait();
                 won
@@ -2678,40 +2678,40 @@ mod tests {
         let service = WindowCoordinatorService::new();
         add_window(&service, "source", 1);
         add_window(&service, "other", 2);
-        let file = Path::new("sworm://shared/repo/a/src/../file");
+        let file = Path::new("axome://shared/repo/a/src/../file");
         service.claim_file_record("source", file, "text").unwrap();
         assert!(matches!(
             service
-                .claim_file_record("other", Path::new("sworm://shared/repo/a/./file"), "second")
+                .claim_file_record("other", Path::new("axome://shared/repo/a/./file"), "second")
                 .unwrap(),
             ClaimFileResult::Redirect { .. }
         ));
         assert!(service
-            .reserve_worktree_roots(&["sworm://shared/repo/a".into()])
+            .reserve_worktree_roots(&["axome://shared/repo/a".into()])
             .is_err());
         service
-            .release_file("source", Path::new("sworm://shared/repo/a/file"))
+            .release_file("source", Path::new("axome://shared/repo/a/file"))
             .unwrap();
         service
-            .claim_folder("source", PathBuf::from("sworm://shared/repo/a/./"))
+            .claim_folder("source", PathBuf::from("axome://shared/repo/a/./"))
             .unwrap();
         service
-            .claim_folder("other", PathBuf::from("sworm://shared/repo/a/src/.."))
+            .claim_folder("other", PathBuf::from("axome://shared/repo/a/src/.."))
             .unwrap();
         assert!(!service
-            .release_folder("source", Path::new("sworm://shared/repo/a"))
+            .release_folder("source", Path::new("axome://shared/repo/a"))
             .unwrap());
         assert!(service
-            .release_folder("other", Path::new("sworm://shared/repo/a/"))
+            .release_folder("other", Path::new("axome://shared/repo/a/"))
             .unwrap());
         assert!(
             service
-                .release_folder("other", Path::new("sworm://shared/repo/a"))
+                .release_folder("other", Path::new("axome://shared/repo/a"))
                 .unwrap(),
             "strict release retries must still release the host's last owner"
         );
         assert!(service
-            .reserve_worktree_roots(&["sworm://shared/repo/a".into()])
+            .reserve_worktree_roots(&["axome://shared/repo/a".into()])
             .is_ok());
     }
 }

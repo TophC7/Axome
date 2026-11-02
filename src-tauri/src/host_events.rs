@@ -2,7 +2,7 @@ use crate::windows::WindowCoordinatorService;
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
-use sworm_core::events::{EventSink, HostEvent};
+use axome_core::events::{EventSink, HostEvent};
 use tauri::Emitter;
 
 pub enum DesktopEvent {

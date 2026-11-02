@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 
 // Tauri expects a fixed port during dev
 const host = process.env.TAURI_DEV_HOST
-const web = process.env.SWORM_TARGET === 'web'
+const web = process.env.AXOME_TARGET === 'web'
 const rootDir = process.cwd()
 const uiWatchRoots = [resolve(rootDir, 'src')]
 

@@ -5,7 +5,7 @@ import { extensionHostKey, loadExtensionCatalog } from '$lib/features/extensions
 import { ensureLspLanguageProviders } from '$lib/features/editor/lsp/registry'
 import { ensureFormattingProviders } from '$lib/features/editor/renderers/monaco/core/formatters'
 import { registerNixLanguage } from '$lib/features/editor/renderers/monaco/core/languages/nix'
-import { registerSwormTheme, SWORM_SHIKI_THEME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { registerAxomeTheme, AXOME_SHIKI_THEME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
 import { initProjectSchemas } from '$lib/features/project-config/bootstrap'
 import type { ExtensionGrammar } from '$lib/types/backend'
 
@@ -62,7 +62,7 @@ async function loadFolderLanguageSupport(monaco: Monaco, folderPath: string | nu
       import('@shikijs/monaco')
     ])
     const next = await createHighlighterCore({
-      themes: [SWORM_SHIKI_THEME],
+      themes: [AXOME_SHIKI_THEME],
       langs: [...grammars.values()].map(
         (grammar) =>
           ({
@@ -83,7 +83,7 @@ async function loadFolderLanguageSupport(monaco: Monaco, folderPath: string | nu
     monaco.editor.setTheme = originalEditorMethods.setTheme
     monaco.editor.create = originalEditorMethods.create
     shikiToMonaco(next, monaco)
-    registerSwormTheme(monaco)
+    registerAxomeTheme(monaco)
     const previous = highlighter
     highlighter = next
     previous?.dispose()

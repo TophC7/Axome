@@ -25,9 +25,9 @@ let lensChanges: MonacoAPI.Emitter<MonacoAPI.languages.CodeLensProvider> | null 
 let lensProvider: MonacoAPI.languages.CodeLensProvider | null = null
 
 const resolutions = [
-  { resolution: 'current', command: 'sworm.conflict.acceptCurrent', title: 'Accept Current Change' },
-  { resolution: 'incoming', command: 'sworm.conflict.acceptIncoming', title: 'Accept Incoming Change' },
-  { resolution: 'both', command: 'sworm.conflict.acceptBoth', title: 'Accept Both Changes' }
+  { resolution: 'current', command: 'axome.conflict.acceptCurrent', title: 'Accept Current Change' },
+  { resolution: 'incoming', command: 'axome.conflict.acceptIncoming', title: 'Accept Incoming Change' },
+  { resolution: 'both', command: 'axome.conflict.acceptBoth', title: 'Accept Both Changes' }
 ] as const
 
 /** Decorations, CodeLens, navigation, and commands share one parse per model version. */
@@ -117,7 +117,7 @@ export function attachGitConflictReview({
   trackedModels.set(model, attachments)
 
   const collection = editor.createDecorationsCollection()
-  const hasConflicts = editor.createContextKey<boolean>('swormHasMergeConflicts', false)
+  const hasConflicts = editor.createContextKey<boolean>('axomeHasMergeConflicts', false)
   const disposables: Disposable[] = []
   let disposed = false
   let previousHasConflicts = false
@@ -142,19 +142,19 @@ export function attachGitConflictReview({
         options: {
           isWholeLine: true,
           className,
-          ...(label ? { after: { content: label, inlineClassName: 'sworm-conflict-label' } } : {})
+          ...(label ? { after: { content: label, inlineClassName: 'axome-conflict-label' } } : {})
         }
       })
     }
     for (const block of blocks) {
-      decorate(block.startLine, block.startLine, 'sworm-conflict-header-current', ' (Current Change)')
-      decorate(block.startLine + 1, (block.commonLine ?? block.splitterLine) - 1, 'sworm-conflict-body-current')
+      decorate(block.startLine, block.startLine, 'axome-conflict-header-current', ' (Current Change)')
+      decorate(block.startLine + 1, (block.commonLine ?? block.splitterLine) - 1, 'axome-conflict-body-current')
       if (block.commonLine !== null) {
-        decorate(block.commonLine, block.splitterLine - 1, 'sworm-conflict-body-common')
+        decorate(block.commonLine, block.splitterLine - 1, 'axome-conflict-body-common')
       }
-      decorate(block.splitterLine, block.splitterLine, 'sworm-conflict-splitter')
-      decorate(block.splitterLine + 1, block.endLine - 1, 'sworm-conflict-body-incoming')
-      decorate(block.endLine, block.endLine, 'sworm-conflict-header-incoming', ' (Incoming Change)')
+      decorate(block.splitterLine, block.splitterLine, 'axome-conflict-splitter')
+      decorate(block.splitterLine + 1, block.endLine - 1, 'axome-conflict-body-incoming')
+      decorate(block.endLine, block.endLine, 'axome-conflict-header-incoming', ' (Incoming Change)')
     }
     collection.set(decorations)
     const nextHasConflicts = blocks.length > 0
@@ -187,9 +187,9 @@ export function attachGitConflictReview({
   for (const direction of ['next', 'previous'] as const) {
     disposables.push(
       editor.addAction({
-        id: `sworm.conflict.${direction}`,
+        id: `axome.conflict.${direction}`,
         label: direction === 'next' ? 'Next Conflict' : 'Previous Conflict',
-        precondition: 'swormHasMergeConflicts && !editorReadonly',
+        precondition: 'axomeHasMergeConflicts && !editorReadonly',
         run: () => navigate(direction)
       })
     )
@@ -198,9 +198,9 @@ export function attachGitConflictReview({
     const title = resolution[0].toUpperCase() + resolution.slice(1)
     disposables.push(
       editor.addAction({
-        id: `sworm.conflict.acceptAll${title}`,
+        id: `axome.conflict.acceptAll${title}`,
         label: `Accept All ${title}`,
-        precondition: 'swormHasMergeConflicts && !editorReadonly',
+        precondition: 'axomeHasMergeConflicts && !editorReadonly',
         run: () => {
           if (editor.getModel() !== model || editor.getOption(monaco.editor.EditorOption.readOnly)) return
           applyResolutions(monaco, model, conflictBlocks(model), resolution)

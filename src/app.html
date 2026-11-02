@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sworm</title>
+    <title>Axome</title>
     <script>
       ;(() => {
         let overlay
@@ -17,7 +17,7 @@
           }
 
           overlay = document.createElement('div')
-          overlay.id = 'sworm-startup-error'
+          overlay.id = 'axome-startup-error'
           overlay.setAttribute('role', 'dialog')
           overlay.setAttribute('aria-live', 'assertive')
           overlay.setAttribute('aria-label', 'Runtime error')
@@ -50,7 +50,7 @@
 
           const title = document.createElement('div')
           title.textContent = 'Runtime Error Overlay'
-          title.style.font = '700 16px/1.2 Lexend, sans-serif'
+          title.style.font = "700 16px/1.2 'Paper Mono UI', monospace"
           title.style.color = '#fff3ef'
 
           titleGroup.append(title)
@@ -71,7 +71,7 @@
             button.style.background = options.background || 'rgba(47, 41, 38, 1)'
             button.style.color = options.color || '#e2e2e2'
             button.style.padding = '8px 12px'
-            button.style.font = '500 12px/1.2 Lexend, sans-serif'
+            button.style.font = "500 12px/1.2 'Paper Mono UI', monospace"
             button.style.cursor = 'pointer'
             button.style.transition = 'filter 120ms ease'
             button.onmouseenter = () => {
@@ -154,8 +154,8 @@
         }
 
         const render = (label, detail) => {
-          console.error(`[sworm] ${label}`, detail)
-          window.__SWORM_LAST_CLIENT_ERROR__ = { label, ...detail }
+          console.error(`[axome] ${label}`, detail)
+          window.__AXOME_LAST_CLIENT_ERROR__ = { label, ...detail }
 
           const { detailPre, copyButton } = ensureOverlay()
 

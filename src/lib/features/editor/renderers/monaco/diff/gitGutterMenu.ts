@@ -18,8 +18,8 @@ type Monaco = typeof import('monaco-editor')
 type IDisposable = { dispose(): void }
 type DiffToolbarScope = 'hunk' | 'selection'
 
-export const SWORM_DIFF_GIT_ACTIONS_CONTEXT = 'swormDiffGitActions'
-export const SWORM_DIFF_STAGED_CONTEXT = 'swormDiffStaged'
+export const AXOME_DIFF_GIT_ACTIONS_CONTEXT = 'axomeDiffGitActions'
+export const AXOME_DIFF_STAGED_CONTEXT = 'axomeDiffStaged'
 
 interface DiffGutterRegistration {
   folderPath: string
@@ -46,7 +46,7 @@ interface MonacoDiffToolbarContext {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __swormDiffGutterMenuRegistration: IDisposable | undefined
+  var __axomeDiffGutterMenuRegistration: IDisposable | undefined
 }
 
 const registrations = new Map<string, DiffGutterRegistration>()
@@ -113,13 +113,7 @@ async function runToolbarAction(
     const ranges = selectedRangesFromMapping(context, entry)
 
     if (action === 'revert' && ranges.length === 0) return
-    const selected = diffLineChangesForAction(
-      action,
-      allChanges,
-      ranges,
-      entry.modified?.getLineCount() ?? 1,
-      entry
-    )
+    const selected = diffLineChangesForAction(action, allChanges, ranges, entry.modified?.getLineCount() ?? 1, entry)
     if (action === 'revert') {
       await runDiffGitLineAction(registration, entry, action, selected)
       return
@@ -132,15 +126,15 @@ async function runToolbarAction(
 }
 
 function appendGutterMenuItems(): IDisposable[] {
-  const hasActions = ContextKeyExpr.has(SWORM_DIFF_GIT_ACTIONS_CONTEXT)
-  const isStaged = ContextKeyExpr.equals(SWORM_DIFF_STAGED_CONTEXT, true)
+  const hasActions = ContextKeyExpr.has(AXOME_DIFF_GIT_ACTIONS_CONTEXT)
+  const isStaged = ContextKeyExpr.equals(AXOME_DIFF_STAGED_CONTEXT, true)
   const isUnstaged = ContextKeyExpr.and(hasActions, isStaged.negate())
   const staged = ContextKeyExpr.and(hasActions, isStaged)
 
   return [
     MenuRegistry.appendMenuItem(MenuId.DiffEditorHunkToolbar, {
       command: {
-        id: 'sworm.diff.stageHunk',
+        id: 'axome.diff.stageHunk',
         title: 'Stage Block',
         icon: Codicon.add
       },
@@ -149,7 +143,7 @@ function appendGutterMenuItems(): IDisposable[] {
     }),
     MenuRegistry.appendMenuItem(MenuId.DiffEditorSelectionToolbar, {
       command: {
-        id: 'sworm.diff.stageSelection',
+        id: 'axome.diff.stageSelection',
         title: 'Stage Selection',
         icon: Codicon.add
       },
@@ -158,7 +152,7 @@ function appendGutterMenuItems(): IDisposable[] {
     }),
     MenuRegistry.appendMenuItem(MenuId.DiffEditorHunkToolbar, {
       command: {
-        id: 'sworm.diff.revertHunk',
+        id: 'axome.diff.revertHunk',
         title: 'Revert Block',
         icon: Codicon.discard
       },
@@ -167,7 +161,7 @@ function appendGutterMenuItems(): IDisposable[] {
     }),
     MenuRegistry.appendMenuItem(MenuId.DiffEditorSelectionToolbar, {
       command: {
-        id: 'sworm.diff.revertSelection',
+        id: 'axome.diff.revertSelection',
         title: 'Revert Selection',
         icon: Codicon.discard
       },
@@ -176,7 +170,7 @@ function appendGutterMenuItems(): IDisposable[] {
     }),
     MenuRegistry.appendMenuItem(MenuId.DiffEditorHunkToolbar, {
       command: {
-        id: 'sworm.diff.unstageHunk',
+        id: 'axome.diff.unstageHunk',
         title: 'Unstage Block',
         icon: Codicon.remove
       },
@@ -185,7 +179,7 @@ function appendGutterMenuItems(): IDisposable[] {
     }),
     MenuRegistry.appendMenuItem(MenuId.DiffEditorSelectionToolbar, {
       command: {
-        id: 'sworm.diff.unstageSelection',
+        id: 'axome.diff.unstageSelection',
         title: 'Unstage Selection',
         icon: Codicon.remove
       },
@@ -195,39 +189,39 @@ function appendGutterMenuItems(): IDisposable[] {
   ]
 }
 
-export function ensureSwormDiffGutterMenu(monaco: Monaco): void {
-  if (globalThis.__swormDiffGutterMenuRegistration) return
+export function ensureAxomeDiffGutterMenu(monaco: Monaco): void {
+  if (globalThis.__axomeDiffGutterMenuRegistration) return
 
   const disposables: IDisposable[] = [
-    monaco.editor.registerCommand('sworm.diff.stageHunk', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.stageHunk', (_accessor, context) =>
       runToolbarAction('stage', context as MonacoDiffToolbarContext | undefined, 'hunk')
     ),
-    monaco.editor.registerCommand('sworm.diff.stageSelection', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.stageSelection', (_accessor, context) =>
       runToolbarAction('stage', context as MonacoDiffToolbarContext | undefined, 'selection')
     ),
-    monaco.editor.registerCommand('sworm.diff.revertHunk', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.revertHunk', (_accessor, context) =>
       runToolbarAction('revert', context as MonacoDiffToolbarContext | undefined, 'hunk')
     ),
-    monaco.editor.registerCommand('sworm.diff.revertSelection', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.revertSelection', (_accessor, context) =>
       runToolbarAction('revert', context as MonacoDiffToolbarContext | undefined, 'selection')
     ),
-    monaco.editor.registerCommand('sworm.diff.unstageHunk', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.unstageHunk', (_accessor, context) =>
       runToolbarAction('unstage', context as MonacoDiffToolbarContext | undefined, 'hunk')
     ),
-    monaco.editor.registerCommand('sworm.diff.unstageSelection', (_accessor, context) =>
+    monaco.editor.registerCommand('axome.diff.unstageSelection', (_accessor, context) =>
       runToolbarAction('unstage', context as MonacoDiffToolbarContext | undefined, 'selection')
     ),
     ...appendGutterMenuItems()
   ]
 
-  globalThis.__swormDiffGutterMenuRegistration = {
+  globalThis.__axomeDiffGutterMenuRegistration = {
     dispose: () => {
       for (const disposable of disposables) disposable.dispose()
     }
   }
 }
 
-export function registerSwormDiffGutterContext(modifiedUri: string, registration: DiffGutterRegistration): IDisposable {
+export function registerAxomeDiffGutterContext(modifiedUri: string, registration: DiffGutterRegistration): IDisposable {
   registrations.set(modifiedUri, registration)
   return {
     dispose: () => {
@@ -240,8 +234,8 @@ export function registerSwormDiffGutterContext(modifiedUri: string, registration
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    globalThis.__swormDiffGutterMenuRegistration?.dispose()
-    globalThis.__swormDiffGutterMenuRegistration = undefined
+    globalThis.__axomeDiffGutterMenuRegistration?.dispose()
+    globalThis.__axomeDiffGutterMenuRegistration = undefined
     registrations.clear()
   })
 }

@@ -108,7 +108,7 @@
         for (const [index, image] of result.images.entries()) {
           void image.then((url) => {
             if (current !== generation) return
-            const node = root.querySelector<HTMLImageElement>(`img[data-sworm-image="${index}"]`)
+            const node = root.querySelector<HTMLImageElement>(`img[data-axome-image="${index}"]`)
             if (!node) return
             if (url === null) {
               const fallback = document.createElement('span')
@@ -118,7 +118,7 @@
             } else {
               node.src = url
               node.removeAttribute('aria-busy')
-              node.removeAttribute('data-sworm-image')
+              node.removeAttribute('data-axome-image')
             }
           })
         }
@@ -132,7 +132,7 @@
   onDestroy(invalidateImages)
 
   async function handleClick(event: MouseEvent) {
-    const copy = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sworm-copy]') : null
+    const copy = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-axome-copy]') : null
     if (copy && root.contains(copy)) {
       event.preventDefault()
       const text = copy.parentElement?.querySelector('pre')?.textContent ?? ''

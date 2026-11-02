@@ -1,6 +1,6 @@
 use crate::{app_state::AppState, windows::focus_window};
-use sworm_core::errors::ApiError;
-use sworm_protocol::rpc::{AttachMode, WorkbenchAttached, WorkbenchInfo};
+use axome_core::errors::ApiError;
+use axome_protocol::rpc::{AttachMode, WorkbenchAttached, WorkbenchInfo};
 use tauri::Manager;
 
 #[tauri::command]

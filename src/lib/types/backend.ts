@@ -1,5 +1,5 @@
 // Typed interfaces for the Rust backend IPC responses.
-// Keep in sync with types in src-crates/sworm-protocol/src/.
+// Keep in sync with types in src-crates/axome-protocol/src/.
 
 import type { TextRevealTarget } from '$lib/features/workbench/surfaces/text/service.svelte'
 
@@ -121,7 +121,7 @@ export type WorkbenchRun =
   | { kind: 'shell'; folder: string; preset: string | null }
   | { kind: 'task'; folder: string; task_id: string }
 
-/** A folder opened in Sworm, most recent first. */
+/** A folder opened in Axome, most recent first. */
 export interface RecentFolder {
   path: string
   opened_at: string
@@ -995,7 +995,7 @@ export interface GitQuickDiffData {
 
 // DIFF METADATA //
 //
-// Mirrors `src-crates/sworm-protocol/src/file_diff.rs`: metadata for
+// Mirrors `src-crates/axome-protocol/src/file_diff.rs`: metadata for
 // one changed file; contents via `DiffFileContent`.
 
 export type GitStatusKind =
@@ -1017,7 +1017,7 @@ export interface FileDiff {
 }
 
 // Per-file content payload for working-tree, commit and stash diffs.
-// Mirrors `DiffFileContent` in `src-crates/sworm-protocol/src/git.rs`.
+// Mirrors `DiffFileContent` in `src-crates/axome-protocol/src/git.rs`.
 export interface DiffFileContent {
   oldContent: string | null
   newContent: string | null
@@ -1036,7 +1036,7 @@ export interface FilePasteCollision {
   destination: string
 }
 
-// JSON Schema for a project-scoped config file (e.g. .sworm/tasks.jsonc).
+// JSON Schema for a project-scoped config file (e.g. .axome/tasks.jsonc).
 // Schemas are derived from Rust types via schemars so they can't drift
 // from the deserialization contract.
 export interface ConfigSchemaEntry {
@@ -1045,7 +1045,7 @@ export interface ConfigSchemaEntry {
   schema: unknown
 }
 
-// Mirror of Rust `TaskDefinition` (src-crates/sworm-protocol/src/task.rs).
+// Mirror of Rust `TaskDefinition` (src-crates/axome-protocol/src/task.rs).
 // camelCase here matches the `#[serde(rename_all = "camelCase")]` on
 // the source type.
 export interface TaskDefinition {
@@ -1202,7 +1202,7 @@ export interface StashEntry {
 
 // BRANCHES //
 //
-// Mirror of `src-crates/sworm-protocol/src/branch.rs`. The Rust types use
+// Mirror of `src-crates/axome-protocol/src/branch.rs`. The Rust types use
 // `#[serde(rename_all = "camelCase")]` so JSON keys match the TS
 // shape directly.
 

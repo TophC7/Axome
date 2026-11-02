@@ -13,7 +13,7 @@ import type {
   WindowSettings
 } from '$lib/types/backend'
 
-const REMOTE_PREFIX = 'sworm://'
+const REMOTE_PREFIX = 'axome://'
 
 let settings = $state<SettingsPayload | null>(null)
 /**
@@ -177,7 +177,7 @@ export function getSettingsHost(): string | null {
 }
 
 /**
- * Server segment of the loaded settings host's `sworm://<server>/…` URI, or
+ * Server segment of the loaded settings host's `axome://<server>/…` URI, or
  * null when it is this desktop. Host-section editors caption it so the user
  * knows which machine the values they see — and write — belong to.
  */

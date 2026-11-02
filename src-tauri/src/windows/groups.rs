@@ -1,5 +1,5 @@
 use super::*;
-use sworm_protocol::rpc::WorkbenchAttached;
+use axome_protocol::rpc::WorkbenchAttached;
 use tokio::sync::{oneshot, watch};
 
 #[derive(Clone, Debug, Serialize)]
@@ -722,7 +722,7 @@ mod tests {
                     focus_order: 0,
                     ready: false,
                     pending_open_targets: Vec::new(),
-                    folder_claims: HashSet::from([PathBuf::from("sworm://dev/repo")]),
+                    folder_claims: HashSet::from([PathBuf::from("axome://dev/repo")]),
                     file_claims: HashMap::new(),
                 },
             );
@@ -793,7 +793,7 @@ mod tests {
         assert_eq!(aborted, HashSet::from(["source".into(), "target".into()]));
         assert!(service.records.lock()["source"]
             .folder_claims
-            .contains(Path::new("sworm://dev/repo")));
+            .contains(Path::new("axome://dev/repo")));
         assert!(
             service.group("startup").is_err(),
             "late stage/export cannot find aborted transfer"
@@ -886,11 +886,11 @@ mod tests {
     #[test]
     fn raw_group_metadata_preserves_untitled_text_and_rejects_cross_group_identity() {
         let tab = serde_json::json!({
-            "id": "text", "kind": "text", "folderPath": "sworm://dev/repo",
+            "id": "text", "kind": "text", "folderPath": "axome://dev/repo",
             "filePath": null, "fileName": "Untitled", "locked": false,
         });
         let model = serde_json::json!({
-            "tabId": "text", "folderPath": "sworm://dev/repo", "filePath": null,
+            "tabId": "text", "folderPath": "axome://dev/repo", "filePath": null,
             "value": "unsaved", "savedValue": "", "language": "plaintext", "viewState": null,
         });
         assert!(validate_metadata(
@@ -910,7 +910,7 @@ mod tests {
         assert!(validate_metadata("dev", &[tab.clone(), tab.clone()], None, &[]).is_err());
         assert!(validate_metadata("dev", std::slice::from_ref(&tab), Some("other"), &[]).is_err());
         let mut foreign = model.clone();
-        foreign["folderPath"] = serde_json::json!("sworm://dev/other");
+        foreign["folderPath"] = serde_json::json!("axome://dev/other");
         assert!(validate_metadata("dev", std::slice::from_ref(&tab), None, &[foreign]).is_err());
         foreign = model.clone();
         foreign["tabId"] = serde_json::json!("other");
@@ -933,17 +933,17 @@ mod tests {
         let _transfer = service.insert_group(handoff("pending")).unwrap();
         for window in ["source", "target"] {
             service
-                .release_folder(window, Path::new("sworm://dev/repo"))
+                .release_folder(window, Path::new("axome://dev/repo"))
                 .unwrap();
         }
         assert!(service
-            .reserve_worktree_roots(&["sworm://dev/repo/child".into()])
+            .reserve_worktree_roots(&["axome://dev/repo/child".into()])
             .is_err());
         assert!(service
-            .reserve_worktree_roots(&["sworm://other/repo/child".into()])
+            .reserve_worktree_roots(&["axome://other/repo/child".into()])
             .is_ok());
         assert!(service
-            .reserve_worktree_roots(&["sworm://dev/repo2".into()])
+            .reserve_worktree_roots(&["axome://dev/repo2".into()])
             .is_ok());
     }
 
@@ -951,19 +951,19 @@ mod tests {
     fn group_claim_commit_is_atomic_and_refuses_live_reservations() {
         let service = coordinator();
         let tabs = vec![serde_json::json!({
-            "id": "session", "folderPath": "sworm://dev/worktree/./child",
+            "id": "session", "folderPath": "axome://dev/worktree/./child",
         })];
         let held = service
-            .reserve_worktree_roots(&["sworm://dev/worktree".into()])
+            .reserve_worktree_roots(&["axome://dev/worktree".into()])
             .unwrap();
         assert!(service
             .commit_group_claims(&handoff("commit"), &tabs)
             .is_err());
         assert!(!service.records.lock()["target"]
             .folder_claims
-            .contains(Path::new("sworm://dev/worktree/child")));
+            .contains(Path::new("axome://dev/worktree/child")));
         let unrelated = vec![serde_json::json!({
-            "id": "other", "folderPath": "sworm://dev/worktree2",
+            "id": "other", "folderPath": "axome://dev/worktree2",
         })];
         service
             .commit_group_claims(&handoff("unrelated"), &unrelated)
@@ -974,6 +974,6 @@ mod tests {
             .unwrap();
         assert!(service.records.lock()["target"]
             .folder_claims
-            .contains(Path::new("sworm://dev/worktree/child")));
+            .contains(Path::new("axome://dev/worktree/child")));
     }
 }

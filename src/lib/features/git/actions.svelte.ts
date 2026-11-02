@@ -1054,7 +1054,7 @@ export async function removeWorktree(folderPath: string, worktreePath: string): 
       const wasActive = isPathWithin(worktreePath, getActiveFolderPath() ?? '')
       const proceed = await confirmAsync({
         title: 'Remove Worktree?',
-        message: `${worktreePath}\n\nAssociated tabs, sessions and tasks will close. The branch is retained. Sworm stops its managed processes only; stop external terminals and independently daemonized commands before continuing.`,
+        message: `${worktreePath}\n\nAssociated tabs, sessions and tasks will close. The branch is retained. Axome stops its managed processes only; stop external terminals and independently daemonized commands before continuing.`,
         confirmLabel: 'Remove Worktree'
       })
       if (!proceed || !(await closeWorktreeTabs([worktreePath]))) return
@@ -1124,7 +1124,7 @@ export async function migrateWorktreeChanges(folderPath: string, worktreePath: s
       }
       const proceed = await confirmAsync({
         title: 'Migrate Changes to Main?',
-        message: `Source: ${worktreePath}\nMain: ${mainPath}\n\nCaller-owned tabs, sessions and tasks in both folders will close. Main must be clean. Staged, unstaged and nonignored untracked changes move to main; ignored files stay behind. The source worktree stays and a named recovery stash is retained, including on success.\n\nStop external terminals and independently daemonized commands first. Sworm can stop only its managed processes.`,
+        message: `Source: ${worktreePath}\nMain: ${mainPath}\n\nCaller-owned tabs, sessions and tasks in both folders will close. Main must be clean. Staged, unstaged and nonignored untracked changes move to main; ignored files stay behind. The source worktree stays and a named recovery stash is retained, including on success.\n\nStop external terminals and independently daemonized commands first. Axome can stop only its managed processes.`,
         confirmLabel: 'Migrate Changes'
       })
       if (!proceed || !(await closeWorktreeTabs([worktreePath, mainPath]))) return

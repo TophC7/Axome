@@ -1,6 +1,6 @@
-# Sworm
+# Axome
 
-Sworm is a Linux-first desktop app for running coding-agent CLIs inside a local git repository.
+Axome is a Linux-first desktop app for running coding-agent CLIs inside a local git repository.
 
 
 ## Stack
@@ -27,8 +27,8 @@ Sworm is a Linux-first desktop app for running coding-agent CLIs inside a local 
 - Match the existing module split:
   - Svelte routes/components/stores in `src/`
   - Tauri commands in `src-tauri/src/commands/`
-  - desktop logic in `src-tauri/src/` modules (`router/`, `windows/`); business logic in `src-crates/sworm-core`
-  - serialized models in `src-crates/sworm-protocol`
+  - desktop logic in `src-tauri/src/` modules (`router/`, `windows/`); business logic in `src-crates/axome-core`
+  - serialized models in `src-crates/axome-protocol`
 - Keep sessions folder-scoped; tabs drive the workbench, and a folder is open exactly while it has a tab.
 
 ## Validation
@@ -63,7 +63,7 @@ Do not claim lint/format/test commands exist if they are not defined in the curr
 - Frontend data flow should go through typed Tauri invoke/channel wrappers in `src/lib`, then into component state or shared rune modules.
 - Guard DOM-only or browser-only code with `onMount` or a narrowly scoped `$effect()`.
 - Prefer simple route components and app-shell state over web-centric patterns such as auth redirects, SEO metadata work, or server-first data loading.
-- Check existing Sworm patterns before introducing a new component, state, or routing style.
+- Check existing Axome patterns before introducing a new component, state, or routing style.
 
 ## Component Reuse
 

@@ -174,21 +174,21 @@ export const backend = {
     listEntries(path: string, showHidden: boolean): Promise<FolderEntry[]> {
       return invoke<FolderEntry[]>('folder_list_entries', { path, showHidden })
     },
-    /** Where the browser's path bar starts for a folder; remote roots come back as `sworm://` paths. */
+    /** Where the browser's path bar starts for a folder; remote roots come back as `axome://` paths. */
     pathRoot(path: string): Promise<PathRoot> {
       return invoke<PathRoot>('folder_path_root', { path })
     },
     /** Canonical home folder of `server`, or of this host when omitted. */
     async home(server?: string): Promise<string> {
-      const home = await invoke<string>('folder_home', { folderPath: server ? `sworm://${server}/` : null })
-      return server ? `sworm://${server}${home}` : home
+      const home = await invoke<string>('folder_home', { folderPath: server ? `axome://${server}/` : null })
+      return server ? `axome://${server}${home}` : home
     },
     /** Canonical process working folder of `server`, or of this host when omitted. */
     async workingDirectory(server?: string): Promise<string> {
       const path = await invoke<string>('folder_working_directory', {
-        folderPath: server ? `sworm://${server}/` : null
+        folderPath: server ? `axome://${server}/` : null
       })
-      return server ? `sworm://${server}${path}` : path
+      return server ? `axome://${server}${path}` : path
     },
     /** Drop backend resources scoped to a folder that no longer has any open tab. */
     release(folderPath: string): Promise<void> {
@@ -705,7 +705,7 @@ export const backend = {
     onChanged(handler: (folderPath: string) => void): Promise<Unsubscribe> {
       return getHostTransport().subscribe('tasks-changed', handler)
     },
-    /** Return the parsed task list for a folder. Empty array when no `.sworm/tasks.jsonc` exists. */
+    /** Return the parsed task list for a folder. Empty array when no `.axome/tasks.jsonc` exists. */
     list(folderPath: string): Promise<TaskDefinition[]> {
       return invoke<TaskDefinition[]>('tasks_list', { folderPath })
     },

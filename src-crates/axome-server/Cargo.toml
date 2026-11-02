@@ -1,0 +1,42 @@
+[package]
+name = "axome-server"
+version = "0.0.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "axome_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "axome-server"
+path = "src/main.rs"
+
+[dependencies]
+axome-core = { path = "../axome-core" }
+axome-protocol = { path = "../axome-protocol" }
+axome-remote = { path = "../axome-remote" }
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow.workspace = true
+uuid.workspace = true
+parking_lot.workspace = true
+quinn.workspace = true
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+jsonc-parser.workspace = true
+clap = { version = "4", features = ["derive"] }
+chrono.workspace = true
+rusqlite.workspace = true
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+sha2 = "0.10"
+tokio-tungstenite = "0.28"

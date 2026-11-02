@@ -13,7 +13,7 @@ import { applyLineChanges, compareLineChanges } from '$lib/features/git/lineChan
 import { CODE_LINE_HEIGHT, getCodeFontFamily, getCodeFontSize } from '$lib/features/settings/state/typography.svelte'
 import { basename } from '$lib/utils/paths'
 
-const SWORM_DIRTY_DIFF_GLYPH_CLASS = 'sworm-dirty-diff-glyph'
+const AXOME_DIRTY_DIFF_GLYPH_CLASS = 'axome-dirty-diff-glyph'
 
 type Monaco = typeof import('monaco-editor')
 type CodeEditor = import('monaco-editor').editor.IStandaloneCodeEditor
@@ -62,7 +62,7 @@ function providerLabel(provider: QuickDiffProvider): string {
 }
 
 function hunkClassName(hunk: ProviderHunk): string {
-  return `${SWORM_DIRTY_DIFF_GLYPH_CLASS} sworm-dirty-diff-${hunk.kind} ${hunk.provider}`
+  return `${AXOME_DIRTY_DIFF_GLYPH_CLASS} axome-dirty-diff-${hunk.kind} ${hunk.provider}`
 }
 
 function providerHunk(hunk: ChangeHunk, provider: QuickDiffProvider): ProviderHunk {
@@ -205,7 +205,7 @@ export function attachGitHunkReview(options: GitHunkReviewOptions): GitHunkRevie
             hunk.kind === 'delete' ? Number.MAX_SAFE_INTEGER : 1
           ),
           options: {
-            description: `sworm-dirty-diff-${hunk.provider}`,
+            description: `axome-dirty-diff-${hunk.provider}`,
             isWholeLine: hunk.kind !== 'delete',
             linesDecorationsClassName: hunkClassName(hunk),
             linesDecorationsTooltip: providerLabel(hunk.provider)
@@ -277,12 +277,12 @@ export function attachGitHunkReview(options: GitHunkReviewOptions): GitHunkRevie
     const heightInPx = Math.round(heightInLines * lineHeight + 32)
 
     const root = document.createElement('div')
-    root.className = `sworm-dirty-diff-peek ${hunk.provider}`
+    root.className = `axome-dirty-diff-peek ${hunk.provider}`
     root.style.top = '-1000px'
 
     const header = document.createElement('div')
     const body = document.createElement('div')
-    body.className = 'sworm-dirty-diff-peek-body'
+    body.className = 'axome-dirty-diff-peek-body'
     root.append(header, body)
 
     // Match Monaco's ZoneWidget shape: the view zone reserves space, while the overlay hosts interactive content.
@@ -290,7 +290,7 @@ export function attachGitHunkReview(options: GitHunkReviewOptions): GitHunkRevie
     zoneSpacer.style.overflow = 'hidden'
     let zoneHeight = heightInPx
     const overlayWidget: OverlayWidget = {
-      getId: () => `sworm.dirtyDiffPeek.${folderPath}.${filePath}`,
+      getId: () => `axome.dirtyDiffPeek.${folderPath}.${filePath}`,
       getDomNode: () => root,
       getPosition: () => null
     }
@@ -423,7 +423,7 @@ export function attachGitHunkReview(options: GitHunkReviewOptions): GitHunkRevie
   function replaceEditorContent(content: string) {
     if (content === model.getValue()) return
     editor.pushUndoStop()
-    editor.executeEdits('sworm-dirty-diff-revert', [
+    editor.executeEdits('axome-dirty-diff-revert', [
       {
         range: modelFullRange(model, monaco),
         text: content,
@@ -544,7 +544,7 @@ export function attachGitHunkReview(options: GitHunkReviewOptions): GitHunkRevie
       const element = event.target.element
       if (!range || !element) return
       if (event.target.type !== monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS) return
-      if (!String(element.className).includes(SWORM_DIRTY_DIFF_GLYPH_CLASS)) return
+      if (!String(element.className).includes(AXOME_DIRTY_DIFF_GLYPH_CLASS)) return
 
       const hunk =
         visibleHunks.find(

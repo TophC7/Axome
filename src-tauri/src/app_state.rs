@@ -3,13 +3,13 @@ use crate::router::WorkspaceRouter;
 use crate::windows::WindowCoordinatorService;
 use std::path::PathBuf;
 use std::sync::Arc;
-use sworm_core::Host;
+use axome_core::Host;
 use tauri::Manager;
 
 /// Resolve the default database path inside the Tauri app data directory.
 fn resolve_db_path(app_handle: &tauri::AppHandle) -> tauri::Result<PathBuf> {
     let app_data = app_handle.path().app_data_dir()?;
-    Ok(app_data.join("sworm.db"))
+    Ok(app_data.join("axome.db"))
 }
 
 /// Desktop ownership and IPC adapters around the local host.

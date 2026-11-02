@@ -3,22 +3,22 @@ import assert from 'node:assert/strict'
 import { resolveFileIcon } from './fileIconMap'
 
 describe('fileIconMap', () => {
-  test('resolves legacy .sworm/tasks.json to plain json icon (not sworm)', () => {
-    assert.equal(resolveFileIcon('.sworm/tasks.json'), 'json')
-    assert.equal(resolveFileIcon('/repo/.sworm/tasks.json'), 'json')
+  test('resolves legacy .axome/tasks.json to plain json icon (not axome)', () => {
+    assert.equal(resolveFileIcon('.axome/tasks.json'), 'json')
+    assert.equal(resolveFileIcon('/repo/.axome/tasks.json'), 'json')
   })
 
-  test('resolves .sworm/tasks.jsonc and tasks.jsonc to sworm icon', () => {
-    assert.equal(resolveFileIcon('.sworm/tasks.jsonc'), 'sworm')
-    assert.equal(resolveFileIcon('/repo/.sworm/tasks.jsonc'), 'sworm')
-    assert.equal(resolveFileIcon('tasks.jsonc'), 'sworm')
+  test('resolves .axome/tasks.jsonc and tasks.jsonc to axome icon', () => {
+    assert.equal(resolveFileIcon('.axome/tasks.jsonc'), 'axome')
+    assert.equal(resolveFileIcon('/repo/.axome/tasks.jsonc'), 'axome')
+    assert.equal(resolveFileIcon('tasks.jsonc'), 'axome')
   })
 
-  test('resolves .sworm/settings.jsonc and settings.jsonc to sworm icon', () => {
-    assert.equal(resolveFileIcon('.sworm/settings.jsonc'), 'sworm')
-    assert.equal(resolveFileIcon('/repo/.sworm/settings.jsonc'), 'sworm')
-    assert.equal(resolveFileIcon('/home/user/.config/sworm/settings.jsonc'), 'sworm')
-    assert.equal(resolveFileIcon('settings.jsonc'), 'sworm')
+  test('resolves .axome/settings.jsonc and settings.jsonc to axome icon', () => {
+    assert.equal(resolveFileIcon('.axome/settings.jsonc'), 'axome')
+    assert.equal(resolveFileIcon('/repo/.axome/settings.jsonc'), 'axome')
+    assert.equal(resolveFileIcon('/home/user/.config/axome/settings.jsonc'), 'axome')
+    assert.equal(resolveFileIcon('settings.jsonc'), 'axome')
   })
 
   test('preserves vscode icon for .vscode/tasks.json', () => {

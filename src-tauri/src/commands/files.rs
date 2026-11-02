@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 
 #[tauri::command]
 pub async fn files_watch_dirs(
@@ -23,7 +23,7 @@ pub async fn file_read_stream(
     file_path: String,
     version: String,
     size: u64,
-) -> Result<sworm_protocol::files::FileContent, ApiError> {
+) -> Result<axome_protocol::files::FileContent, ApiError> {
     use tauri::Emitter;
     state.router.read_file_stream(window.label(), &request_id, project_path.clone(), file_path.clone(), version, size, |bytes, total| {
         let _ = window.emit("file-read-progress", serde_json::json!({

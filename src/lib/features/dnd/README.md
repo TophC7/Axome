@@ -1,13 +1,13 @@
-# Sworm DnD
+# Axome DnD
 
-Unified drag-and-drop runtime for Sworm.
+Unified drag-and-drop runtime for Axome.
 
 ## Payload Schema
 
-- Internal drags stamp the serialized payload as `application/vnd.sworm.item+json`.
-- They also stamp an empty kind marker: `application/vnd.sworm.kind.tab`,
-  `application/vnd.sworm.kind.workbench`, `application/vnd.sworm.kind.file`, or
-  `application/vnd.sworm.kind.git-change`.
+- Internal drags stamp the serialized payload as `application/vnd.axome.item+json`.
+- They also stamp an empty kind marker: `application/vnd.axome.kind.tab`,
+  `application/vnd.axome.kind.workbench`, `application/vnd.axome.kind.file`, or
+  `application/vnd.axome.kind.git-change`.
 - Same-window drags additionally write to `LocalTransfer` for synchronous payload access.
 - External Tauri OS drops are converted into the same payload shape.
 
@@ -32,7 +32,7 @@ during hover. They must not reject a drag because `LocalTransfer` is empty: that
 shared inside one webview.
 
 At `drop`, targets use `LocalTransfer` when present; otherwise they parse
-`application/vnd.sworm.item+json` from `DataTransfer`. Parsing is deliberately deferred until
+`application/vnd.axome.item+json` from `DataTransfer`. Parsing is deliberately deferred until
 then. OS files remain identified by `Files`. Terminal targets also accept file paths supplied
 by remote webviews as `text/plain`.
 

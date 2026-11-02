@@ -12,9 +12,9 @@
   import { getDiffEditorPool, type PoolRef } from '$lib/features/editor/renderers/monaco/diff/editorPool.svelte'
   import { useDiffScroll } from '$lib/features/editor/renderers/monaco/diff/scrollContext.svelte'
   import {
-    registerSwormDiffGutterContext,
-    SWORM_DIFF_GIT_ACTIONS_CONTEXT,
-    SWORM_DIFF_STAGED_CONTEXT
+    registerAxomeDiffGutterContext,
+    AXOME_DIFF_GIT_ACTIONS_CONTEXT,
+    AXOME_DIFF_STAGED_CONTEXT
   } from '$lib/features/editor/renderers/monaco/diff/gitGutterMenu'
   import type { DiffModelStore } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
   import {
@@ -156,8 +156,8 @@
     // Monaco's public IStandaloneDiffEditor.createContextKey() binds to the
     // modified editor. DiffEditorGutter reads the diff widget root context, so
     // these toolbar predicates must be created on the internal root service.
-    const hasGitActionsContext = rootContextService.createKey<boolean>(SWORM_DIFF_GIT_ACTIONS_CONTEXT, false)
-    const stagedContext = rootContextService.createKey<boolean>(SWORM_DIFF_STAGED_CONTEXT, false)
+    const hasGitActionsContext = rootContextService.createKey<boolean>(AXOME_DIFF_GIT_ACTIONS_CONTEXT, false)
+    const stagedContext = rootContextService.createKey<boolean>(AXOME_DIFF_STAGED_CONTEXT, false)
     hasGitActionsContext.set(Boolean(context))
     stagedContext.set(Boolean(context?.staged))
 
@@ -467,7 +467,7 @@
         if (gitActionContext.staged) {
           actionDisposables.push(
             modifiedEd.addAction({
-              id: 'sworm.diff.unstageSelectedRanges',
+              id: 'axome.diff.unstageSelectedRanges',
               label: 'Unstage Selected Ranges',
               contextMenuGroupId: '2_git',
               contextMenuOrder: 1,
@@ -477,14 +477,14 @@
         } else {
           actionDisposables.push(
             modifiedEd.addAction({
-              id: 'sworm.diff.stageSelectedRanges',
+              id: 'axome.diff.stageSelectedRanges',
               label: 'Stage Selected Ranges',
               contextMenuGroupId: '2_git',
               contextMenuOrder: 1,
               run: () => runSelectedAction('stage')
             }),
             modifiedEd.addAction({
-              id: 'sworm.diff.revertSelectedRanges',
+              id: 'axome.diff.revertSelectedRanges',
               label: 'Revert Selected Ranges',
               contextMenuGroupId: '2_git',
               contextMenuOrder: 2,
@@ -498,7 +498,7 @@
 
       const gutterContextOff =
         gitActionContext && retainedEntry.modified
-          ? registerSwormDiffGutterContext(retainedEntry.modified.uri.toString(), {
+          ? registerAxomeDiffGutterContext(retainedEntry.modified.uri.toString(), {
               folderPath: gitActionContext.folderPath,
               filePath: path,
               status: gitActionContext.status,

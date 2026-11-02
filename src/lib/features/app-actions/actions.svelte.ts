@@ -180,7 +180,7 @@ export async function openFolderSettingsFile(): Promise<void> {
 
   try {
     await backend.settings.openFolderFile(folderPath)
-    await openTextFile(folderPath, '.sworm/settings.jsonc', { temporary: false })
+    await openTextFile(folderPath, '.axome/settings.jsonc', { temporary: false })
   } catch (error) {
     notify.error('Open Folder Settings failed', getErrorMessage(error))
   }
@@ -275,7 +275,7 @@ export async function rerunLastFolderTask(): Promise<void> {
   if (!getLastTaskId(folderPath)) return
   const tabId = await rerunLastTask(folderPath)
   if (tabId === null) {
-    notify.error('Cannot re-run task', 'The last task is no longer defined in .sworm/tasks.jsonc')
+    notify.error('Cannot re-run task', 'The last task is no longer defined in .axome/tasks.jsonc')
   }
 }
 

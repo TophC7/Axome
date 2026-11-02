@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use sworm_core::errors::ApiError;
-use sworm_remote::RemoteError;
+use axome_core::errors::ApiError;
+use axome_remote::RemoteError;
 
 pub enum Target<'a> {
     Local,
@@ -10,7 +10,7 @@ pub enum Target<'a> {
 impl<'a> Target<'a> {
     /// Parse a remote workspace URI; ordinary filesystem paths stay local.
     pub fn parse(project_path: &'a str) -> Result<Self, ApiError> {
-        let Some(remote_path) = project_path.strip_prefix("sworm://") else {
+        let Some(remote_path) = project_path.strip_prefix("axome://") else {
             return Ok(Self::Local);
         };
         let Some(separator) = remote_path.find('/') else {
@@ -31,7 +31,7 @@ impl<'a> Target<'a> {
     }
 
     pub fn remote_uri(server: &str, path: &str) -> String {
-        format!("sworm://{server}/{}", path.trim_start_matches('/'))
+        format!("axome://{server}/{}", path.trim_start_matches('/'))
     }
 
     /// Remote paths cannot be canonicalized on this machine. Normalize their
@@ -128,7 +128,7 @@ pub(super) fn worktree_host_path(route: &str, nested: &str) -> Result<String, Ap
     }
 }
 pub(super) fn not_controller(workbench: &str) -> ApiError {
-    ApiError::from(sworm_protocol::rpc::WireError::NotController {
+    ApiError::from(axome_protocol::rpc::WireError::NotController {
         workbench: workbench.to_owned(),
     })
 }

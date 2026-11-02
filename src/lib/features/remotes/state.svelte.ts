@@ -2,7 +2,7 @@ import { setSettingsOpen, setSettingsPage } from '$lib/features/settings/dialog/
 
 /**
  * The pairing form on the Remote Servers settings page. Module state so a
- * `sworm-pair:` deep link can fill it in before the page mounts. `name` is
+ * `axome-pair:` deep link can fill it in before the page mounts. `name` is
  * null until the user picks one; the form suggests one from the link.
  */
 export const pairForm = $state<{ input: string; name: string | null }>({ input: '', name: null })
@@ -25,7 +25,7 @@ export function parsePairLink(link: string): { host: string; port: number; finge
     const url = new URL(link)
     const parts = url.pathname.split('/')
     if (
-      url.protocol !== 'sworm-pair:' ||
+      url.protocol !== 'axome-pair:' ||
       !url.hostname ||
       url.username ||
       url.password ||
@@ -52,7 +52,7 @@ export function pairCommand(address: string): string | null {
     const url = new URL(`https://${address}`)
     if (url.username || url.password || url.pathname !== '/' || url.search || url.hash || !url.hostname) return null
     const host = url.hostname.replace(/^\[|\]$/g, '')
-    return `ssh -- '${host.replace(/'/g, "'\\''")}' sworm-server pair`
+    return `ssh -- '${host.replace(/'/g, "'\\''")}' axome-server pair`
   } catch {
     return null
   }

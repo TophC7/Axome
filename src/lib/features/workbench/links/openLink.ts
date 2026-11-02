@@ -82,7 +82,7 @@ async function handleUriLink(target: ParsedLinkTarget, folderPath?: string | nul
     return handleFileScheme(fullUrl, folderPath)
   }
 
-  if (scheme === 'sworm') {
+  if (scheme === 'axome') {
     await openFolder(fullUrl)
     return true
   }
@@ -192,13 +192,13 @@ async function handleIssueOrPrScheme(
 
 /** Resolve a literal filesystem path on the active folder's host, without URL or location parsing. */
 export async function resolveFileLocationPath(filePath: string, folderPath?: string | null): Promise<string> {
-  if (filePath.startsWith('sworm://') && splitRemotePath(filePath)) return filePath
+  if (filePath.startsWith('axome://') && splitRemotePath(filePath)) return filePath
   const server = folderPath ? splitRemotePath(folderPath)?.server : undefined
   if (filePath === '~' || filePath.startsWith('~/')) {
     const home = await backend.folders.home(server)
     return `${home}${filePath.slice(1)}`
   }
-  if (filePath.startsWith('/')) return server ? `sworm://${server}${filePath}` : filePath
+  if (filePath.startsWith('/')) return server ? `axome://${server}${filePath}` : filePath
   if (!folderPath) throw new Error(`No active project folder to resolve relative path "${filePath}"`)
   // Leave .. and symlinks to the filesystem; lexical normalization changes their meaning.
   return `${folderPath.replace(/\/+$/, '')}/${filePath}`

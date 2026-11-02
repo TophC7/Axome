@@ -1,5 +1,5 @@
 {
-  description = "Sworm - Linux-first Agentic Development Environment";
+  description = "Axome - Linux-first Agentic Development Environment";
 
   nixConfig = {
     extra-substituters = [
@@ -63,7 +63,7 @@
             target = "web";
           };
 
-          sworm = pkgs.callPackage ./nix/pkgs/sworm.nix {
+          axome = pkgs.callPackage ./nix/pkgs/axome.nix {
             inherit
               craneLib
               frontend
@@ -74,27 +74,27 @@
             src = ./.;
           };
 
-          sworm-server = pkgs.callPackage ./nix/pkgs/sworm-server.nix {
+          axome-server = pkgs.callPackage ./nix/pkgs/axome-server.nix {
             inherit craneLib version webFrontend;
             workspaceSourceFilter = common.workspaceSourceFilter;
             src = ./.;
           };
 
           desktopPackaging = pkgs.callPackage ./nix/packaging/desktop.nix {
-            inherit sworm version;
+            inherit axome version;
             src = ./.;
           };
 
           serverPackaging = pkgs.callPackage ./nix/packaging/server.nix {
-            inherit sworm-server version webFrontend;
+            inherit axome-server version webFrontend;
             src = ./.;
           };
         in
         {
           inherit
             frontend
-            sworm
-            sworm-server
+            axome
+            axome-server
             ;
           frontend-web = webFrontend;
           deb = desktopPackaging.deb;
@@ -103,7 +103,7 @@
           server-deb = serverPackaging.deb;
           server-rpm = serverPackaging.rpm;
           server-tarball = serverPackaging.tarball;
-          default = sworm;
+          default = axome;
         }
       );
 
@@ -114,10 +114,10 @@
         };
       });
 
-      nixosModules.sworm-server = import ./nix/modules/sworm-server.nix { inherit self; };
+      nixosModules.axome-server = import ./nix/modules/axome-server.nix { inherit self; };
       homeManagerModules = rec {
-        sworm = import ./nix/modules/sworm-home.nix { inherit self; };
-        default = sworm;
+        axome = import ./nix/modules/axome-home.nix { inherit self; };
+        default = axome;
       };
 
       devShells = forAllSystems (

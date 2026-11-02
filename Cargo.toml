@@ -2,10 +2,10 @@
 resolver = "2"
 members = [
   "src-tauri",
-  "src-crates/sworm-protocol",
-  "src-crates/sworm-core",
-  "src-crates/sworm-remote",
-  "src-crates/sworm-server",
+  "src-crates/axome-protocol",
+  "src-crates/axome-core",
+  "src-crates/axome-remote",
+  "src-crates/axome-server",
 ]
 default-members = ["src-tauri"]
 

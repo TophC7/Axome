@@ -33,7 +33,7 @@ export function toolHeader(call: ToolStep, folderPath: string): ToolHeader {
         : typeof args.path === 'string'
           ? args.path
           : null
-  const root = path?.startsWith('sworm://') ? folderPath : (splitRemotePath(folderPath)?.path ?? folderPath)
+  const root = path?.startsWith('axome://') ? folderPath : (splitRemotePath(folderPath)?.path ?? folderPath)
   const relative =
     path !== null && isPathWithin(root, path) ? path.slice(root.replace(/\/+$/, '').length + 1) || '.' : (path ?? '')
   let summary = ''

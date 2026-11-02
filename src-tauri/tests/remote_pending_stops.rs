@@ -2,10 +2,10 @@ mod common;
 
 use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
-use sworm_core::{errors::ApiError, Host};
-use sworm_lib::router::WorkspaceRouter;
-use sworm_protocol::settings::PatchSettingsSectionInput;
-use sworm_remote::Identity;
+use axome_core::{errors::ApiError, Host};
+use axome_lib::router::WorkspaceRouter;
+use axome_protocol::settings::PatchSettingsSectionInput;
+use axome_remote::Identity;
 use tempfile::tempdir;
 
 /// The retry loop resolves a stop's server by name and reads an unknown name
@@ -19,7 +19,7 @@ async fn pending_stops_follow_remote_renames() -> anyhow::Result<()> {
 
     let fingerprint = Identity::load_or_generate(temporary.path(), "server")?.fingerprint();
     let host = Arc::new(Host::new(
-        temporary.path().join("sworm.db"),
+        temporary.path().join("axome.db"),
         Arc::new(|_| Ok(())),
     )?);
     let router = WorkspaceRouter::new(Arc::clone(&host));
@@ -30,7 +30,7 @@ async fn pending_stops_follow_remote_renames() -> anyhow::Result<()> {
                 section: "remotes".into(),
                 value: json!({
                     "old": {
-                        "address": "sworm-unreachable.invalid:7420",
+                        "address": "axome-unreachable.invalid:7420",
                         "fingerprint": fingerprint.to_string(),
                     }
                 }),

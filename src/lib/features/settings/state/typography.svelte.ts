@@ -1,8 +1,8 @@
 import { getDesktopSettings } from './settings.svelte'
 
 // Bundled font chains; keep in step with the `--font-*` tokens in src/app.css.
-const SANS_FALLBACK = "'Lexend', system-ui, -apple-system, 'Segoe UI', sans-serif"
-const MONO_FALLBACK = "'Monocraft Nerd Font', 'Monocraft', 'Symbols Nerd Font Mono', 'Symbols Nerd Font', monospace"
+const SANS_FALLBACK = "'Paper Mono UI', 'Symbols Nerd Font Mono', system-ui, sans-serif"
+const MONO_FALLBACK = "'Paper Mono', 'Symbols Nerd Font Mono', monospace"
 const DEFAULT_CODE_FONT_SIZE = 13
 /** Monaco reads line heights below 8 as a multiple of the font size: 13px code keeps its 20px lines. */
 export const CODE_LINE_HEIGHT = 1.5

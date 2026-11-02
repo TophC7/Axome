@@ -10,18 +10,18 @@ use std::{
     sync::{Arc, Weak},
     time::Duration,
 };
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::{EventSink, HostEvent},
     services::{
         settings::SettingsService, settings_resolution::resolve_effective_settings_for_folder_path,
     },
 };
-use sworm_protocol::{
+use axome_protocol::{
     rpc::{HostEventWire, Open, Reply, Request},
     settings::{EffectiveSettingsPayload, RemoteSettings, SettingsDiagnostic, SettingsOrigin},
 };
-use sworm_remote::{wire::read_frame, Fingerprint, Identity, RemoteClient};
+use axome_remote::{wire::read_frame, Fingerprint, Identity, RemoteClient};
 use tokio::{sync::Mutex as AsyncMutex, task::JoinHandle, time::sleep};
 
 fn validate_server_name(name: &str) -> Result<(), ApiError> {
@@ -154,7 +154,7 @@ impl WorkspaceRouter {
     ) -> Result<RemoteSettings, ApiError> {
         validate_server_name(name)?;
         let link = link
-            .parse::<sworm_protocol::pairing::PairLink>()
+            .parse::<axome_protocol::pairing::PairLink>()
             .map_err(|error| ApiError::InvalidArgument(error.to_string()))?;
         let _guard = self.inner.remote_management.lock().await;
         let remotes = tokio::task::spawn_blocking(resolve_remote_configs).await??;
@@ -279,7 +279,7 @@ impl WorkspaceRouter {
 }
 
 impl RouterInner {
-    /// Loaded once; `~/.config/sworm/client.pem` may be a provisioned secret
+    /// Loaded once; `~/.config/axome/client.pem` may be a provisioned secret
     /// linked into place, like `~/.ssh/id_ed25519`.
     pub(super) async fn client_identity(&self) -> Result<Arc<Identity>, ApiError> {
         self.identity
@@ -636,13 +636,13 @@ fn resolve_remote_configs() -> Result<HashMap<String, RemoteSettings>, ApiError>
 }
 
 /// Retag diagnostics resolved by `server`'s daemon: `Host` origin, and paths in
-/// `sworm://<server>/…` form so two same-named `settings.jsonc` files on
+/// `axome://<server>/…` form so two same-named `settings.jsonc` files on
 /// different machines stay distinguishable both to code and in the status bar.
 pub(super) fn tag_host_diagnostics(diagnostics: &mut [SettingsDiagnostic], server: &str) {
     for diagnostic in diagnostics {
         diagnostic.origin = SettingsOrigin::Host;
         diagnostic.path = format!(
-            "sworm://{server}/{}",
+            "axome://{server}/{}",
             diagnostic.path.trim_start_matches('/')
         );
     }
@@ -736,13 +736,13 @@ impl Backoff {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
-    use sworm_protocol::settings::*;
+    use axome_protocol::settings::*;
 
     #[test]
     fn settings_effective_merges_desktop_sections() {
         let mut remote = EffectiveSettingsPayload {
             settings: EffectiveSettings::default(),
-            diagnostics: vec![diagnostic("/srv/repo/.sworm/settings.jsonc", "/explorer")],
+            diagnostics: vec![diagnostic("/srv/repo/.axome/settings.jsonc", "/explorer")],
         };
         remote.settings.typography.code_font_size = 11;
         remote.settings.window.tab_beam_position = TabBeamPosition::Bottom;
@@ -752,7 +752,7 @@ mod tests {
         let mut local = EffectiveSettingsPayload {
             settings: EffectiveSettings::default(),
             diagnostics: vec![diagnostic(
-                "/home/me/.config/sworm/settings.jsonc",
+                "/home/me/.config/axome/settings.jsonc",
                 "/window",
             )],
         };
@@ -800,12 +800,12 @@ mod tests {
                 (
                     SettingsOrigin::Host,
                     SettingsLayerKind::Folder,
-                    "sworm://loop/srv/repo/.sworm/settings.jsonc"
+                    "axome://loop/srv/repo/.axome/settings.jsonc"
                 ),
                 (
                     SettingsOrigin::Desktop,
                     SettingsLayerKind::Folder,
-                    "/home/me/.config/sworm/settings.jsonc"
+                    "/home/me/.config/axome/settings.jsonc"
                 )
             ]
         );

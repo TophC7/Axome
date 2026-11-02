@@ -1,0 +1,36 @@
+{
+  "id": "dev.axome.pyright",
+  "label": "Python",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "languages": [
+      {
+        "id": "python",
+        "label": "Python",
+        "aliases": ["py"],
+        "extensions": [".py", ".pyi"]
+      }
+    ],
+    "lsp_servers": [
+      {
+        "id": "pyright",
+        "label": "Pyright",
+        "applies_to_languages": ["python"],
+        "command": "pyright-langserver",
+        "args": ["--stdio"],
+        "install_hint": "Install `pyright` and ensure `pyright-langserver` is on PATH.",
+        "document_selectors": [
+          {
+            "language": "python",
+            "extensions": [".py", ".pyi"]
+          }
+        ],
+        "settings": {
+          "section": "python",
+          "schema_path": "./settings.schema.json"
+        }
+      }
+    ]
+  }
+}

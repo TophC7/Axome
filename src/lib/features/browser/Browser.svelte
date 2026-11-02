@@ -67,7 +67,7 @@
   type EditOrigin = { path: string | null; selectedKey: string | null; search: string }
 
   const id = $props.id()
-  const pathLike = /^(\/|~|sworm:)/
+  const pathLike = /^(\/|~|axome:)/
   const homes = new SvelteMap<string, string>()
   const homeLookups = new Map<string, Promise<string>>()
   const folderLoad = createTrackedAsyncLoad<string | null>()
@@ -274,7 +274,7 @@
 
   function parentOf(folderPath: string): string {
     const remote = splitRemotePath(folderPath)
-    return remote ? `sworm://${remote.server}${dirname(remote.path) || '/'}` : dirname(folderPath) || '/'
+    return remote ? `axome://${remote.server}${dirname(remote.path) || '/'}` : dirname(folderPath) || '/'
   }
 
   function goUp(): void {
@@ -347,7 +347,7 @@
   }
 
   function parseLocation(value: string): { servers: boolean; dir: string | null; leaf: string } | null {
-    const hostDraft = /^sworm:\/\/([^/]*)$/.exec(value)
+    const hostDraft = /^axome:\/\/([^/]*)$/.exec(value)
     if (hostDraft) return selection ? null : { servers: true, dir: null, leaf: hostDraft[1] }
     if (value === '~' || value.startsWith('~/')) {
       const home = homes.get(currentServer ?? '')
@@ -360,7 +360,7 @@
     const slash = local.lastIndexOf('/')
     const server = remote?.server ?? currentServer
     if (selection && server !== selection.server) return null
-    const prefix = server ? `sworm://${server}` : ''
+    const prefix = server ? `axome://${server}` : ''
     return {
       servers: false,
       dir: normalizeAbsolutePath(prefix + (local.slice(0, slash) || '/')),
@@ -435,7 +435,7 @@
     if (!parsed) {
       pathError = selection
         ? 'Enter an absolute path or ~ on the initiating host.'
-        : 'Enter an absolute path, ~, or sworm://server/path.'
+        : 'Enter an absolute path, ~, or axome://server/path.'
     } else if (!parsed.servers && !parsed.leaf && path) {
       if (entriesPath === path) void completeFolder(path)
       else pathError = folderError ?? 'Still loading this folder.'

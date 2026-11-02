@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 
 #[tauri::command]
 pub async fn git_watch(
@@ -17,9 +17,9 @@ pub async fn git_watch(
 pub async fn git_worktree(
     window: tauri::WebviewWindow,
     path: String,
-    op: sworm_protocol::git::GitWorktreeOp,
+    op: axome_protocol::git::GitWorktreeOp,
     state: tauri::State<'_, AppState>,
-) -> Result<sworm_protocol::git::GitWorktreeResult, ApiError> {
+) -> Result<axome_protocol::git::GitWorktreeResult, ApiError> {
     state
         .router
         .git_worktree(

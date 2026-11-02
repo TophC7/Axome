@@ -1,4 +1,4 @@
-import { stampDataTransfer, type DragPayload, type SwormDragKind } from '$lib/features/dnd/payload'
+import { stampDataTransfer, type DragPayload, type AxomeDragKind } from '$lib/features/dnd/payload'
 
 let currentPayload = $state<DragPayload | null>(null)
 
@@ -44,13 +44,13 @@ export const LocalTransfer = {
   peek(): DragPayload | null {
     return currentPayload
   },
-  has(kind: SwormDragKind['kind']): boolean {
+  has(kind: AxomeDragKind['kind']): boolean {
     return currentPayload?.items.some((item) => item.kind === kind) ?? false
   }
 }
 
 /** Shared source lifecycle; null or empty items refuse the drag. */
-export function dragSource(items: () => SwormDragKind[] | null, onEnd?: () => void) {
+export function dragSource(items: () => AxomeDragKind[] | null, onEnd?: () => void) {
   return (element: HTMLElement) => {
     const onDragStart = (event: DragEvent) => {
       const dragged = items()

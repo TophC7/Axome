@@ -1,0 +1,483 @@
+use crate::RemoteError;
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use sha2::{Digest, Sha256};
+use std::{
+    fmt,
+    fs::{self, File, OpenOptions},
+    io::{self, ErrorKind, Write},
+    path::{Component, Path, PathBuf},
+    str::FromStr,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// SHA-256 digest of a certificate's DER encoding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Fingerprint(pub [u8; 32]);
+
+impl Fingerprint {
+    pub fn of_cert(cert: &CertificateDer<'_>) -> Self {
+        Self(Sha256::digest(cert.as_ref()).into())
+    }
+}
+
+impl fmt::Display for Fingerprint {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "SHA256:{}", hex::encode(self.0))
+    }
+}
+
+impl FromStr for Fingerprint {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let hex = value
+            .get(..7)
+            .filter(|prefix| prefix.eq_ignore_ascii_case("SHA256:"))
+            .map_or(value, |_| &value[7..]);
+        let mut bytes = [0; 32];
+        hex::decode_to_slice(hex, &mut bytes)
+            .map_err(|error| format!("invalid SHA-256 fingerprint: {error}"))?;
+        Ok(Self(bytes))
+    }
+}
+
+/// Certificate and private key used for mutual TLS.
+pub struct Identity {
+    pub cert: CertificateDer<'static>,
+    pub key: PrivateKeyDer<'static>,
+}
+
+impl Identity {
+    /// Load a persisted identity, or atomically create one when absent.
+    pub fn load_or_generate(dir: &Path, stem: &str) -> Result<Self, RemoteError> {
+        validate_stem(stem)?;
+        secure_directory(dir)?;
+
+        let identity_path = dir.join(format!("{stem}.pem"));
+        if entry_exists(&identity_path)? {
+            return load_existing(&identity_path);
+        }
+
+        let temporary = generate(dir, stem)?;
+        match publish(&temporary.0, &identity_path) {
+            Ok(()) => sync_directory(dir)?,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+                return load_existing(&identity_path);
+            }
+            Err(error) => {
+                return Err(RemoteError::identity(
+                    format!("cannot create identity file {}", identity_path.display()),
+                    error,
+                ));
+            }
+        }
+        load_existing(&identity_path)
+    }
+
+    /// Load a provisioned identity (e.g. a sops/agenix secret), never
+    /// generating or modifying it.
+    pub fn load(path: &Path) -> Result<Self, RemoteError> {
+        load_existing(path)
+    }
+
+    /// Write a new identity to `path` without overwriting, like `ssh-keygen -f`.
+    pub fn create(path: &Path) -> Result<Self, RemoteError> {
+        let stem = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| {
+                RemoteError::Identity(format!("invalid identity path {}", path.display()))
+            })?;
+        let dir = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => Path::new("."),
+        };
+        let temporary = generate(dir, stem)?;
+        publish(&temporary.0, path).map_err(|error| {
+            RemoteError::identity(
+                format!(
+                    "cannot create identity file {} without overwriting existing data",
+                    path.display()
+                ),
+                error,
+            )
+        })?;
+        sync_directory(dir)?;
+        load_existing(path)
+    }
+
+    pub fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::of_cert(&self.cert)
+    }
+}
+
+fn validate_stem(stem: &str) -> Result<(), RemoteError> {
+    let mut components = Path::new(stem).components();
+    if matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none() {
+        Ok(())
+    } else {
+        Err(RemoteError::Identity(format!(
+            "identity stem must be one path component: {stem:?}"
+        )))
+    }
+}
+
+fn generate(dir: &Path, stem: &str) -> Result<TemporaryFiles, RemoteError> {
+    let key_pair = rcgen::KeyPair::generate_for(&rcgen::PKCS_ED25519)
+        .map_err(|error| RemoteError::identity("generate Ed25519 key", error))?;
+    let certificate = rcgen::CertificateParams::new(vec!["axome".to_string()])
+        .and_then(|params| params.self_signed(&key_pair))
+        .map_err(|error| RemoteError::identity("generate self-signed certificate", error))?;
+    let contents = format!("{}{}", certificate.pem(), key_pair.serialize_pem());
+
+    let temporary = TemporaryFiles(write_temp(dir, stem, contents.as_bytes())?);
+    // Restore owner access stripped by umask before making the file visible.
+    set_mode(&temporary.0, 0o600)?;
+    Ok(temporary)
+}
+
+/// Follows symlinks so provisioned secrets can be linked into place, and like
+/// ssh refuses a key other users can read instead of silently fixing it.
+fn load_existing(identity_path: &Path) -> Result<Identity, RemoteError> {
+    require_private_file(identity_path)?;
+
+    let cert = CertificateDer::from_pem_file(identity_path).map_err(|error| {
+        RemoteError::Identity(format!(
+            "cannot read identity certificate {}: {error}",
+            identity_path.display()
+        ))
+    })?;
+    let key = PrivateKeyDer::from_pem_file(identity_path).map_err(|error| {
+        RemoteError::Identity(format!(
+            "cannot read identity key {}: {error}",
+            identity_path.display()
+        ))
+    })?;
+
+    rustls::sign::CertifiedKey::from_der(
+        vec![cert.clone()],
+        key.clone_key(),
+        &rustls::crypto::ring::default_provider(),
+    )
+    .map_err(|error| {
+        RemoteError::Identity(format!(
+            "identity certificate and key do not form a usable pair: {error}"
+        ))
+    })?;
+
+    Ok(Identity { cert, key })
+}
+
+fn entry_exists(path: &Path) -> Result<bool, RemoteError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(RemoteError::Identity(format!(
+            "cannot inspect identity path {}: {error}",
+            path.display()
+        ))),
+    }
+}
+fn require_private_file(path: &Path) -> Result<(), RemoteError> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        RemoteError::Identity(format!(
+            "cannot inspect identity file {}: {error}",
+            path.display()
+        ))
+    })?;
+    if !metadata.file_type().is_file() {
+        return Err(RemoteError::Identity(format!(
+            "identity path {} is not a regular file",
+            path.display()
+        )));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.permissions().mode() & 0o077 != 0 {
+            return Err(RemoteError::Identity(format!(
+                "identity file {} is accessible by other users; chmod 600 it",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn secure_directory(dir: &Path) -> Result<(), RemoteError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = fs::DirBuilder::new();
+        builder.recursive(true).mode(0o700);
+        builder.create(dir).map_err(|error| {
+            RemoteError::Identity(format!(
+                "cannot create identity directory {}: {error}",
+                dir.display()
+            ))
+        })?;
+        set_mode(dir, 0o700)
+    }
+    #[cfg(not(unix))]
+    {
+        fs::create_dir_all(dir).map_err(|error| {
+            RemoteError::Identity(format!(
+                "cannot create identity directory {}: {error}",
+                dir.display()
+            ))
+        })
+    }
+}
+
+fn write_temp(dir: &Path, stem: &str, contents: &[u8]) -> Result<PathBuf, RemoteError> {
+    for _ in 0..128 {
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let path = dir.join(format!(".{stem}.pem.tmp-{}-{sequence}", std::process::id()));
+        let mut file = match open_new(&path, 0o600) {
+            Ok(file) => file,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(RemoteError::Identity(format!(
+                    "cannot create temporary identity file {}: {error}",
+                    path.display()
+                )))
+            }
+        };
+        if let Err(error) = file.write_all(contents).and_then(|()| file.sync_all()) {
+            drop(file);
+            let _ = fs::remove_file(&path);
+            return Err(RemoteError::Identity(format!(
+                "cannot write temporary identity file {}: {error}",
+                path.display()
+            )));
+        }
+        return Ok(path);
+    }
+    Err(RemoteError::Identity(
+        "cannot allocate a temporary identity filename".to_string(),
+    ))
+}
+
+fn publish(source: &Path, destination: &Path) -> io::Result<()> {
+    fs::hard_link(source, destination)
+}
+
+fn open_new(path: &Path, mode: u32) -> io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(mode);
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+    options.open(path)
+}
+
+fn set_mode(path: &Path, mode: u32) -> Result<(), RemoteError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(mode)).map_err(|error| {
+            RemoteError::Identity(format!(
+                "cannot secure identity path {}: {error}",
+                path.display()
+            ))
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, mode);
+        Ok(())
+    }
+}
+
+fn sync_directory(dir: &Path) -> Result<(), RemoteError> {
+    #[cfg(unix)]
+    {
+        File::open(dir)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| {
+                RemoteError::Identity(format!(
+                    "cannot persist identity directory {}: {error}",
+                    dir.display()
+                ))
+            })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = dir;
+        Ok(())
+    }
+}
+
+struct TemporaryFiles(PathBuf);
+
+impl Drop for TemporaryFiles {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        sync::{Arc, Barrier},
+        thread,
+    };
+
+    #[test]
+    fn fingerprint_display_parse_round_trip() {
+        let fingerprint = Fingerprint([0xab; 32]);
+        assert_eq!(
+            fingerprint.to_string(),
+            "SHA256:abababababababababababababababababababababababababababababababab"
+        );
+        assert_eq!(fingerprint.to_string().parse(), Ok(fingerprint));
+        assert_eq!(
+            format!("sha256:{}", hex::encode_upper(fingerprint.0)).parse(),
+            Ok(fingerprint)
+        );
+        assert_eq!(
+            "abababababababababababababababababababababababababababababababab".parse(),
+            Ok(fingerprint)
+        );
+    }
+
+    #[test]
+    fn fingerprint_rejects_bad_input() {
+        for value in [
+            "",
+            "SHA256:",
+            "00",
+            "SHA256:abababababababababababababababababababababababababababababababaz",
+            "SHA256:abababababababababababababababababababababababababababababababab00",
+        ] {
+            assert!(value.parse::<Fingerprint>().is_err(), "accepted {value:?}");
+        }
+    }
+
+    #[test]
+    fn identity_is_stable_and_secure() {
+        let directory = tempfile::tempdir().unwrap();
+        let first = Identity::load_or_generate(directory.path(), "client").unwrap();
+        let second = Identity::load_or_generate(directory.path(), "client").unwrap();
+        assert_eq!(first.fingerprint(), second.fingerprint());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(directory.path()).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+            assert_eq!(
+                fs::metadata(directory.path().join("client.pem"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+    }
+
+    #[test]
+    fn corrupt_identity_is_never_replaced() {
+        let directory = tempfile::tempdir().unwrap();
+        let identity_path = directory.path().join("client.pem");
+        fs::write(&identity_path, b"keep this identity").unwrap();
+        assert!(Identity::load_or_generate(directory.path(), "client").is_err());
+        assert_eq!(fs::read(identity_path).unwrap(), b"keep this identity");
+    }
+
+    #[test]
+    fn mismatched_certificate_and_key_are_rejected_without_replacement() {
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        Identity::load_or_generate(first.path(), "client").unwrap();
+        Identity::load_or_generate(second.path(), "client").unwrap();
+
+        let first_pem = fs::read_to_string(first.path().join("client.pem")).unwrap();
+        let second_pem = fs::read_to_string(second.path().join("client.pem")).unwrap();
+        let key_marker = "-----BEGIN PRIVATE KEY-----";
+        let mismatched = format!(
+            "{}{}",
+            &first_pem[..first_pem.find(key_marker).unwrap()],
+            &second_pem[second_pem.find(key_marker).unwrap()..]
+        );
+        let identity_path = second.path().join("client.pem");
+        fs::write(&identity_path, mismatched).unwrap();
+        let before = fs::read(&identity_path).unwrap();
+
+        assert!(Identity::load_or_generate(second.path(), "client").is_err());
+        assert_eq!(fs::read(identity_path).unwrap(), before);
+    }
+
+    #[test]
+    fn concurrent_generation_keeps_one_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = Arc::new(directory.path().to_owned());
+        let barrier = Arc::new(Barrier::new(8));
+        let threads = (0..8)
+            .map(|_| {
+                let path = Arc::clone(&path);
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    Identity::load_or_generate(&path, "client")
+                        .unwrap()
+                        .fingerprint()
+                })
+            })
+            .collect::<Vec<_>>();
+        let fingerprints = threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>();
+        assert!(fingerprints.iter().all(|value| *value == fingerprints[0]));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn provisioned_identity_loads_through_symlink_only_when_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let secret = directory.path().join("secret.pem");
+        let created = Identity::create(&secret).unwrap();
+        assert!(Identity::create(&secret).is_err(), "overwrote an identity");
+
+        let config = directory.path().join("config");
+        fs::create_dir(&config).unwrap();
+        std::os::unix::fs::symlink(&secret, config.join("client.pem")).unwrap();
+        let linked = Identity::load_or_generate(&config, "client").unwrap();
+        assert_eq!(linked.fingerprint(), created.fingerprint());
+
+        fs::set_permissions(&secret, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(Identity::load(&secret).is_err());
+        assert_eq!(
+            fs::metadata(&secret).unwrap().permissions().mode() & 0o777,
+            0o644,
+            "loading must not modify a provisioned file"
+        );
+    }
+
+    // A provisioned link whose secret is not decrypted yet must fail, not be
+    // replaced by a fresh identity with a different fingerprint.
+    #[cfg(unix)]
+    #[test]
+    fn dangling_identity_link_is_never_replaced() {
+        let directory = tempfile::tempdir().unwrap();
+        let link = directory.path().join("client.pem");
+        std::os::unix::fs::symlink(directory.path().join("not-yet-decrypted"), &link).unwrap();
+        assert!(Identity::load_or_generate(directory.path(), "client").is_err());
+        assert!(fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+    }
+}

@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::host_events::channel_sink;
-use sworm_core::errors::ApiError;
-use sworm_protocol::pty::PtyEvent;
+use axome_core::errors::ApiError;
+use axome_protocol::pty::PtyEvent;
 
 #[tauri::command]
 pub async fn shell_start(

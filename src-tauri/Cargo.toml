@@ -1,21 +1,21 @@
 [package]
-name = "sworm"
+name = "axome"
 version = "0.0.0"
 edition = "2021"
-description = "Sworm - Linux-first desktop app for coding-agent CLIs"
+description = "Axome - Linux-first desktop app for coding-agent CLIs"
 license = "AGPL-3.0-or-later"
 
 [lib]
-name = "sworm_lib"
+name = "axome_lib"
 crate-type = ["lib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-sworm-core = { path = "../src-crates/sworm-core" }
-sworm-protocol = { path = "../src-crates/sworm-protocol" }
-sworm-remote = { path = "../src-crates/sworm-remote" }
+axome-core = { path = "../src-crates/axome-core" }
+axome-protocol = { path = "../src-crates/axome-protocol" }
+axome-remote = { path = "../src-crates/axome-remote" }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-deep-link = "2"
@@ -40,5 +40,5 @@ wl-clipboard-rs = "0.9.3"
 tauri = { version = "2", features = ["test"] }
 anyhow.workspace = true
 chrono.workspace = true
-sworm-server = { path = "../src-crates/sworm-server" }
+axome-server = { path = "../src-crates/axome-server" }
 tempfile = "3"

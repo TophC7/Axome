@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Axome
+Comment=Agentic Development Environment
+Exec=axome %U
+Icon=axome
+Terminal=false
+Type=Application
+Categories=Development;IDE;
+MimeType=inode/directory;x-scheme-handler/axome-pair;x-scheme-handler/axome;
+Actions=open-folder;
+
+[Desktop Action open-folder]
+Name=Open Folder in Axome
+Exec=axome %F

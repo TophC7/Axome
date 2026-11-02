@@ -1,6 +1,6 @@
 <!--
   @component
-  Checkbox — bits-ui wrapper with Sworm design tokens.
+  Checkbox — bits-ui wrapper with Axome design tokens.
 
   Renders a 14×14 square with an accent fill when checked and a
   Lucide Check glyph. Use inside a <label> or pair with a sibling

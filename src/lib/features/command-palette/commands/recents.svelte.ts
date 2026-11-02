@@ -4,7 +4,7 @@
 // surface them in a top "Recent" group. Persisted to localStorage
 // because this is an app-level preference, not project-scoped state.
 
-const STORAGE_KEY = 'sworm:recentCommands'
+const STORAGE_KEY = 'axome:recentCommands'
 const MAX_RECENTS = 6
 
 function load(): string[] {

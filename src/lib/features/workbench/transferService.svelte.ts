@@ -237,7 +237,7 @@ export async function initTransferService(): Promise<() => void> {
 export function dropFromOtherWindow(event: DragEvent, targetIndex: number): boolean {
   const native = platform.native
   if (!native) return false
-  const item = parsePayload(event.dataTransfer?.getData(DND_MIME.SWORM_ITEM))?.items[0]
+  const item = parsePayload(event.dataTransfer?.getData(DND_MIME.AXOME_ITEM))?.items[0]
   const targetWindow = platform.workbench.id
   if (
     (item?.kind !== 'tab' && item?.kind !== 'workbench') ||

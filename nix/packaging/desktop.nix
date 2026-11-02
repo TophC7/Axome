@@ -1,11 +1,11 @@
 {
   lib,
   pkgs,
-  sworm,
+  axome,
   version ? "0.0.0",
   src,
   maintainer ? "Chris Toph <toph@ryot.foo>",
-  homepage ? "https://github.com/TophC7/Sworm",
+  homepage ? "https://github.com/TophC7/Axome",
 }:
 let
   debArch =
@@ -38,17 +38,17 @@ let
   # Distro packages run on the host's GTK/WebKitGTK and GPU drivers: a bundled
   # Nix closure cannot load host EGL vendors (EGL_BAD_PARAMETER at startup).
   installNativePayload = root: ''
-    install -Dm755 ${sworm}/bin/.sworm-wrapped "${root}/usr/bin/sworm"
-    patchelf --set-interpreter ${interpreter} --remove-rpath "${root}/usr/bin/sworm"
-    install -Dm644 ${sworm}/share/applications/sworm.desktop "${root}/usr/share/applications/sworm.desktop"
-    sed -i 's|^Exec=sworm|Exec=/usr/bin/sworm|' "${root}/usr/share/applications/sworm.desktop"
+    install -Dm755 ${axome}/bin/.axome-wrapped "${root}/usr/bin/axome"
+    patchelf --set-interpreter ${interpreter} --remove-rpath "${root}/usr/bin/axome"
+    install -Dm644 ${axome}/share/applications/axome.desktop "${root}/usr/share/applications/axome.desktop"
+    sed -i 's|^Exec=axome|Exec=/usr/bin/axome|' "${root}/usr/share/applications/axome.desktop"
     mkdir -p "${root}/usr/share/icons"
-    cp -r ${sworm}/share/icons/. "${root}/usr/share/icons/"
-    install -Dm644 ${src}/LICENSE "${root}/usr/share/doc/sworm/LICENSE"
+    cp -r ${axome}/share/icons/. "${root}/usr/share/icons/"
+    install -Dm644 ${src}/LICENSE "${root}/usr/share/doc/axome/LICENSE"
   '';
 
   deb = pkgs.stdenv.mkDerivation {
-    pname = "sworm-deb";
+    pname = "axome-deb";
     inherit version;
 
     nativeBuildInputs = [
@@ -67,7 +67,7 @@ let
 
             # 1. Debian control file
             cat > "$pkgdir/DEBIAN/control" <<EOF
-      Package: sworm
+      Package: axome
       Version: ${debVersion}
       Section: devel
       Priority: optional
@@ -76,7 +76,7 @@ let
       Homepage: ${homepage}
       Depends: libc6 (>= 2.39), libgtk-3-0t64 | libgtk-3-0, libwebkit2gtk-4.1-0, git
       Description: Linux-first desktop app for coding-agent CLIs
-       Sworm is a Linux-first desktop development environment for working with coding-agent CLIs.
+       Axome is a Linux-first desktop development environment for working with coding-agent CLIs.
       EOF
 
             # 2. Binary, desktop entry, icons and license
@@ -84,21 +84,21 @@ let
 
             # 3. Build the deb package
             mkdir -p "$out"
-            debFileName="sworm_${debVersion}_${debArch}.deb"
+            debFileName="axome_${debVersion}_${debArch}.deb"
             dpkg-deb --build --root-owner-group --threads-max=0 -Zzstd "$pkgdir" "$out/$debFileName"
 
             runHook postBuild
     '';
 
     meta = {
-      description = "Debian package for Sworm desktop (system GTK/WebKitGTK)";
+      description = "Debian package for Axome desktop (system GTK/WebKitGTK)";
       license = lib.licenses.agpl3Plus;
       platforms = lib.platforms.linux;
     };
   };
 
   rpm = pkgs.stdenv.mkDerivation {
-    pname = "sworm-rpm";
+    pname = "axome-rpm";
     inherit version;
 
     nativeBuildInputs = [
@@ -120,7 +120,7 @@ let
             ${installNativePayload "$pkgdir"}
 
             # 2. RPM spec file
-            cat > "$topdir/SPECS/sworm.spec" <<EOF
+            cat > "$topdir/SPECS/axome.spec" <<EOF
       %define _binary_payload w3T.zstdio
       %define __strip /bin/true
       %define __brp_strip /bin/true
@@ -128,7 +128,7 @@ let
       %define _build_id_links none
       AutoReqProv: no
 
-      Name: sworm
+      Name: axome
       Version: ${debVersion}
       Release: 1
       Summary: Linux-first desktop app for coding-agent CLIs
@@ -138,14 +138,14 @@ let
       Requires: glibc >= 2.39, gtk3, webkit2gtk4.1, git
 
       %description
-      Sworm is a Linux-first desktop development environment for working with coding-agent CLIs.
+      Axome is a Linux-first desktop development environment for working with coding-agent CLIs.
 
       %files
       %defattr(-,root,root,-)
-      /usr/bin/sworm
-      /usr/share/applications/sworm.desktop
+      /usr/bin/axome
+      /usr/share/applications/axome.desktop
       /usr/share/icons/hicolor/*/*/*
-      /usr/share/doc/sworm
+      /usr/share/doc/axome
       EOF
 
             # 3. Build the RPM package
@@ -156,7 +156,7 @@ let
               --define "_tmppath $TMPDIR" \
               --define "_dbpath $topdir/rpmdb" \
               --buildroot "$pkgdir" \
-              "$topdir/SPECS/sworm.spec"
+              "$topdir/SPECS/axome.spec"
 
             mkdir -p "$out"
             cp "$topdir"/RPMS/*/*.rpm "$out/"
@@ -165,14 +165,14 @@ let
     '';
 
     meta = {
-      description = "RPM package for Sworm desktop (system GTK/WebKitGTK)";
+      description = "RPM package for Axome desktop (system GTK/WebKitGTK)";
       license = lib.licenses.agpl3Plus;
       platforms = lib.platforms.linux;
     };
   };
 
   pkgbuildTemplate = ''
-    pkgname=sworm-bin
+    pkgname=axome-bin
     pkgver=@VERSION@
     pkgrel=1
     pkgdesc='Linux-first desktop app for coding-agent CLIs'
@@ -188,14 +188,14 @@ let
       'webkit2gtk-4.1'
     )
     makedepends=('libarchive')
-    provides=("sworm=$pkgver")
-    conflicts=('sworm')
+    provides=("axome=$pkgver")
+    conflicts=('axome')
     options=('!strip')
-    source_x86_64=("https://github.com/TophC7/Sworm/releases/download/@COMMIT@/sworm_''${pkgver}_amd64.deb")
+    source_x86_64=("https://github.com/TophC7/Axome/releases/download/@COMMIT@/axome_''${pkgver}_amd64.deb")
     sha256sums_x86_64=('@AMD64_SHA256@')
-    source_aarch64=("https://github.com/TophC7/Sworm/releases/download/@COMMIT@/sworm_''${pkgver}_arm64.deb")
+    source_aarch64=("https://github.com/TophC7/Axome/releases/download/@COMMIT@/axome_''${pkgver}_arm64.deb")
     sha256sums_aarch64=('@ARM64_SHA256@')
-    noextract=("sworm_''${pkgver}_amd64.deb" "sworm_''${pkgver}_arm64.deb")
+    noextract=("axome_''${pkgver}_amd64.deb" "axome_''${pkgver}_arm64.deb")
 
     package() {
       local deb_arch
@@ -204,13 +204,13 @@ let
         aarch64) deb_arch=arm64 ;;
       esac
 
-      bsdtar -xOf "$srcdir/sworm_''${pkgver}_''${deb_arch}.deb" 'data.tar.*' |
+      bsdtar -xOf "$srcdir/axome_''${pkgver}_''${deb_arch}.deb" 'data.tar.*' |
         bsdtar -xf - -C "$pkgdir"
 
-      install -Dm644 "$pkgdir/usr/share/doc/sworm/LICENSE" \
+      install -Dm644 "$pkgdir/usr/share/doc/axome/LICENSE" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-      rm -f "$pkgdir/usr/share/doc/sworm/LICENSE"
-      rmdir --ignore-fail-on-non-empty "$pkgdir/usr/share/doc/sworm" "$pkgdir/usr/share/doc"
+      rm -f "$pkgdir/usr/share/doc/axome/LICENSE"
+      rmdir --ignore-fail-on-non-empty "$pkgdir/usr/share/doc/axome" "$pkgdir/usr/share/doc"
     }
   '';
 
@@ -236,8 +236,8 @@ let
             ;;
         esac
 
-        AMD64_DEB="$DIST_DIR/sworm_''${VERSION}_amd64.deb"
-        ARM64_DEB="$DIST_DIR/sworm_''${VERSION}_arm64.deb"
+        AMD64_DEB="$DIST_DIR/axome_''${VERSION}_amd64.deb"
+        ARM64_DEB="$DIST_DIR/axome_''${VERSION}_arm64.deb"
 
         if [ ! -f "$AMD64_DEB" ] || [ ! -f "$ARM64_DEB" ]; then
           echo "Missing release artifacts in $DIST_DIR: $AMD64_DEB or $ARM64_DEB" >&2
@@ -268,8 +268,8 @@ let
           makepkg --config "$CONF" --printsrcinfo > .SRCINFO
         )
 
-        tar -czf "$DIST_DIR/sworm-bin-$COMMIT_HASH.tar.gz" -C "$WORK_DIR" PKGBUILD .SRCINFO
-        echo "Generated $DIST_DIR/sworm-bin-$COMMIT_HASH.tar.gz"
+        tar -czf "$DIST_DIR/axome-bin-$COMMIT_HASH.tar.gz" -C "$WORK_DIR" PKGBUILD .SRCINFO
+        echo "Generated $DIST_DIR/axome-bin-$COMMIT_HASH.tar.gz"
   '';
 in
 {

@@ -1,6 +1,6 @@
 import type { BundledLanguage, Highlighter, ThemedToken } from 'shiki'
 
-export const SHIKI_THEME_NAME = 'sworm'
+export const SHIKI_THEME_NAME = 'axome'
 let highlighterPromise: Promise<Highlighter> | null = null
 
 export function getHighlighter(): Promise<Highlighter> {

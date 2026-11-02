@@ -1,24 +1,24 @@
-# Sworm <img src="src-tauri/icons/icon.svg" width="36" height="36" align="top" alt="" />
+# Axome <img src="src-tauri/icons/icon.svg" width="36" height="36" align="top" alt="" />
 
 **A Linux desktop workspace for coding-agent CLIs.**
 
-Keep using Claude Code, Codex, OMP, or Antigravity in the terminal. Sworm puts a file editor, Git diffs, and local issues alongside them, so you can follow the work and review changes without bouncing between separate apps.
+Keep using Claude Code, Codex, OMP, or Antigravity in the terminal. Axome puts a file editor, Git diffs, and local issues alongside them, so you can follow the work and review changes without bouncing between separate apps.
 
 Tabs can belong to different repositories. Switch tabs, and the file tree and Git sidebar follow.
 
-Sworm is a passion project in active development, built around a simple idea: keep the agent's own interface, and make the work around it easier.
+Axome is a passion project in active development, built around a simple idea: keep the agent's own interface, and make the work around it easier.
 
-![Sworm in action: switching tabs, editing files, reviewing diffs, and launching agents](docs/readme/tab-driven-workflow.webp)
+![Axome in action: switching tabs, editing files, reviewing diffs, and launching agents](docs/readme/tab-driven-workflow.webp)
 
 ## Try it
 
 With [Nix](https://nixos.org/) and flakes enabled:
 
 ```sh
-nix run github:tophc7/Sworm
+nix run github:tophc7/Axome
 ```
 
-Install and authenticate whichever agent CLI you want to use separately. Sworm detects supported installed agents; you can also open a regular terminal using your login shell.
+Install and authenticate whichever agent CLI you want to use separately. Axome detects supported installed agents; you can also open a regular terminal using your login shell.
 
 <details>
 <summary>Install on Debian, Fedora, or Arch</summary>
@@ -27,32 +27,32 @@ Packages use your distribution's GTK, WebKitGTK, and graphics drivers.
 
 ### Debian
 
-Download the `.deb` for your architecture from [GitHub Releases](https://github.com/TophC7/Sworm/releases/latest), then install:
+Download the `.deb` for your architecture from [GitHub Releases](https://github.com/TophC7/Axome/releases/latest), then install:
 
 ```sh
-sudo apt install ./sworm_*_$(dpkg --print-architecture).deb
+sudo apt install ./axome_*_$(dpkg --print-architecture).deb
 ```
 
 Available for Debian 13+ and Ubuntu 24.04+ on `amd64` and `arm64`. To update, install a newer release with the same command.
 
 ### Fedora
 
-Download the `.rpm` for your architecture from [GitHub Releases](https://github.com/TophC7/Sworm/releases/latest), then install:
+Download the `.rpm` for your architecture from [GitHub Releases](https://github.com/TophC7/Axome/releases/latest), then install:
 
 ```sh
-sudo dnf install ./sworm-*-1.$(uname -m).rpm
+sudo dnf install ./axome-*-1.$(uname -m).rpm
 ```
 
 Supports Fedora 40+ on `x86_64` and `aarch64`. To update, install a newer release with the same command.
 
 ### Arch
 
-Download `sworm-bin-<commit>.tar.gz` from [GitHub Releases](https://github.com/TophC7/Sworm/releases/latest) into an empty directory, then unpack and install:
+Download `axome-bin-<commit>.tar.gz` from [GitHub Releases](https://github.com/TophC7/Axome/releases/latest) into an empty directory, then unpack and install:
 
 Using `yay`:
 
 ```sh
-tar -xf sworm-bin-*.tar.gz
+tar -xf axome-bin-*.tar.gz
 yay -Bi .
 ```
 
@@ -60,7 +60,7 @@ Using `makepkg`:
 
 ```sh
 sudo pacman -S --needed base-devel
-tar -xf sworm-bin-*.tar.gz
+tar -xf axome-bin-*.tar.gz
 makepkg -si
 ```
 
@@ -68,13 +68,13 @@ Supports `x86_64` and `aarch64`.
 
 </details>
 
-## Why I built Sworm
+## Why I built Axome
 
 I've always liked VS Code's straightforward workflow. I was much less happy with it's use of Electron, especially on Wayland, and wanted something that felt familiar without relying on it.
 
 As coding agents became part of my daily work, I found I really only needed a file tree, Git diffs, an editor, and a terminal. I wasn't using any of the rest of the "IDE" or its extensions anymore; but VS Code's workflow was still the only that worked for me.
 
-Sworm grew out of that: a workspace for the parts I actually use when working with agents. It's evolved into a tab-driven workflow of its own, while keeping enough familiarity that VS Code users should feel at home.
+Axome grew out of that: a workspace for the parts I actually use when working with agents. It's evolved into a tab-driven workflow of its own, while keeping enough familiarity that VS Code users should feel at home.
 
 ## What you can do
 
@@ -91,7 +91,7 @@ In native Axo chats, `Alt+O` cycles through folded work, call summaries, and ope
 
 ![Project dashboard with seven-day agent activity](docs/readme/home.png)
 
-![An OMP session beside Sworm's Git changes and commit graph](docs/readme/git-gragh-diff_omp-session.png)
+![An OMP session beside Axome's Git changes and commit graph](docs/readme/git-gragh-diff_omp-session.png)
 
 </details>
 
@@ -106,16 +106,16 @@ Browse files, edit code, and review changes before committing:
 - **Monaco code editing** with built-in language server (LSP) support (Rust, TypeScript/JavaScript, Svelte, Python, Nix, Fish, HTML, CSS, Tailwind, Biome) and Shiki highlighting.
 - **Markdown editing** with a live preview styled to match GitHub as closely as possible.
 - **File tree** with filtering, drag-and-drop, status-aware Git actions, and safe deletion/discard to the system trash.
-- **Runnable project tasks** defined in `.sworm/tasks.jsonc`.
+- **Runnable project tasks** defined in `.axome/tasks.jsonc`.
 
 <details>
 <summary>📷 See Git diffs, the code editor, Markdown preview, and command palette</summary>
 
-![Sworm showing a split commit diff beside the file changes and Git graph](docs/readme/commit-diff.png)
+![Axome showing a split commit diff beside the file changes and Git graph](docs/readme/commit-diff.png)
 
-![Code editing in Sworm](docs/readme/monaco-file.png)
+![Code editing in Axome](docs/readme/monaco-file.png)
 
-![Markdown source and live preview in Sworm](docs/readme/markdown-split.png)
+![Markdown source and live preview in Axome](docs/readme/markdown-split.png)
 
 ![Workbench command palette](docs/readme/pallete.png)
 
@@ -127,7 +127,7 @@ Use `Ctrl+Shift+P` for workbench commands, `Ctrl+P` to find files, or `Ctrl+O` t
 
 Because tabs in the same folder share its working tree, you can spin up separate Git worktrees when running multiple agents in parallel. Create, open, and remove worktrees from the Git sidebar's **Worktrees** tab, branch menus, or commit history, or use **Migrate Changes to Main** to move uncommitted work back to the primary checkout.
 
-To copy untracked local files (such as `.env`) into new worktrees automatically, configure `git.worktree_copy` in `.sworm/settings.jsonc`:
+To copy untracked local files (such as `.env`) into new worktrees automatically, configure `git.worktree_copy` in `.axome/settings.jsonc`:
 
 ```jsonc
 {
@@ -141,7 +141,7 @@ To copy untracked local files (such as `.env`) into new worktrees automatically,
 }
 ```
 
-Tasks in `.sworm/tasks.jsonc` can also run automatically when a worktree is created:
+Tasks in `.axome/tasks.jsonc` can also run automatically when a worktree is created:
 
 ```jsonc
 {
@@ -160,9 +160,9 @@ Tasks in `.sworm/tasks.jsonc` can also run automatically when a worktree is crea
 
 ### Use your project's Nix environment
 
-Sworm detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers.
+Axome detects `flake.nix`, `shell.nix`, and `default.nix`. Select and evaluate an environment from the Nix applet at the foot of the sidebar rail; once ready, it is used for new terminals, agent sessions, runnable tasks, and language servers.
 
-Everything Sworm launches starts from the environment Sworm itself was launched with, minus Sworm's own packaging edits (the GTK wrapper and devshell record each variable's prior value as `SWORM_ORIG_<NAME>`, and Sworm restores it). That environment is resolved through your login shell (`$SHELL -l`, including home-manager session variables), and the folder's Nix environment is layered on top; session values such as `DISPLAY`, `WAYLAND_DISPLAY`, or `SSH_AUTH_SOCK` always come from the host. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Sworm.
+Everything Axome launches starts from the environment Axome itself was launched with, minus Axome's own packaging edits (the GTK wrapper and devshell record each variable's prior value as `AXOME_ORIG_<NAME>`, and Axome restores it). That environment is resolved through your login shell (`$SHELL -l`, including home-manager session variables), and the folder's Nix environment is layered on top; session values such as `DISPLAY`, `WAYLAND_DISPLAY`, or `SSH_AUTH_SOCK` always come from the host. After changing your login files, run **Reload Environment** from the command palette; new terminals, sessions, and tasks pick it up without restarting Axome.
 
 The sidebar rail's foot holds the Nix environment, remote servers, notifications and the app menu; the title bar cell above the sidebar shows the current folder.
 
@@ -175,7 +175,7 @@ The sidebar rail's foot holds the Nix environment, remote servers, notifications
 
 ### Terminal presets
 
-Define shell launch variants under `shell.presets` in `~/.config/sworm/settings.jsonc` or a folder's `.sworm/settings.jsonc`. Each preset can override the shell `command`, append `args`, add `env`, and type a `startup` line into the shell after it starts. `shell.default_preset` picks what **New Terminal** (Ctrl+T) opens; every preset also gets its own New Tab card and palette command.
+Define shell launch variants under `shell.presets` in `~/.config/axome/settings.jsonc` or a folder's `.axome/settings.jsonc`. Each preset can override the shell `command`, append `args`, add `env`, and type a `startup` line into the shell after it starts. `shell.default_preset` picks what **New Terminal** (Ctrl+T) opens; every preset also gets its own New Tab card and palette command.
 
 ```jsonc
 {
@@ -188,7 +188,7 @@ Define shell launch variants under `shell.presets` in `~/.config/sworm/settings.
 }
 ```
 
-A task in `.sworm/tasks.jsonc` can run inside a preset with `"shell": "dev"`: the preset's `startup` runs first, then the task's `command`. Tasks without `shell` run under your login shell.
+A task in `.axome/tasks.jsonc` can run inside a preset with `"shell": "dev"`: the preset's `startup` runs first, then the task's `command`. Tasks without `shell` run under your login shell.
 
 ### Keep local tasks alongside the code
 
@@ -203,23 +203,24 @@ Track issues with priorities, group them into epics, and see progress in the sid
 
 ### Work on remote hosts or in the browser
 
-Run `sworm-server` on another Linux machine to open remote folders from the desktop app over QUIC (with mTLS fingerprint pairing), or enable its web listener to use the Sworm workbench directly in a browser. Agent sessions and tasks keep running on the server if you disconnect or close the window, and reattach when you return.
+Run `axome-server` on another Linux machine to open remote folders from the desktop app over QUIC (with mTLS fingerprint pairing), or enable its web listener to use the Axome workbench directly in a browser. Agent sessions and tasks keep running on the server if you disconnect or close the window, and reattach when you return.
 
-The flake exports `packages.<system>.sworm-server`, `nixosModules.sworm-server`, and `homeManagerModules.sworm` for declarative setups, alongside `.deb`, `.rpm`, and tarball server artifacts on GitHub Releases.
+The flake exports `packages.<system>.axome-server`, `nixosModules.axome-server`, and `homeManagerModules.axome` for declarative setups, alongside `.deb`, `.rpm`, and tarball server artifacts on GitHub Releases.
 
 ## Worth knowing
 
 - **Active development, Linux-first.** Expect rough edges and changes as the project grows. I do daily-drive it however, so it's stable enough.
 - **Sessions in the same folder share its working tree.** Tabs do not create isolated worktrees; create a separate worktree for independent edits.
-- **Your agent is still your agent.** Sworm runs the CLI itself; model information and other output inside its terminal come from that CLI.
+- **Your agent is still your agent.** Axome runs the CLI itself; model information and other output inside its terminal come from that CLI.
+- **Coming from Sworm?** Global settings, app-owned state (the cached session index, Nix env cache) and server state start fresh under the Axome names; nothing in `~/.config/sworm`, `~/.local/share/dev.sworm` or `~/.cache/sworm` is read or migrated. Sessions that harnesses keep in their own files are still discovered. Only per-project folders carry over: rename each repo's `.sworm/` to `.axome/` (its `issues.db` keeps working as-is), then update `.sworm/` paths and `dev.sworm.*` extension ids in its settings and tasks. Remote desktop and `axome-server` must both be Axome builds; the wire protocol is `axome/1`.
 
 ## Development
 
 Nix provides the development toolchain and Linux desktop dependencies:
 
 ```sh
-git clone https://github.com/tophc7/Sworm.git
-cd Sworm
+git clone https://github.com/tophc7/Axome.git
+cd Axome
 nix develop
 bun install
 bun run app:dev
@@ -232,16 +233,18 @@ nix build
 nix run .
 ```
 
-Sworm uses [Tauri v2](https://tauri.app/) and Rust for the desktop runtime, with the system Git CLI and SQLite. The interface is built with Svelte 5, SvelteKit, and Tailwind CSS v4; editing uses Monaco and Shiki, and terminals use xterm.js. Nix defines the development environment and packaging.
+Axome uses [Tauri v2](https://tauri.app/) and Rust for the desktop runtime, with the system Git CLI and SQLite. The interface is built with Svelte 5, SvelteKit, and Tailwind CSS v4; editing uses Monaco and Shiki, and terminals use xterm.js. Nix defines the development environment and packaging.
+
+Typography is bundled: [Paper Mono](https://paper.design/mono) (OFL) is the default for the interface, editor, and terminal. The interface face enables all of its stylistic sets, including duospace and narrow spaces; code surfaces keep a fixed grid with only ligatures, small arrows, single-story a, and slashed zero. [Symbols Nerd Font Mono](https://www.nerdfonts.com/) supplies icon glyphs as a fallback. Override either family under **Settings → Appearance → Typography**.
 
 ## Feedback
 
-If you try Sworm, I'd like to hear what works for you and what gets in the way. [Open an issue](https://github.com/tophc7/Sworm/issues) with bugs, ideas, or how you use coding agents.
+If you try Axome, I'd like to hear what works for you and what gets in the way. [Open an issue](https://github.com/tophc7/Axome/issues) with bugs, ideas, or how you use coding agents.
 
 ## Credits
 
-- [Emdash](https://github.com/generalaction/emdash) was an early architectural inspiration for Sworm's agent-focused workspace.
-- [VS Code](https://code.visualstudio.com/) shaped the workflow and UI familiarity I wanted to keep. Sworm also uses Microsoft's [Monaco Editor](https://microsoft.github.io/monaco-editor/), the editor behind VS Code.
+- [Emdash](https://github.com/generalaction/emdash) was an early architectural inspiration for Axome's agent-focused workspace.
+- [VS Code](https://code.visualstudio.com/) shaped the workflow and UI familiarity I wanted to keep. Axome also uses Microsoft's [Monaco Editor](https://microsoft.github.io/monaco-editor/), the editor behind VS Code.
 
 ## License
 

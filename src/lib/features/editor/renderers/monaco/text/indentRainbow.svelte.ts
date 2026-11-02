@@ -7,7 +7,7 @@
 import type { editor as Editor, IDisposable } from 'monaco-editor'
 
 // ── Colors ──────────────────────────────────────────────────────────
-// Derived from the Sworm syntax palette at low opacity so the rainbow
+// Derived from the Axome syntax palette at low opacity so the rainbow
 // feels native against the #131313 editor background.
 
 const COLORS = [

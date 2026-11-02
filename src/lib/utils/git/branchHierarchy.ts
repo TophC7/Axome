@@ -1,6 +1,6 @@
 // Slash-grouping for the Branches view tree mode.
 //
-// Port of GitLens' `makeHierarchical`, scaled down to what Sworm needs.
+// Port of GitLens' `makeHierarchical`, scaled down to what Axome needs.
 // Splits each branch name on `/` and folds shared prefixes into shared
 // nodes so `feature/auth/login` and `feature/auth/signup` collapse
 // under one `feature` → `auth` chain.

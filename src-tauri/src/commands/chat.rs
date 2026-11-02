@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::host_events::channel_sink;
-use sworm_core::errors::ApiError;
-use sworm_protocol::chat::ChatEvent;
+use axome_core::errors::ApiError;
+use axome_protocol::chat::ChatEvent;
 
 #[tauri::command]
 pub async fn chat_attach(

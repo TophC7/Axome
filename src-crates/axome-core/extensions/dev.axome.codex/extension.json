@@ -1,0 +1,26 @@
+{
+  "id": "dev.axome.codex",
+  "label": "Codex",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "harnesses": [
+      {
+        "id": "codex",
+        "label": "Codex",
+        "command": "codex",
+        "install_hint": "Install with: npm install -g @openai/codex",
+        "brand": {
+          "icon": "./icons/codex.svg",
+          "wordmark": "./icons/codex-text.svg",
+          "wordmark_aspect": 3.791667,
+          "gradient": ["#6ee7b7", "#065f46"]
+        },
+        "history": { "builtin": "codex" },
+        "terminal": {
+          "resume_args": ["resume", "${session_id}"]
+        }
+      }
+    ]
+  }
+}

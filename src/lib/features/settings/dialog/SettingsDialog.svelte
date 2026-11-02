@@ -238,7 +238,7 @@
 
         <footer class="flex h-10 shrink-0 items-center justify-between border-t border-edge px-5 text-sm">
           <span class="font-mono text-xs text-subtle">
-            {#if version}Sworm {version}{/if}
+            {#if version}Axome {version}{/if}
           </span>
 
           <Tooltip.Root>

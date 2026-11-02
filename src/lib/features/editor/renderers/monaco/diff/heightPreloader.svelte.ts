@@ -23,7 +23,7 @@ import {
   getDiffEditorPool,
   type DiffEditorSettings
 } from '$lib/features/editor/renderers/monaco/diff/editorPool.svelte'
-import { SWORM_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { AXOME_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
 import type { DiffModelStore } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
 
 type DiffEditor = import('monaco-editor').editor.IStandaloneDiffEditor
@@ -90,7 +90,7 @@ export class DiffHeightPreloader {
 
       this.editor = monaco.editor.createDiffEditor(container, this.buildOptions(settings))
       this.currentSettings = settings
-      monaco.editor.setTheme(SWORM_THEME_NAME)
+      monaco.editor.setTheme(AXOME_THEME_NAME)
       this.editor.layout({ width: HIDDEN_WIDTH, height: HIDDEN_HEIGHT })
       return
     }

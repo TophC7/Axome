@@ -7,8 +7,8 @@ export interface WindowControlsConfig {
   showClose: boolean
 }
 
-const WC_STORAGE_KEY = 'sworm:window-controls'
-const LEGACY_WC_STORAGE_KEY = 'sworm:windowControls'
+const WC_STORAGE_KEY = 'axome:window-controls'
+const LEGACY_WC_STORAGE_KEY = 'axome:windowControls'
 
 function loadWindowControls(): WindowControlsConfig {
   const defaults: WindowControlsConfig = {

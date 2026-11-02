@@ -25,16 +25,16 @@ use std::{
     collections::HashMap,
     sync::{Arc, LazyLock},
 };
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::{EventSink, HostEvent},
     Host,
 };
-use sworm_protocol::{
+use axome_protocol::{
     chat::ChatEvent,
     rpc::{Reply, Request},
 };
-use sworm_remote::{client::client_endpoint, Identity, RemoteError};
+use axome_remote::{client::client_endpoint, Identity, RemoteError};
 use tokio::sync::{Mutex as AsyncMutex, OnceCell};
 pub(crate) struct RouterInner {
     pub(crate) host: Arc<Host>,

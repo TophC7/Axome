@@ -322,7 +322,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       label: 'Open Folder Settings',
       group: 'General',
       icon: SettingsIcon,
-      keywords: ['settings', 'preferences', 'jsonc', 'folder', 'sworm'],
+      keywords: ['settings', 'preferences', 'jsonc', 'folder', 'axome'],
       visible: activeFolderVisible,
       run: openFolderSettingsFile
     }),

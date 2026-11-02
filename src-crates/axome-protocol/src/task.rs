@@ -1,0 +1,116 @@
+// Per-project task definitions parsed from `.axome/tasks.jsonc`.
+//
+// Doc comments on each field become `description` entries in the
+// generated JSON Schema, which Monaco surfaces as hover tooltips and
+// autocomplete docs in the editor. Keep them user-facing.
+
+use std::collections::HashMap;
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+/// Root shape of `.axome/tasks.jsonc`. Committed to the repo and
+/// shared by the whole team.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TasksFile {
+    /// Schema version. Current: 1.
+    pub version: u32,
+
+    /// Task entries shown in the new tab page, command palette, and title-bar menu.
+    pub tasks: Vec<TaskDefinition>,
+}
+
+/// Automatic lifecycle trigger for a task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskRunOn {
+    /// Run after a worktree is created and its configured files are copied.
+    WorktreeCreated,
+}
+
+/// A single reusable terminal command exposed as a task.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskDefinition {
+    /// Stable identifier. Used for state keys and references.
+    /// Keep it URL-safe (letters, digits, dashes).
+    pub id: String,
+
+    /// Display name shown on the tab and in menus.
+    pub label: String,
+
+    /// Shell command to execute. Runs via `$SHELL -c`, so pipes,
+    /// globs, and environment expansion are supported.
+    pub command: String,
+
+    /// Shell preset from `shell.presets` used to run this task. Omit to use the detected login shell.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+
+    /// Working directory relative to the project root. Defaults to
+    /// the project root when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+
+    /// Additional environment variables merged on top of the
+    /// inherited project environment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env: Option<HashMap<String, String>>,
+
+    /// Lucide icon name used on the tab. Any valid Lucide identifier
+    /// is accepted; invalid names fall back to a default task icon.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+
+    /// Optional group label. Tasks sharing a group appear together
+    /// in the command palette.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+
+    /// If true, rerunning the task while it is active focuses the
+    /// existing tab instead of opening a new one.
+    #[serde(default)]
+    pub singleton: bool,
+
+    /// If true, terminal scrollback is cleared on rerun. Only
+    /// meaningful for singleton tasks.
+    #[serde(default)]
+    pub clear_on_rerun: bool,
+
+    /// If true, prompt the user for confirmation before running.
+    /// Use for destructive or expensive commands.
+    #[serde(default)]
+    pub confirm: bool,
+
+    /// Automatically run after creating a worktree. Omit to run manually.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_on: Option<TaskRunOn>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worktree_creation_trigger_is_explicit_and_optional() {
+        let mut definition = serde_json::json!({
+            "id": "setup",
+            "label": "Setup",
+            "command": "printf ready"
+        });
+        let manual: TaskDefinition = serde_json::from_value(definition.clone()).unwrap();
+        assert_eq!(manual.run_on, None);
+        assert!(serde_json::to_value(manual).unwrap().get("runOn").is_none());
+
+        definition["runOn"] = serde_json::json!("worktreeCreated");
+        let automatic: TaskDefinition = serde_json::from_value(definition.clone()).unwrap();
+        assert_eq!(automatic.run_on, Some(TaskRunOn::WorktreeCreated));
+        assert_eq!(
+            serde_json::to_value(automatic).unwrap()["runOn"],
+            "worktreeCreated"
+        );
+        definition["runOn"] = serde_json::json!("folderOpen");
+        assert!(serde_json::from_value::<TaskDefinition>(definition).is_err());
+    }
+}

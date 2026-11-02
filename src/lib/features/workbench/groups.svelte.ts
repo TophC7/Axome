@@ -95,7 +95,7 @@ function mapGroupSnapshot(
         return { ...tab, folderPath: remote.path }
       }
       if (!tab.folderPath.startsWith('/')) throw new Error('Invalid server-local tab folder')
-      return { ...tab, folderPath: `sworm://${server}${tab.folderPath}` }
+      return { ...tab, folderPath: `axome://${server}${tab.folderPath}` }
     })
   }
 }

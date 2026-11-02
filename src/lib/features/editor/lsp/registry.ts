@@ -7,7 +7,7 @@ import type { LspDocumentSelector, LspEvent, LspServerSettingsEntry } from '$lib
 import { basename, splitRemotePath, toProjectRelativePath } from '$lib/utils/paths'
 import { platform } from '$lib/platform'
 
-const LSP_MARKER_OWNER = 'sworm-lsp'
+const LSP_MARKER_OWNER = 'axome-lsp'
 const TEXT_DOCUMENT_SYNC_FULL = 1
 const TEXT_DOCUMENT_SYNC_INCREMENTAL = 2
 const LSP_INSTANCE_IDLE_STOP_MS = 30_000
@@ -434,7 +434,7 @@ class LspRegistry {
 
       const initializeResult = (await this.request(instance, 'initialize', {
         processId: null,
-        clientInfo: { name: 'Sworm' },
+        clientInfo: { name: 'Axome' },
         rootUri: modelPathToFileUri(instance.rootLspPath),
         rootPath: instance.rootLspPath,
         initializationOptions: instance.entry.server.initialization_options ?? undefined,

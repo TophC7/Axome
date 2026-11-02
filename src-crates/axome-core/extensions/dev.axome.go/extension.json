@@ -1,0 +1,53 @@
+{
+  "id": "dev.axome.go",
+  "label": "Go",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "formatters": [
+      {
+        "id": "gofmt",
+        "label": "gofmt",
+        "languages": ["go"],
+        "command": "gofmt",
+        "default": false,
+        "install_hint": "Install Go and ensure `gofmt` is on PATH."
+      }
+    ],
+    "grammars": [
+      {
+        "language": "go",
+        "path": "./grammars/go.tmLanguage.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "go",
+        "label": "Go",
+        "aliases": ["go"],
+        "extensions": [".go"],
+        "filenames": ["go.mod", "go.sum", "go.work"]
+      }
+    ],
+    "lsp_servers": [
+      {
+        "id": "gopls",
+        "label": "gopls",
+        "applies_to_languages": ["go"],
+        "command": "gopls",
+        "args": [],
+        "install_hint": "Install Go and ensure `gopls` is on PATH.",
+        "document_selectors": [
+          {
+            "language": "go",
+            "extensions": [".go"]
+          }
+        ],
+        "settings": {
+          "section": "gopls",
+          "schema_path": "./settings.schema.json"
+        }
+      }
+    ]
+  }
+}

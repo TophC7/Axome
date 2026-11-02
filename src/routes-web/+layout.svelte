@@ -9,7 +9,7 @@
 {#if !secure}
   <div class="flex h-screen flex-col items-center justify-center gap-2 bg-ground p-6 text-center">
     <h1 class="text-3xl text-bright">Secure Context Required</h1>
-    <p class="text-base text-muted">Use localhost HTTP or an HTTPS reverse proxy to open Sworm Web.</p>
+    <p class="text-base text-muted">Use localhost HTTP or an HTTPS reverse proxy to open Axome Web.</p>
   </div>
 {:else}
   {@render children()}

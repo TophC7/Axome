@@ -1,0 +1,29 @@
+{
+  "id": "dev.axome.omp",
+  "label": "OMP",
+  "version": "1.0.0",
+  "api": 1,
+  "contributes": {
+    "harnesses": [
+      {
+        "id": "omp",
+        "label": "OMP",
+        "command": "omp",
+        "install_hint": "Install OMP from your Nix/home-manager configuration or package manager.",
+        "brand": {
+          "icon": "./icons/omp.svg",
+          "wordmark_font": "var(--font-plantin)",
+          "gradient": ["#ed4abf", "#3b0764"]
+        },
+        "detect": {
+          "version_stream": "stdout_or_stderr"
+        },
+        "history": { "builtin": "omp" },
+        "terminal": {
+          "resume_args": ["--resume", "${session_id}"],
+          "title_prefixes": ["π", ">"]
+        }
+      }
+    ]
+  }
+}

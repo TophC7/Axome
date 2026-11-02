@@ -23,9 +23,9 @@
     craneLib: path: type:
     (craneLib.filterCargoSources path type)
     || (lib.hasSuffix "tauri.conf.json" path)
-    || (lib.hasSuffix "sworm.desktop" path)
-    || (lib.hasInfix "src-crates/sworm-core/extensions" path)
+    || (lib.hasSuffix "axome.desktop" path)
+    || (lib.hasInfix "src-crates/axome-core/extensions" path)
     || (lib.hasInfix "src-tauri/capabilities" path)
     || (lib.hasInfix "src-tauri/icons" path)
-    || (lib.hasInfix "src-crates/sworm-core/migrations" path);
+    || (lib.hasInfix "src-crates/axome-core/migrations" path);
 }

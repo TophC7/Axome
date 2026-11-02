@@ -5,6 +5,7 @@ import type { TerminalBehavior } from './behaviors'
 import { TerminalTitleParser } from './terminalTitle'
 import { RenderBarrier } from './renderBarrier'
 import { focusTerminal, followTerminalFont, loadTerminalFont, terminalOptions, writeAndWait } from './xterm'
+import { joinLigatures } from './ligatures'
 import type { TabId } from '$lib/features/workbench/model'
 import { getActiveFolderPath, getTabs } from '$lib/features/workbench/state.svelte'
 import type { PtyEvent, TerminalTransferState } from '$lib/types/backend'
@@ -631,6 +632,8 @@ export class TerminalManager {
       new TerminalLinkProvider(this.terminal, linkHandlers)
     )
     this.terminal.open(this.hostEl)
+    // xterm creates its joiner service in open(); registering earlier throws.
+    this.terminal.registerCharacterJoiner(joinLigatures)
 
     // All key-by-key policy lives in terminalKeymap.ts. This handler
     // is a dumb dispatcher over the resolved KeyAction so adding a new

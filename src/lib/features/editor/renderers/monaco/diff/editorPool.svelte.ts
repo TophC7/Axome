@@ -12,7 +12,7 @@
 //   - Models are owned by DiffModelStore; the pool only `setModel`s them.
 //   - View-state is saved before release, restored on sticky reuse.
 
-import { SWORM_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { AXOME_THEME_NAME } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
 import { CODE_LINE_HEIGHT, getCodeFontFamily, getCodeFontSize } from '$lib/features/settings/state/typography.svelte'
 
 type Monaco = typeof import('monaco-editor')
@@ -153,7 +153,7 @@ export function createDiffOptions(settings: DiffEditorSettings): DiffOptions {
     originalEditable: false,
     readOnly: true,
     // Monaco's built-in diff gutter owns the VS Code-style hunk/selection toolbar.
-    // Sworm contributes Git actions to that menu in gitGutterMenu.ts.
+    // Axome contributes Git actions to that menu in gitGutterMenu.ts.
     renderGutterMenu: true,
     renderMarginRevertIcon: false,
     diffWordWrap: settings.wordWrap ? 'on' : 'off',
@@ -219,17 +219,17 @@ export class DiffEditorPool {
       this.monacoPromise = (async () => {
         // Both imports are dynamic so Monaco + the env bootstrap land
         // in a lazy chunk together, matching `MonacoEditor.svelte`.
-        const [{ initMonaco }, m, { ensureSwormDiffGutterMenu }] = await Promise.all([
+        const [{ initMonaco }, m, { ensureAxomeDiffGutterMenu }] = await Promise.all([
           import('$lib/features/editor/renderers/monaco/core/monacoEnv'),
           import('monaco-editor'),
           import('$lib/features/editor/renderers/monaco/diff/gitGutterMenu')
         ])
         await initMonaco(m)
-        ensureSwormDiffGutterMenu(m)
-        // Apply the Sworm theme globally so every editor we construct
+        ensureAxomeDiffGutterMenu(m)
+        // Apply the Axome theme globally so every editor we construct
         // inherits it. `createDiffEditor` doesn't take a theme in its
         // options; this is the standard Monaco pattern.
-        m.editor.setTheme(SWORM_THEME_NAME)
+        m.editor.setTheme(AXOME_THEME_NAME)
         return m
       })()
     }
@@ -432,7 +432,7 @@ export class DiffEditorPool {
   }
 }
 
-// Module-level singleton. One pool per app is sufficient — Sworm only
+// Module-level singleton. One pool per app is sufficient — Axome only
 // shows one multi-file diff at a time.
 let poolInstance: DiffEditorPool | null = null
 

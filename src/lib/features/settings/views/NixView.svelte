@@ -2,7 +2,7 @@
   @component
   NixView — Nix runtime and editor settings.
 
-  Eval timeout governs how long Sworm waits on a flake evaluation
+  Eval timeout governs how long Axome waits on a flake evaluation
   or build before giving up. Cold stores and first-run flakes can
   take minutes; under-tuned values produce false "timeout" errors.
 

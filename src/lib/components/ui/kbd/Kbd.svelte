@@ -3,7 +3,7 @@
   Kbd — individual keyboard key chip.
 
   Use inline for a single key ("Esc") or inside `<KbdGroup>` to visually
-  join a combo like "Ctrl + Shift + T". Styling mirrors Sworm's warm
+  join a combo like "Ctrl + Shift + T". Styling mirrors Axome's warm
   base16 tokens rather than raw colors.
 -->
 

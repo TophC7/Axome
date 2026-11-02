@@ -3,10 +3,10 @@ use crate::router::Target;
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use std::process::{Command, Stdio};
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 #[cfg(target_os = "linux")]
-use sworm_core::services::env::EnvironmentService;
-use sworm_core::services::folders::resolve_folder;
+use axome_core::services::env::EnvironmentService;
+use axome_core::services::folders::resolve_folder;
 use tauri::Manager;
 
 /// Open a native directory picker and return the selected canonical path.
@@ -91,7 +91,7 @@ pub async fn folder_release(
     Ok(())
 }
 
-/// Remote workspaces are owned by their `sworm://` URI; local folders by their
+/// Remote workspaces are owned by their `axome://` URI; local folders by their
 /// canonical path.
 fn folder_key(folder_path: &str) -> Result<PathBuf, ApiError> {
     match Target::parse(folder_path)? {
@@ -104,7 +104,7 @@ fn folder_key(folder_path: &str) -> Result<PathBuf, ApiError> {
 ///
 /// Detection order (Linux): $TERMINAL env, then a fallback list of
 /// common emulators. The child is fully detached (stdio nulled) so
-/// closing Sworm does not nuke the user's shell.
+/// closing Axome does not nuke the user's shell.
 #[tauri::command]
 pub async fn folder_open_in_terminal(path: String) -> Result<(), ApiError> {
     // A terminal emulator on this machine cannot cd into another host.

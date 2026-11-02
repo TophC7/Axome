@@ -13,11 +13,11 @@
 //    `attachMonaco` is called from the first editor mount.
 
 export interface SchemaEntry {
-  /** Stable identifier, e.g. `sworm.tasks` or `settings:lsp.typescript`. */
+  /** Stable identifier, e.g. `axome.tasks` or `settings:lsp.typescript`. */
   id: string
-  /** Globs matched against model URIs, e.g. `['**\/.sworm/tasks.jsonc']`. */
+  /** Globs matched against model URIs, e.g. `['**\/.axome/tasks.jsonc']`. */
   fileMatch: string[]
-  /** Model-URI prefix the schema is confined to, e.g. 'file:///' or 'sworm://<server>/'. */
+  /** Model-URI prefix the schema is confined to, e.g. 'file:///' or 'axome://<server>/'. */
   folderUri: string
   /** JSON Schema object. */
   schema: unknown
@@ -57,7 +57,7 @@ function syncNow(): void {
     validate: true,
     allowComments: true,
     schemas: Array.from(entries.values()).map((entry) => ({
-      uri: `sworm-schemas://${encodeURIComponent(entry.id)}`,
+      uri: `axome-schemas://${encodeURIComponent(entry.id)}`,
       fileMatch: entry.fileMatch,
       folderUri: entry.folderUri,
       schema: entry.schema

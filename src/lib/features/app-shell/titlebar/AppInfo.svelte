@@ -1,6 +1,6 @@
 <!--
   @component
-  AppInfo — the Sworm mark in the title bar's corner; opens a fastfetch-style runtime summary.
+  AppInfo — the Axome mark in the title bar's corner; opens a fastfetch-style runtime summary.
 -->
 
 <script lang="ts">
@@ -8,7 +8,7 @@
   import { IconButton, iconButtonVariants } from '$lib/components/ui/button'
   import { backend } from '$lib/api/backend'
   import githubIconUrl from '$lib/assets/github.svg?url'
-  import appIconUrl from '$lib/assets/sworm.svg?url'
+  import appIconUrl from '$lib/assets/axome.svg?url'
   import { getTabs } from '$lib/features/workbench/state.svelte'
   import { isProcessLive, isTerminalTab } from '$lib/features/workbench/model'
   import { notify } from '$lib/features/notifications/state.svelte'
@@ -17,7 +17,7 @@
   import { platform } from '$lib/platform'
   import MaskIcon from '$lib/icons/MaskIcon.svelte'
 
-  const REPOSITORY_URL = 'https://github.com/tophc7/sworm'
+  const REPOSITORY_URL = 'https://github.com/tophc7/axome'
 
   let open = $state(false)
   let info = $state<AppRuntimeInfo | null>(null)
@@ -103,12 +103,12 @@
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex items-baseline gap-2">
-          <span class="truncate text-md font-semibold text-bright">{info?.name ?? 'Sworm'}</span>
+          <span class="truncate text-md font-semibold text-bright">{info?.name ?? 'Axome'}</span>
           <span class="font-mono text-xs text-subtle">v{info?.version ?? '…'}</span>
         </div>
         <div class="text-xs text-muted">Agentic Development Environment</div>
       </div>
-      <IconButton ariaLabel="Open Sworm on GitHub" size="md" class="shrink-0" onclick={() => void openRepository()}>
+      <IconButton ariaLabel="Open Axome on GitHub" size="md" class="shrink-0" onclick={() => void openRepository()}>
         <MaskIcon src={githubIconUrl} width={20} />
       </IconButton>
     </div>
@@ -127,7 +127,7 @@
       <div class="mt-3 mb-2 text-2xs tracking-widest text-subtle uppercase">Resources</div>
       <dl class="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1">
         <dt class="text-success">CPU</dt>
-        <dd class="text-fg" title="Sworm process tree as a share of total machine CPU capacity">
+        <dd class="text-fg" title="Axome process tree as a share of total machine CPU capacity">
           {cpuPercent == null ? 'Sampling…' : formatCpuPercent(cpuPercent)}
         </dd>
         <dt class="text-success">Memory</dt>

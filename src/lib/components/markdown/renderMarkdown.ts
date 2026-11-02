@@ -83,7 +83,7 @@ export async function renderMarkdown(
             delete node.properties.src
           } else {
             // Trusted URLs are applied after publication; image I/O must not block the document.
-            node.properties.dataSwormImage = String(images.length)
+            node.properties.dataAxomeImage = String(images.length)
             node.properties.ariaBusy = 'true'
             delete node.properties.src
             images.push(markdownImageSrc(src, folderPath, filePath, loadLocalImage).catch(() => null))
@@ -131,7 +131,7 @@ export async function renderMarkdown(
               properties: {
                 type: 'button',
                 className: ['markdown-copy'],
-                dataSwormCopy: '',
+                dataAxomeCopy: '',
                 ariaLabel: 'Copy code'
               },
               children: [{ type: 'text', value: 'Copy' }]

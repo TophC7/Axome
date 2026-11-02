@@ -8,13 +8,13 @@
 assert lib.assertMsg (builtins.elem target [
   "desktop"
   "web"
-]) "sworm frontend target must be desktop or web";
+]) "axome frontend target must be desktop or web";
 let
   fs = pkgs.lib.fileset;
   output = if target == "desktop" then "build" else "build-web";
 in
 pkgs.stdenv.mkDerivation {
-  name = if target == "desktop" then "sworm-frontend" else "sworm-frontend-web";
+  name = if target == "desktop" then "axome-frontend" else "axome-frontend-web";
 
   src = fs.toSource {
     root = src;
@@ -57,7 +57,7 @@ pkgs.stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "Sworm frontend (SvelteKit SPA)";
+    description = "Axome frontend (SvelteKit SPA)";
     license = lib.licenses.agpl3Plus;
     platforms = lib.platforms.linux;
   };

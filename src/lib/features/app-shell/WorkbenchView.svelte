@@ -45,7 +45,7 @@
       platform.native !== null &&
       !LocalTransfer.has('tab') &&
       !LocalTransfer.has('workbench') &&
-      (types.includes(DND_MIME.SWORM_TAB) || types.includes(DND_MIME.SWORM_WORKBENCH)),
+      (types.includes(DND_MIME.AXOME_TAB) || types.includes(DND_MIME.AXOME_WORKBENCH)),
     onEnter: () => (tabDropActive = true),
     onOver: () => (tabDropActive = true),
     onLeave: () => (tabDropActive = false),

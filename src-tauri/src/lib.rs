@@ -14,17 +14,17 @@ use tauri::Manager;
 use windows::{focus_window, WindowCoordinatorService};
 
 pub fn run() {
-    sworm_core::services::env::capture_launch_env();
+    axome_core::services::env::capture_launch_env();
     let nvidia_gl_quirk = gdk_env::configure();
 
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "sworm_lib=info,sworm_core=info".into()),
+                .unwrap_or_else(|_| "axome_lib=info,axome_core=info".into()),
         )
         .init();
 
-    tracing::info!("Sworm starting up");
+    tracing::info!("Axome starting up");
     if nvidia_gl_quirk {
         tracing::info!(
             "NVIDIA GPU on Wayland: set GDK_GL=always to avoid explicit-sync startup failure"
@@ -41,7 +41,7 @@ pub fn run() {
                 // blank window or interfere with normal multi-window launches.
                 // Workspace links already picked their window via the
                 // folder-open setting; refocusing here would undo that.
-                if url.scheme() != "sworm-pair" {
+                if url.scheme() != "axome-pair" {
                     return;
                 }
                 if let Some(window) = state
@@ -118,7 +118,7 @@ pub fn run() {
         })
         .invoke_handler(commands::invoke_handler())
         .build(tauri::generate_context!())
-        .expect("error building Sworm");
+        .expect("error building Axome");
 
     app.run(|app_handle, event| match event {
         tauri::RunEvent::ExitRequested { .. } => {

@@ -7,17 +7,17 @@ use std::{
         Arc, Weak,
     },
 };
-use sworm_core::{
+use axome_core::{
     errors::ApiError,
     events::EventSink,
     services::pty::{PtyEventSink, PtySubscriber, RunBackend},
     Host,
 };
-use sworm_protocol::{
+use axome_protocol::{
     pty::PtyEvent,
     rpc::{Open, PtyCursor, PtyDown, PtyUp, Request},
 };
-use sworm_remote::wire::{read_tagged_frame, write_frame, write_raw_frame, Frame};
+use axome_remote::wire::{read_tagged_frame, write_frame, write_raw_frame, Frame};
 use tokio::{sync::mpsc, task::JoinHandle};
 
 const INPUT_QUEUE_CAPACITY: usize = 256;
@@ -552,7 +552,7 @@ async fn run_stream(
 async fn send_upstream(
     send: &mut quinn::SendStream,
     message: &Upstream,
-) -> Result<(), sworm_remote::RemoteError> {
+) -> Result<(), axome_remote::RemoteError> {
     match message {
         Upstream::Bytes(bytes) => write_raw_frame(send, bytes).await,
         Upstream::Control(control) => write_frame(send, control).await,
@@ -594,7 +594,7 @@ fn consume_output(run_id: &str, cursor: &mut PtyCursor, sink: &PtyEventSink, mut
 async fn evict_failed(
     router: &Weak<RouterInner>,
     server: &str,
-    client: &Arc<sworm_remote::RemoteClient>,
+    client: &Arc<axome_remote::RemoteClient>,
 ) {
     if let Some(router) = router.upgrade() {
         router.evict(server, client).await;

@@ -25,8 +25,8 @@ export function describeClientError(error: unknown): string {
 }
 
 export function logClientError(label: string, detail: Record<string, unknown>): void {
-  console.error(`[sworm] ${label}`, detail)
+  console.error(`[axome] ${label}`, detail)
   if (typeof window !== 'undefined') {
-    ;(window as Window & { __SWORM_LAST_CLIENT_ERROR__?: Record<string, unknown> }).__SWORM_LAST_CLIENT_ERROR__ = detail
+    ;(window as Window & { __AXOME_LAST_CLIENT_ERROR__?: Record<string, unknown> }).__AXOME_LAST_CLIENT_ERROR__ = detail
   }
 }

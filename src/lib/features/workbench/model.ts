@@ -137,7 +137,7 @@ export interface TaskTab extends TabBase {
   runId: string
   /** Restored tab reattaches only; it must never execute a missing task. */
   attachOnly: boolean
-  /** Stable task id from .sworm/tasks.jsonc; used to re-resolve on restart. */
+  /** Stable task id from .axome/tasks.jsonc; used to re-resolve on restart. */
   taskId: string
   /** Active editor path captured when the run was launched. */
   activeFilePath: string | null

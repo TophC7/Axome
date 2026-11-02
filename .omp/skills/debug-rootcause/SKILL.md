@@ -102,7 +102,7 @@ State what you verified for each. "Only tested the happy path" is a valid answer
    - Rust: `cargo check`
    - Integration: `cargo test` if a test was added.
 
-## Sworm-Specific Hotspots
+## Axome-Specific Hotspots
 
 Based on prior failure modes in this repo, watch these categories first:
 

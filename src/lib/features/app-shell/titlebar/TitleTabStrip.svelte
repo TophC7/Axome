@@ -158,7 +158,7 @@
     return (
       dragFrom >= 0 ||
       draggedGroup !== null ||
-      (platform.native !== null && (types.includes(DND_MIME.SWORM_TAB) || types.includes(DND_MIME.SWORM_WORKBENCH)))
+      (platform.native !== null && (types.includes(DND_MIME.AXOME_TAB) || types.includes(DND_MIME.AXOME_WORKBENCH)))
     )
   }
 
@@ -190,7 +190,7 @@
   function setDropSlot(e: DragEvent, slot: number) {
     e.preventDefault()
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-    foreignGroup = Boolean(e.dataTransfer?.types.includes(DND_MIME.SWORM_WORKBENCH))
+    foreignGroup = Boolean(e.dataTransfer?.types.includes(DND_MIME.AXOME_WORKBENCH))
     dropIndex = slot
     seamX = clampSeamX(slotX(slot))
   }
@@ -327,7 +327,7 @@
             <Layers size={14} class="shrink-0 text-warning" />
           {:else if tab.kind === 'text' && presentation.fileName}
             <!-- Pass the full relative path so the resolver can apply
-                     directory-aware rules (e.g. .sworm/*.json → sworm icon).
+                     directory-aware rules (e.g. .axome/*.json → axome icon).
                      Falls back to the basename for unsaved "Untitled" tabs. -->
             <FileIcon filename={tab.filePath ?? presentation.fileName} size={14} />
           {:else if tab.kind === 'new-tab'}
@@ -337,7 +337,7 @@
           {:else if tab.kind === 'shell'}
             <TerminalIcon size={14} class="shrink-0 text-muted" />
           {:else if tab.kind === 'task'}
-            <!-- Task icon comes from .sworm/tasks.jsonc. Any Lucide name
+            <!-- Task icon comes from .axome/tasks.jsonc. Any Lucide name
                      is valid; fall back to the terminal glyph when the
                      dynamic loader can't find a match. -->
             {#if presentation.lucideIcon}

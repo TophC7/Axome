@@ -28,7 +28,7 @@ export function initDeepLinks(): () => void {
         const links = await requireNative().deepLinks.take()
         for (const link of links) {
           if (parsePairLink(link)) openPairLink(link)
-          else notify.error('Invalid pairing link', 'Request a fresh link from sworm-server pair.')
+          else notify.error('Invalid pairing link', 'Request a fresh link from axome-server pair.')
         }
       }
     } catch {

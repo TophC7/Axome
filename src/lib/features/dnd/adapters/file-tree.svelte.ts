@@ -41,12 +41,14 @@ function canAcceptDirectoryPayload(payload: DragPayload | null, acceptOsFiles: b
 
 export function fileTreeDragSource(args: FileTreeSourceArgs) {
   return dragSource(
-    () => [{
-      kind: 'file',
-      path: args.node.path,
-      isDir: args.node.type === 'directory',
-      folderPath: args.folderPath
-    }],
+    () => [
+      {
+        kind: 'file',
+        path: args.node.path,
+        isDir: args.node.type === 'directory',
+        folderPath: args.folderPath
+      }
+    ],
     () => {
       const prefix = `${args.folderPath}:`
       for (const key of directoryStore) if (key.startsWith(prefix)) directoryStore.delete(key)
@@ -68,7 +70,7 @@ export function fileTreeDirectoryDropTarget(args: FileTreeDirectoryTargetArgs) {
   const observer = dragObserver({
     accept: (payload, types) => {
       if (payload) return canAcceptDirectoryPayload(payload, acceptOsFiles)
-      return types.includes(DND_MIME.SWORM_FILE) || (acceptOsFiles && types.includes(DND_MIME.FILES))
+      return types.includes(DND_MIME.AXOME_FILE) || (acceptOsFiles && types.includes(DND_MIME.FILES))
     },
     onOver: () => {
       directoryStore.add(directoryKey(args.folderPath, args.directoryPath))

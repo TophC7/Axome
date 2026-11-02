@@ -7,7 +7,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Weak},
 };
-use sworm_core::{errors::ApiError, services::app_state_kv::AppStateKvService, Host};
+use axome_core::{errors::ApiError, services::app_state_kv::AppStateKvService, Host};
 
 const PENDING_STOPS_KEY: &str = "remote:pendingStops";
 

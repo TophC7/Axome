@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
-use sworm_core::errors::ApiError;
-use sworm_protocol::settings::SettingsFileResult;
+use axome_core::errors::ApiError;
+use axome_protocol::settings::SettingsFileResult;
 use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]

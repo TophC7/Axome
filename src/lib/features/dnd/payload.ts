@@ -1,11 +1,11 @@
 import type { TabId } from '$lib/features/workbench/model'
 
 export const DND_MIME = {
-  SWORM_ITEM: 'application/vnd.sworm.item+json',
-  SWORM_TAB: 'application/vnd.sworm.kind.tab',
-  SWORM_WORKBENCH: 'application/vnd.sworm.kind.workbench',
-  SWORM_FILE: 'application/vnd.sworm.kind.file',
-  SWORM_GIT_CHANGE: 'application/vnd.sworm.kind.git-change',
+  AXOME_ITEM: 'application/vnd.axome.item+json',
+  AXOME_TAB: 'application/vnd.axome.kind.tab',
+  AXOME_WORKBENCH: 'application/vnd.axome.kind.workbench',
+  AXOME_FILE: 'application/vnd.axome.kind.file',
+  AXOME_GIT_CHANGE: 'application/vnd.axome.kind.git-change',
   TEXT: 'text/plain',
   URI_LIST: 'text/uri-list',
   FILES: 'Files'
@@ -44,10 +44,10 @@ export interface OsFilesDragItem {
   paths: string[]
 }
 
-export type SwormDragKind = TabDragItem | WorkbenchDragItem | FileDragItem | GitChangeDragItem | OsFilesDragItem
+export type AxomeDragKind = TabDragItem | WorkbenchDragItem | FileDragItem | GitChangeDragItem | OsFilesDragItem
 
 export interface DragPayload {
-  items: SwormDragKind[]
+  items: AxomeDragKind[]
   source: 'internal' | 'external'
 }
 
@@ -62,18 +62,18 @@ export function parsePayload(raw: string | null | undefined): DragPayload | null
 }
 
 export function stampDataTransfer(dataTransfer: DataTransfer, payload: DragPayload): void {
-  dataTransfer.setData(DND_MIME.SWORM_ITEM, JSON.stringify(payload))
+  dataTransfer.setData(DND_MIME.AXOME_ITEM, JSON.stringify(payload))
   if (payload.items.some((item) => item.kind === 'tab')) {
-    dataTransfer.setData(DND_MIME.SWORM_TAB, '')
+    dataTransfer.setData(DND_MIME.AXOME_TAB, '')
   }
   if (payload.items.some((item) => item.kind === 'workbench')) {
-    dataTransfer.setData(DND_MIME.SWORM_WORKBENCH, '')
+    dataTransfer.setData(DND_MIME.AXOME_WORKBENCH, '')
   }
   if (payload.items.some((item) => item.kind === 'file')) {
-    dataTransfer.setData(DND_MIME.SWORM_FILE, '')
+    dataTransfer.setData(DND_MIME.AXOME_FILE, '')
   }
   if (payload.items.some((item) => item.kind === 'git-change')) {
-    dataTransfer.setData(DND_MIME.SWORM_GIT_CHANGE, '')
+    dataTransfer.setData(DND_MIME.AXOME_GIT_CHANGE, '')
   }
   const text = payloadText(payload)
   if (text) {
@@ -105,9 +105,9 @@ function isDragPayload(value: unknown): value is DragPayload {
   return payload.items.every(isDragItem)
 }
 
-function isDragItem(value: unknown): value is SwormDragKind {
+function isDragItem(value: unknown): value is AxomeDragKind {
   if (!value || typeof value !== 'object') return false
-  const item = value as Partial<SwormDragKind>
+  const item = value as Partial<AxomeDragKind>
   if (item.kind === 'tab') {
     return (
       typeof item.tabId === 'string' &&

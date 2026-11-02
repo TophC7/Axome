@@ -1,4 +1,4 @@
-// Recent folders — canonical folder paths opened in Sworm, managed and
+// Recent folders — canonical folder paths opened in Axome, managed and
 // broadcast by the backend. Feeds Home's project cards and the browser's
 // places list and starting point.
 

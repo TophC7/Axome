@@ -10,7 +10,7 @@ import { initializeMonacoEditorServices } from '$lib/features/editor/renderers/m
 import { ensureFolderLanguageSupport } from '$lib/features/editor/renderers/monaco/core/languageSupport'
 import { attachMonacoKeybindingOverrides } from '$lib/features/editor/renderers/monaco/core/keybindings'
 import { ensureMonacoLsp } from '$lib/features/editor/lsp/registry'
-import { registerSwormTheme } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
+import { registerAxomeTheme } from '$lib/features/editor/renderers/monaco/core/monacoTheme'
 import { attachMonaco } from '$lib/features/editor/schemas/registry'
 
 export { ensureFolderLanguageSupport }
@@ -88,15 +88,15 @@ export function initMonaco(monaco: typeof import('monaco-editor')): Promise<void
 
   initPromise = (async () => {
     initializeMonacoEditorServices()
-    registerSwormTheme(monaco)
+    registerAxomeTheme(monaco)
     // Monaco caches glyph metrics per font. A face that finishes loading after
-    // the first measurement (bundled Monocraft, a newly chosen code font)
+    // the first measurement (bundled Paper Mono, a newly chosen code font)
     // would otherwise keep the fallback's widths and misplace the cursor.
     document.fonts.addEventListener('loadingdone', () => monaco.editor.remeasureFonts())
 
     // Keep Monaco's built-in language features as fallback when an
     // external LSP is missing or disabled, but suppress TS diagnostics
-    // because Monaco's standalone TS worker misreads Sworm's project
+    // because Monaco's standalone TS worker misreads Axome's project
     // alias/runtime environment and produces false positives.
     const tsLanguageService = getTsLanguageService(monaco)
     tsLanguageService.javascriptDefaults.setDiagnosticsOptions(DISABLED_TS_DIAGNOSTICS)

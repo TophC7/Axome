@@ -103,18 +103,12 @@
 
   <label class="flex items-center">
     <span class="w-36 shrink-0 text-sm text-muted">Interface font</span>
-    <Input class="w-64" bind:value={uiFont} oninput={schedule} placeholder="Lexend" disabled={!desktop} />
+    <Input class="w-64" bind:value={uiFont} oninput={schedule} placeholder="Paper Mono UI" disabled={!desktop} />
   </label>
 
   <label class="flex items-center">
     <span class="w-36 shrink-0 text-sm text-muted">Code font</span>
-    <Input
-      class="w-64"
-      bind:value={codeFont}
-      oninput={schedule}
-      placeholder="Monocraft Nerd Font"
-      disabled={!desktop}
-    />
+    <Input class="w-64" bind:value={codeFont} oninput={schedule} placeholder="Paper Mono" disabled={!desktop} />
   </label>
 
   <label class="flex items-center">
@@ -142,7 +136,7 @@
       class="w-64"
       bind:value={terminalFont}
       oninput={schedule}
-      placeholder={codeFont.trim() || 'Monocraft Nerd Font'}
+      placeholder={codeFont.trim() || 'Paper Mono'}
       disabled={!desktop}
     />
   </label>

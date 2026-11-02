@@ -2,8 +2,8 @@
 
 use serde_json::{json, Value};
 use std::{fs, path::Path, process::Command};
-use sworm_remote::Identity;
-use sworm_server::{auth::append_authorized, serve, ServeOptions, ServerHandle};
+use axome_remote::Identity;
+use axome_server::{auth::append_authorized, serve, ServeOptions, ServerHandle};
 
 // Each binary has one test: HOME/XDG/git remain isolated for its whole lifetime.
 pub fn isolate(root: &Path) -> anyhow::Result<()> {
@@ -43,7 +43,7 @@ pub async fn start_loop(root: &Path) -> anyhow::Result<(ServerHandle, Identity, 
         web_assets_dir: None,
     })
     .await?;
-    let desktop_config = root.join("config-home/sworm");
+    let desktop_config = root.join("config-home/axome");
     fs::create_dir_all(&desktop_config)?;
     let remotes = json!({
         "loop": {

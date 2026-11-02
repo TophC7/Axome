@@ -1,4 +1,4 @@
-use sworm_core::errors::ApiError;
+use axome_core::errors::ApiError;
 use uuid::Uuid;
 
 #[tauri::command]
@@ -12,7 +12,7 @@ pub async fn dnd_save_dropped_bytes(
         ));
     }
 
-    let temp_dir = std::env::temp_dir().join("sworm-drops");
+    let temp_dir = std::env::temp_dir().join("axome-drops");
     std::fs::create_dir_all(&temp_dir)
         .map_err(|e| ApiError::Io(format!("Failed to create temp drop directory: {}", e)))?;
 

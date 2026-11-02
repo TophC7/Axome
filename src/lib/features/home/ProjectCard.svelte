@@ -3,7 +3,7 @@
   import AheadBehindBadge from '$lib/features/git/AheadBehindBadge.svelte'
   import { sessionBrand } from '$lib/features/sessions/harnesses/catalog'
   import { GitBranchIcon } from '$lib/icons/lucideExports'
-  import appIconUrl from '$lib/assets/sworm.svg?url'
+  import appIconUrl from '$lib/assets/axome.svg?url'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import type { GitBrief } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
@@ -29,7 +29,7 @@
 
   let provenance = $derived(
     [
-      project.openedAt && `Opened in Sworm ${timeAgo(project.openedAt)}`,
+      project.openedAt && `Opened in Axome ${timeAgo(project.openedAt)}`,
       project.agentAt && `Agent activity ${timeAgo(project.agentAt)}`
     ]
       .filter(Boolean)
@@ -76,7 +76,7 @@
   <div class="flex w-full items-center gap-1">
     <img
       src={appIconUrl}
-      alt={project.openedAt ? 'Opened in Sworm' : ''}
+      alt={project.openedAt ? 'Opened in Axome' : ''}
       class={cn('size-3.5 shrink-0', !project.openedAt && 'opacity-50 grayscale')}
     />
     {#each project.harnesses as activity (activity.harness_id)}

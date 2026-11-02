@@ -1,14 +1,14 @@
 import type { DiscoveredProject, DiscoveredHarnessActivity, RecentFolder } from '$lib/types/backend'
 import { basename } from '$lib/utils/paths'
 
-/** One Home card: a folder recent to Sworm, to agent CLIs, or both. */
+/** One Home card: a folder recent to Axome, to agent CLIs, or both. */
 export interface HomeProject {
   path: string
   name: string
   exists: boolean
-  /** Last opened in Sworm; null when only agent history knows the folder. */
+  /** Last opened in Axome; null when only agent history knows the folder. */
   openedAt: string | null
-  /** Last agent CLI activity; null when only Sworm knows the folder. */
+  /** Last agent CLI activity; null when only Axome knows the folder. */
   agentAt: string | null
   harnesses: DiscoveredHarnessActivity[]
   /** Agent sessions per day across harnesses, oldest first. */
@@ -17,7 +17,7 @@ export interface HomeProject {
   lastActive: string
 }
 
-/** Union Sworm's recents with agent history, most recently active first. */
+/** Union Axome's recents with agent history, most recently active first. */
 export function mergeProjects(recent: RecentFolder[], discovered: DiscoveredProject[]): HomeProject[] {
   const byPath = new Map<string, HomeProject>()
   for (const project of discovered) {

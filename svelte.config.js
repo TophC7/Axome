@@ -1,9 +1,9 @@
 import adapter from '@sveltejs/adapter-static'
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 
-const target = process.env.SWORM_TARGET ?? 'desktop'
+const target = process.env.AXOME_TARGET ?? 'desktop'
 if (target !== 'desktop' && target !== 'web') {
-  throw new Error(`Invalid SWORM_TARGET "${target}": expected desktop or web`)
+  throw new Error(`Invalid AXOME_TARGET "${target}": expected desktop or web`)
 }
 
 const routes = `src/routes-${target}`
