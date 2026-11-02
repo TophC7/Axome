@@ -39,13 +39,29 @@ pub enum SessionSourceKey {
     Axo,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageRole {
+    User,
+    Agent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LastMessage {
+    pub role: MessageRole,
+    pub text: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedSession {
     pub source: SessionSource,
     pub session_id: String,
     pub title: Option<String>,
+    pub last_message: Option<LastMessage>,
+    pub message_count: Option<u32>,
     pub updated_at: Option<String>,
+    /// Model used by the latest assistant turn, not the configured default.
     pub model: Option<String>,
     pub git_branch: Option<String>,
 }

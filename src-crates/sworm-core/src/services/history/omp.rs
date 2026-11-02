@@ -1,9 +1,11 @@
-use super::{store_home, BuiltinScanner, HistoryQuery, HistoryRow};
+use super::{readable, store_home, BuiltinScanner, HistoryQuery, HistoryRow, Listing};
 use crate::services::folders::home_dir;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::collections::HashMap;
-use std::io::{self, Read};
+use std::io;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
+use sworm_protocol::session::MessageRole;
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "omp",
@@ -128,49 +130,67 @@ fn read_dir(path: &Path) -> Result<Option<std::fs::ReadDir>, String> {
     }
 }
 
-fn session_dirs(query: &HistoryQuery<'_>) -> Result<Vec<PathBuf>, String> {
+/// Session directories to read, plus the bucket root when every bucket is listed.
+struct SessionDirs {
+    dirs: Vec<PathBuf>,
+    buckets_root: Option<PathBuf>,
+}
+
+fn session_dirs(query: &HistoryQuery<'_>, skipped: &mut usize) -> Result<SessionDirs, String> {
+    let mut found = SessionDirs {
+        dirs: Vec::new(),
+        buckets_root: None,
+    };
     let Some(root) = sessions_root(query.args, query.env, query.folder) else {
-        return Ok(Vec::new());
+        return Ok(found);
     };
     match root {
-        SessionsRoot::Flat(dir) => Ok(vec![dir]),
+        SessionsRoot::Flat(dir) => found.dirs.push(dir),
         SessionsRoot::Buckets(root) => {
             if let Some(folder) = query.folder {
-                let Some(home) = store_home(query.env) else {
-                    return Ok(Vec::new());
-                };
-                return Ok(vec![
-                    root.join(bucket_name(&folder.to_string_lossy(), &home))
-                ]);
+                if let Some(home) = store_home(query.env) {
+                    found
+                        .dirs
+                        .push(root.join(bucket_name(&folder.to_string_lossy(), &home)));
+                }
+                return Ok(found);
             }
-            let mut dirs = Vec::new();
             if let Some(entries) = read_dir(&root)? {
                 for entry in entries {
-                    let entry = entry.map_err(|error| error.to_string())?;
-                    if entry
-                        .file_type()
-                        .map_err(|error| error.to_string())?
-                        .is_dir()
-                    {
-                        dirs.push(entry.path());
+                    let Some(entry) = readable(entry, skipped) else {
+                        continue;
+                    };
+                    if readable(entry.file_type(), skipped).is_some_and(|kind| kind.is_dir()) {
+                        found.dirs.push(entry.path());
                     }
                 }
             }
-            Ok(dirs)
+            found.buckets_root = Some(root);
         }
     }
+    Ok(found)
 }
 
-fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
-    const HEADER_LIMIT: u64 = 16 * 1024;
+fn list(query: &HistoryQuery<'_>) -> Result<Listing, String> {
     let since = query.since.map(DateTime::<Utc>::from);
-    let mut rows = Vec::new();
-    for dir in session_dirs(query)? {
-        let Some(entries) = read_dir(&dir)? else {
-            continue;
+    let mut listing = Listing::default();
+    let SessionDirs { dirs, buckets_root } = session_dirs(query, &mut listing.skipped)?;
+    let listing_all = buckets_root.is_some();
+    for dir in &dirs {
+        let entries = match read_dir(dir) {
+            Ok(Some(entries)) => entries,
+            Ok(None) => continue,
+            // One unreadable bucket costs only its sessions; a folder's own bucket fails the source.
+            Err(_) if listing_all => {
+                listing.skipped += 1;
+                continue;
+            }
+            Err(error) => return Err(error),
         };
         for entry in entries {
-            let entry = entry.map_err(|error| error.to_string())?;
+            let Some(entry) = readable(entry, &mut listing.skipped) else {
+                continue;
+            };
             let name = entry.file_name();
             let Some((timestamp, id)) = name.to_str().and_then(parse_session_file_name) else {
                 continue;
@@ -182,74 +202,100 @@ fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
             if since.is_some_and(|since| created < since) {
                 continue;
             }
-            let file = match std::fs::File::open(entry.path()) {
-                Ok(file) => file,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
-                Err(error) => return Err(error.to_string()),
+            let path = entry.path();
+            let Some(metadata) = readable(std::fs::metadata(&path), &mut listing.skipped) else {
+                continue;
             };
-            let metadata = file.metadata().map_err(|error| error.to_string())?;
             if !metadata.is_file() {
                 continue;
             }
-            let mut row = HistoryRow {
-                id: id.to_owned(),
-                created_at: Some(created.to_rfc3339()),
-                updated_at: metadata
-                    .modified()
-                    .ok()
-                    .map(|mtime| DateTime::<Utc>::from(mtime).to_rfc3339()),
-                ..HistoryRow::default()
+            let Some(Some(mut row)) = readable(
+                super::parsed(SCANNER.name, &path, &metadata, || {
+                    let mut row = HistoryRow {
+                        id: id.to_owned(),
+                        created_at: Some(created.to_rfc3339()),
+                        ..HistoryRow::default()
+                    };
+                    read_session(std::fs::File::open(&path)?, &mut row)?;
+                    Ok(Some(row))
+                }),
+                &mut listing.skipped,
+            ) else {
+                continue;
             };
-            let mut header = Vec::with_capacity(metadata.len().min(HEADER_LIMIT) as usize);
-            file.take(HEADER_LIMIT)
-                .read_to_end(&mut header)
-                .map_err(|error| error.to_string())?;
-            let mut lines = header.split(|byte| *byte == b'\n').peekable();
-            while let Some(line) = lines.next() {
-                if lines.peek().is_none() && metadata.len() > HEADER_LIMIT {
-                    break;
+            row.updated_at = metadata
+                .modified()
+                .ok()
+                .map(|mtime| DateTime::<Utc>::from(mtime).to_rfc3339());
+            listing.rows.push(row);
+        }
+    }
+    listing.watch = dirs;
+    listing.watch.extend(buckets_root);
+    Ok(listing)
+}
+
+fn read_session(file: std::fs::File, row: &mut HistoryRow) -> io::Result<()> {
+    row.message_count = Some(0);
+    super::each_line(file, |line| {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            return ControlFlow::Continue(());
+        };
+        match value.get("type").and_then(serde_json::Value::as_str) {
+            Some("title") => {
+                row.title = value
+                    .get("title")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned);
+            }
+            Some("session") => {
+                if let Some(id) = value.get("id").and_then(serde_json::Value::as_str) {
+                    row.id = id.to_owned();
                 }
-                let Ok(value) = serde_json::from_slice::<serde_json::Value>(line) else {
-                    continue;
+                row.cwd = value
+                    .get("cwd")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned);
+                if let Some(timestamp) = value.get("timestamp").and_then(serde_json::Value::as_str)
+                {
+                    row.created_at = Some(timestamp.to_owned());
+                }
+            }
+            Some("message") => {
+                let Some(message) = value.get("message") else {
+                    return ControlFlow::Continue(());
                 };
-                match value.get("type").and_then(serde_json::Value::as_str) {
-                    Some("title") => {
-                        row.title = value
-                            .get("title")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned)
-                    }
-                    Some("session") => {
-                        if let Some(id) = value.get("id").and_then(serde_json::Value::as_str) {
-                            row.id = id.to_owned();
-                        }
-                        row.cwd = value
-                            .get("cwd")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned);
-                        if let Some(timestamp) =
-                            value.get("timestamp").and_then(serde_json::Value::as_str)
-                        {
-                            row.created_at = Some(timestamp.to_owned());
-                        }
-                    }
-                    Some("model_change") => {
-                        row.model = value
+                let role = message.get("role").and_then(serde_json::Value::as_str);
+                // Message records with text count; toolResult, meta, thinking/tool-only and markers don't.
+                match role {
+                    Some("assistant") => {
+                        row.model = message
                             .get("model")
                             .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned)
+                            .map(|model| {
+                                match message.get("provider").and_then(serde_json::Value::as_str) {
+                                    Some(provider) if !provider.is_empty() => {
+                                        format!("{provider}/{model}")
+                                    }
+                                    _ => model.to_owned(),
+                                }
+                            });
+                        row.push_message(MessageRole::Agent, super::conversation_blocks(&value));
+                    }
+                    Some("user") => {
+                        row.push_message(MessageRole::User, super::conversation_blocks(&value));
                     }
                     _ => {}
                 }
             }
-            rows.push(row);
+            _ => {}
         }
-    }
-    Ok(rows)
+        ControlFlow::Continue(())
+    })
 }
 
 fn exists(query: &HistoryQuery<'_>, id: &str) -> Result<bool, String> {
-    for dir in session_dirs(query)? {
+    for dir in session_dirs(query, &mut 0)?.dirs {
         let Some(entries) = read_dir(&dir)? else {
             continue;
         };
@@ -276,6 +322,7 @@ fn exists(query: &HistoryQuery<'_>, id: &str) -> Result<bool, String> {
 mod tests {
     use super::*;
     use std::time::SystemTime;
+    use sworm_protocol::session::LastMessage;
 
     // Bucket names observed in a real ~/.omp/agent/sessions/.
     #[test]
@@ -391,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn lists_session_headers_with_explicit_home() {
+    fn lists_session_metadata_with_explicit_home() {
         let home = std::env::temp_dir().join(format!("sworm-omp-history-{}", uuid::Uuid::new_v4()));
         let folder = home.join("project");
         let bucket = home.join(".omp/agent/sessions/-project");
@@ -399,7 +446,7 @@ mod tests {
         let env = HashMap::from([("HOME".into(), home.to_string_lossy().into_owned())]);
         for (id, title, models) in [
             ("titled", "A session", vec![]),
-            ("untitled", "", vec![]),
+            ("untitled", "", vec!["configured-only"]),
             ("model", "Model session", vec!["old", "new"]),
         ] {
             let mut contents = format!(
@@ -411,6 +458,35 @@ mod tests {
                 contents.push_str(&format!(
                     "{}\n",
                     serde_json::json!({"type": "model_change", "model": model})
+                ));
+            }
+            if id == "model" {
+                for record in [
+                    serde_json::json!({"type": "message", "message": {"role": "user", "content": "First prompt"}}),
+                    serde_json::json!({"type": "message", "message": {"role": "assistant", "provider": "provider", "model": "old", "content": [{"type": "text", "text": "Earlier reply"}]}}),
+                    // Put the latest assistant beyond the old 16 KiB header window.
+                    serde_json::json!({"type": "message", "message": {"role": "toolResult", "content": [{"type": "text", "text": "x".repeat(20_000)}]}}),
+                    serde_json::json!({"type": "message", "message": {"role": "assistant", "provider": "provider", "model": "answer-model", "content": [
+                        {"type": "thinking", "thinking": "Private reasoning"},
+                        {"type": "text", "text": " \nLatest\tanswer "},
+                        {"type": "toolCall", "name": "shell"},
+                        {"type": "text", "text": format!(" \n{} ", "界".repeat(210))}
+                    ]}}),
+                    serde_json::json!({"type": "message", "message": {"role": "assistant", "provider": "provider", "model": "latest", "content": [{"type": "toolCall", "name": "shell"}]}}),
+                    serde_json::json!({"type": "model_change", "model": "configured-after-answer"}),
+                    serde_json::json!({"type": "message", "message": {"role": "system", "content": "System text"}}),
+                    serde_json::json!({"type": "message", "isMeta": true, "message": {"role": "user", "content": "Metadata"}}),
+                    serde_json::json!({"type": "message", "message": {"role": "user", "isMeta": true, "content": "More metadata"}}),
+                    serde_json::json!({"type": "message", "message": {"role": "user", "content": " \n[Request interrupted by user]"}}),
+                    serde_json::json!({"type": "message", "message": {"role": "user", "content": " \n<command>ignored</command>"}}),
+                ] {
+                    contents.push_str(&format!("{record}\n"));
+                }
+            } else if id == "titled" {
+                contents.push_str("{\"type\":\"message\",\"message\":\n");
+                contents.push_str(&format!(
+                    "{}\n",
+                    serde_json::json!({"type": "message", "message": {"role": "user", "content": [{"type": "text", "text": " \nLatest\tuser prompt "}]}})
                 ));
             }
             std::fs::write(
@@ -430,7 +506,7 @@ mod tests {
             env: &env,
             since: None,
         };
-        let rows = (SCANNER.list)(&query).unwrap();
+        let rows = (SCANNER.list)(&query).unwrap().rows;
         assert_eq!(rows.len(), 4);
         assert_eq!(
             rows.iter()
@@ -454,14 +530,41 @@ mod tests {
                 .unwrap()
                 .model
                 .as_deref(),
-            Some("new")
+            Some("provider/latest")
         );
+        let model = rows.iter().find(|row| row.id == "model").unwrap();
+        assert_eq!(model.message_count, Some(3));
+        assert_eq!(
+            model.last_message,
+            super::super::normalize_title(&format!("Latest answer {}", "界".repeat(210))).map(
+                |text| LastMessage {
+                    role: MessageRole::Agent,
+                    text,
+                }
+            )
+        );
+        let titled = rows.iter().find(|row| row.id == "titled").unwrap();
+        assert_eq!(
+            titled.last_message,
+            Some(LastMessage {
+                role: MessageRole::User,
+                text: "Latest user prompt".to_owned(),
+            })
+        );
+        assert_eq!(titled.message_count, Some(1));
+        assert_eq!(titled.model, None);
+        let untitled = rows.iter().find(|row| row.id == "untitled").unwrap();
+        assert_eq!(untitled.model, None);
+        assert_eq!(untitled.last_message, None);
+        assert_eq!(untitled.message_count, Some(0));
         let activity = rows.iter().find(|row| row.id == "activity").unwrap();
         assert_eq!(
             activity.created_at.as_deref(),
             Some("2026-10-22T12:00:00+00:00")
         );
         assert_eq!(activity.cwd.as_deref(), folder.to_str());
+        assert_eq!(activity.last_message, None);
+        assert_eq!(activity.message_count, Some(0));
         assert!((SCANNER.exists)(&query, "activity").unwrap());
         std::fs::remove_dir_all(home).unwrap();
     }

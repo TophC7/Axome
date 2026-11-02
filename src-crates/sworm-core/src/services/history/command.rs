@@ -9,7 +9,8 @@ use std::time::{Duration, Instant, SystemTime};
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde_json::Value;
 
-use super::{store_home, HistoryRow};
+use super::{store_home, HistoryRow, Listing};
+use sworm_protocol::session::LastMessage;
 
 const HISTORY_COMMAND_TIMEOUT: Duration = Duration::from_secs(if cfg!(test) { 2 } else { 30 });
 const PIPE_DRAIN_GRACE: Duration = Duration::from_secs(1);
@@ -21,7 +22,7 @@ pub(super) fn run(
     folder: Option<&Path>,
     args: &[String],
     since: Option<SystemTime>,
-) -> Result<Vec<HistoryRow>, String> {
+) -> Result<Listing, String> {
     let mut request = serde_json::to_vec(&serde_json::json!({
         "api": 1,
         "folder": folder,
@@ -179,41 +180,54 @@ fn kill(child: &mut Child) {
     let _ = child.wait();
 }
 
-fn read_rows(stdout: impl Read) -> Result<Vec<HistoryRow>, String> {
-    let mut rows = Vec::new();
-    let mut invalid = 0usize;
-    for line in BufReader::new(stdout).lines() {
+/// Each line is a session (`id` set) or a path to watch (`watch` set, absolute);
+/// anything else is skipped and reported.
+fn read_rows(stdout: impl Read) -> Result<Listing, String> {
+    let mut listing = Listing::default();
+    for line in BufReader::new(stdout).split(b'\n') {
         let line =
             line.map_err(|error| format!("history command stdout could not be read: {error}"))?;
-        let Ok(Value::Object(mut object)) = serde_json::from_str::<Value>(&line) else {
-            invalid += 1;
+        if line.trim_ascii().is_empty() {
+            continue;
+        }
+        let Ok(Value::Object(mut object)) = serde_json::from_slice::<Value>(&line) else {
+            listing.skipped += 1;
             continue;
         };
+        let message_count = object
+            .get("message_count")
+            .and_then(Value::as_u64)
+            .and_then(|count| u32::try_from(count).ok());
+        let last_message = object
+            .remove("last_message")
+            .and_then(|value| serde_json::from_value::<LastMessage>(value).ok());
         let mut field = |key: &str| match object.remove(key) {
             Some(Value::String(value)) => Some(value),
             _ => None,
         };
-        let Some(id) = field("id").filter(|id| !id.is_empty()) else {
-            invalid += 1;
-            continue;
-        };
-        rows.push(HistoryRow {
-            id,
-            cwd: field("cwd"),
-            title: field("title"),
-            created_at: field("created_at"),
-            updated_at: field("updated_at"),
-            model: field("model"),
-            git_branch: field("git_branch"),
-        });
+        if let Some(id) = field("id").filter(|id| !id.is_empty()) {
+            listing.rows.push(HistoryRow {
+                id,
+                cwd: field("cwd"),
+                title: field("title"),
+                last_message,
+                // Extension commands count meaningful user/assistant messages.
+                message_count,
+                created_at: field("created_at"),
+                updated_at: field("updated_at"),
+                model: field("model"),
+                git_branch: field("git_branch"),
+            });
+        } else if let Some(path) = field("watch")
+            .map(std::path::PathBuf::from)
+            .filter(|path| path.is_absolute())
+        {
+            listing.watch.push(path);
+        } else {
+            listing.skipped += 1;
+        }
     }
-    if invalid != 0 {
-        tracing::warn!(
-            invalid_lines = invalid,
-            "Skipped invalid history command output lines"
-        );
-    }
-    Ok(rows)
+    Ok(listing)
 }
 
 #[cfg(all(test, unix))]
@@ -254,13 +268,31 @@ mod tests {
     #[test]
     fn command_request_and_normalized_folder_listing() {
         let (folder, source) = script_source(
-            "cat > \"$REQ\"\nprintf '%s\\n' '{\"id\":\"a\",\"title\":\"One\",\"updated_at\":\"2026-10-01T00:00:00Z\"}' 'not json' '{\"id\":\"b\",\"cwd\":\"/elsewhere\"}'\nprintf '{\"id\":\"c\",\"cwd\":\"%s\"}\\n' \"$PWD\"",
+            "cat > \"$REQ\"\nprintf '%s\\n' '{\"id\":\"a\",\"title\":\"One\",\"last_message\":{\"role\":\"agent\",\"text\":\" Last  reply \"},\"message_count\":3,\"model\":\"latest-model\",\"updated_at\":\"2026-10-01T00:00:00Z\"}' 'not json' '' '{\"watch\":\"/store/sessions\"}' '{\"watch\":\"relative\"}' '{\"id\":\"b\",\"cwd\":\"/elsewhere\"}'\nprintf '{\"id\":\"c\",\"cwd\":\"%s\"}\\n' \"$PWD\"",
         );
-        let rows = source.list(Some(&folder), None).unwrap();
+        let listing = source.list(Some(&folder), None).unwrap();
         assert_eq!(
-            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+            listing
+                .rows
+                .iter()
+                .map(|row| row.id.as_str())
+                .collect::<Vec<_>>(),
             ["a", "c"]
         );
+        assert_eq!(
+            listing.rows[0].last_message,
+            Some(LastMessage {
+                role: sworm_protocol::session::MessageRole::Agent,
+                text: "Last reply".into(),
+            })
+        );
+        assert_eq!(listing.rows[0].message_count, Some(3));
+        assert_eq!(listing.rows[0].model.as_deref(), Some("latest-model"));
+        assert_eq!(listing.rows[1].last_message, None);
+        assert_eq!(listing.rows[1].message_count, None);
+        assert_eq!(listing.watch, [PathBuf::from("/store/sessions")]);
+        // `not json` and the relative watch path; the blank line is no entry.
+        assert_eq!(listing.skipped, 2);
         let request: Value =
             serde_json::from_slice(&fs::read(folder.join("request.json")).unwrap()).unwrap();
         assert_eq!(request["api"], 1);

@@ -6,11 +6,11 @@
 //   epic:ID
 //
 // Same-kind tokens combine with OR (clicking is:open then is:done yields
-// the union). Cross-kind tokens AND together. The query string itself is
-// the single source of truth for "what's visible". UI toggles literal
-// tokens via toggleToken / hasToken instead of owning parallel state.
+// the union). Cross-kind tokens AND together. Token toggling lives in
+// $lib/utils/queryTokens.
 
 import type { Issue, IssueStatus } from '$lib/types/backend'
+import { splitTokens } from '$lib/utils/queryTokens'
 const TERMINAL: Partial<Record<IssueStatus, true>> = { completed: true, wont_fix: true, archived: true }
 
 function isOpen(status: IssueStatus): boolean {
@@ -23,27 +23,9 @@ export type Term =
   | { kind: 'epic'; id: string }
   | { kind: 'text'; value: string }
 
-function splitTokens(query: string): string[] {
-  return query.split(/\s+/).filter(Boolean)
-}
-
-export function hasToken(query: string, token: string): boolean {
-  const lower = token.toLowerCase()
-  return splitTokens(query).some((t) => t.toLowerCase() === lower)
-}
-
-export function toggleToken(query: string, token: string): string {
-  const tokens = splitTokens(query)
-  const lower = token.toLowerCase()
-  const idx = tokens.findIndex((t) => t.toLowerCase() === lower)
-  if (idx >= 0) tokens.splice(idx, 1)
-  else tokens.push(token)
-  return tokens.join(' ')
-}
-
 export function parseQuery(raw: string): Term[] {
   const out: Term[] = []
-  for (const tok of raw.toLowerCase().split(/\s+/).filter(Boolean)) {
+  for (const tok of splitTokens(raw.toLowerCase())) {
     if (tok.startsWith('is:')) {
       const v = tok.slice(3)
       if (v === 'open' || v === 'active' || v === 'done' || v === 'archived') {

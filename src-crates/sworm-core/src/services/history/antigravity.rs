@@ -1,10 +1,10 @@
 //! Stores can retain summaries after conversation DB deletion and use pre-1970 dates as unset.
 //! Skip missing DBs and fall back to their mtime for unset summary timestamps.
 
-use super::{BuiltinScanner, HistoryQuery, HistoryRow};
+use super::{BuiltinScanner, HistoryQuery, HistoryRow, Listing};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rusqlite::{Connection, OpenFlags};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(super) const SCANNER: BuiltinScanner = BuiltinScanner {
     name: "antigravity",
@@ -50,10 +50,23 @@ fn updated_at(value: &str) -> Option<String> {
         .map(|date| date.to_rfc3339())
 }
 
-fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
+fn list(query: &HistoryQuery<'_>) -> Result<Listing, String> {
     let Some(root) = store_root(query) else {
-        return Ok(Vec::new());
+        return Ok(Listing::default());
     };
+    Ok(Listing {
+        rows: list_summaries(query, &root)?,
+        skipped: 0,
+        // A row lists only once its conversation DB exists, which can trail the summary.
+        watch: vec![
+            root.join("conversation_summaries.db"),
+            root.join("conversation_summaries.db-wal"),
+            root.join("conversations"),
+        ],
+    })
+}
+
+fn list_summaries(query: &HistoryQuery<'_>, root: &Path) -> Result<Vec<HistoryRow>, String> {
     let db_path = root.join("conversation_summaries.db");
     if !db_path.try_exists().map_err(|error| error.to_string())? {
         return Ok(Vec::new());
@@ -119,6 +132,11 @@ fn list(query: &HistoryQuery<'_>) -> Result<Vec<HistoryRow>, String> {
             id,
             cwd,
             title: row.get(1).map_err(read_error)?,
+            // Summary previews are titles/initial prompts, not the last message.
+            // `step_count` includes tools, not just user+assistant text records.
+            // Text and assistant model require decoding per-conversation protobufs.
+            last_message: None,
+            message_count: None,
             created_at,
             updated_at: modified.as_deref().and_then(updated_at).or_else(|| {
                 metadata
@@ -160,7 +178,8 @@ mod tests {
             .execute_batch(
                 "CREATE TABLE conversation_summaries (
                     conversation_id TEXT, title TEXT, last_modified_time TEXT,
-                    workspace_uris TEXT, nesting_depth INTEGER
+                    workspace_uris TEXT, nesting_depth INTEGER,
+                    preview TEXT NOT NULL DEFAULT '', step_count INTEGER NOT NULL DEFAULT 0
                  );",
             )
             .unwrap();
@@ -207,7 +226,9 @@ mod tests {
         ] {
             connection
                 .execute(
-                    "INSERT INTO conversation_summaries VALUES (?1, ?2, ?3, ?4, ?5)",
+                    "INSERT INTO conversation_summaries
+                     (conversation_id, title, last_modified_time, workspace_uris, nesting_depth,
+                      preview, step_count) VALUES (?1, ?2, ?3, ?4, ?5, 'Initial prompt', 20)",
                     rusqlite::params![id, id, modified, uris.to_string(), depth],
                 )
                 .unwrap();
@@ -223,8 +244,11 @@ mod tests {
             env: &env,
             since: None,
         };
-        let rows = list(&query).unwrap();
+        let rows = list(&query).unwrap().rows;
         assert_eq!(rows.len(), 3);
+        assert!(rows.iter().all(|row| row.last_message.is_none()));
+        assert!(rows.iter().all(|row| row.message_count.is_none()));
+        assert!(rows.iter().all(|row| row.model.is_none()));
         assert!(!rows.iter().any(|row| row.id == "missing"));
         assert!(
             DateTime::parse_from_rfc3339(
@@ -248,7 +272,7 @@ mod tests {
             assert_eq!(row.updated_at.as_deref(), Some(expected));
         }
         query.folder = None;
-        let rows = list(&query).unwrap();
+        let rows = list(&query).unwrap().rows;
         assert_eq!(rows.len(), 5);
         assert!(rows
             .iter()
@@ -259,6 +283,7 @@ mod tests {
         ));
         let mut ids: Vec<_> = list(&query)
             .unwrap()
+            .rows
             .into_iter()
             .map(|row| row.id)
             .collect();

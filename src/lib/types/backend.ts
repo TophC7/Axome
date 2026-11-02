@@ -141,6 +141,8 @@ export interface IndexedSession {
   source: SessionSource
   sessionId: string
   title: string | null
+  lastMessage: { role: 'user' | 'agent'; text: string } | null
+  messageCount: number | null
   updatedAt: string | null
   model: string | null
   gitBranch: string | null

@@ -305,28 +305,6 @@ export function hasClosedTabs(): boolean {
   return closedTabs.length > 0
 }
 
-export type ClosedSession = Extract<PersistedTab, { kind: 'session' }>
-
-/** Closed session snapshots for `folderPath`, newest first (this launch only). */
-export function getClosedSessions(folderPath: string): ClosedSession[] {
-  return closedTabs.filter((tab): tab is ClosedSession => tab.kind === 'session' && tab.folderPath === folderPath)
-}
-
-export type ClosedChat = Extract<PersistedTab, { kind: 'chat' }> & { sessionId: string }
-
-/** Closed chats with sessions for `folderPath`, newest first (this launch only). */
-export function getClosedChats(folderPath: string): ClosedChat[] {
-  return closedTabs.filter(
-    (tab): tab is ClosedChat => tab.kind === 'chat' && tab.sessionId !== null && tab.folderPath === folderPath
-  )
-}
-
-export type ClosedShell = Extract<PersistedTab, { kind: 'shell' }>
-
-export function getClosedShells(folderPath: string): ClosedShell[] {
-  return closedTabs.filter((tab): tab is ClosedShell => tab.kind === 'shell' && tab.folderPath === folderPath)
-}
-
 /** Find an existing live task tab by its source task id (singleton rerun). */
 export function findTaskTabByTaskId(folderPath: string, taskId: string): TaskTab | null {
   return (

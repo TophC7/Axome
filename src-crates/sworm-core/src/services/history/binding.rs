@@ -171,7 +171,12 @@ fn worker_loop(inner: Arc<Inner>) {
                 .iter()
                 .map(|(key, group)| {
                     let since = group.runs.first().map(|run| run.spawned_at);
-                    scope.spawn(move || group.source.list(Some(&key.folder), since))
+                    scope.spawn(move || {
+                        group
+                            .source
+                            .list(Some(&key.folder), since)
+                            .map(|listing| listing.rows)
+                    })
                 })
                 .collect();
             handles

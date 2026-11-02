@@ -12,8 +12,8 @@ use rusqlite::{params, Connection};
 use sworm_protocol::{
     activity_map::DiscoveredProject,
     session::{
-        IndexedSession, SessionIndexSnapshot, SessionIndexSource, SessionIndexStatus,
-        SessionSource, SessionSourceKey,
+        IndexedSession, LastMessage, MessageRole, SessionIndexSnapshot, SessionIndexSource,
+        SessionIndexStatus, SessionSource, SessionSourceKey,
     },
 };
 use tokio::{
@@ -32,6 +32,7 @@ use crate::{
         extensions::{ExtensionService, LoadedExtensionCatalog},
         harnesses::resolve_harness_launch,
         history::{HistoryRow, HistorySource},
+        session_watcher::SessionWatcher,
         settings_resolution::SettingsResolver,
     },
 };
@@ -98,6 +99,8 @@ pub(crate) struct Observation {
     pub session_id: String,
     pub folder_path: String,
     pub title: Option<String>,
+    pub last_message: Option<LastMessage>,
+    pub message_count: Option<u32>,
     pub updated_at: Option<String>,
     pub model: Option<String>,
     pub git_branch: Option<String>,
@@ -125,15 +128,22 @@ pub(crate) fn commit_listing(
     key: &SourceKey,
     refreshed_at: &str,
     sessions: &[HistoryRow],
+    message: Option<&str>,
 ) -> rusqlite::Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "INSERT INTO session_index_sources
            (scope_folder, source_id, preset, refreshed_at, status, message)
-         VALUES (?1, ?2, ?3, ?4, 'ready', NULL)
+         VALUES (?1, ?2, ?3, ?4, 'ready', ?5)
          ON CONFLICT (scope_folder, source_id, preset) DO UPDATE SET
-           refreshed_at = excluded.refreshed_at, status = 'ready', message = NULL",
-        params![key.scope, key.source.db(), key.preset, refreshed_at],
+           refreshed_at = excluded.refreshed_at, status = 'ready', message = excluded.message",
+        params![
+            key.scope,
+            key.source.db(),
+            key.preset,
+            refreshed_at,
+            message
+        ],
     )?;
     tx.execute(
         "DELETE FROM indexed_sessions WHERE scope_folder = ?1 AND source_id = ?2 AND preset = ?3",
@@ -142,8 +152,8 @@ pub(crate) fn commit_listing(
     {
         let mut insert = tx.prepare(
             "INSERT INTO indexed_sessions
-               (scope_folder, source_id, preset, session_id, folder_path, title, updated_at, model, git_branch)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+               (scope_folder, source_id, preset, session_id, folder_path, title, updated_at, model, git_branch, last_message, message_count, last_message_role)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         )?;
         for session in sessions {
             insert.execute(params![
@@ -156,6 +166,18 @@ pub(crate) fn commit_listing(
                 session.updated_at,
                 session.model,
                 session.git_branch,
+                session
+                    .last_message
+                    .as_ref()
+                    .map(|message| message.text.as_str()),
+                session.message_count,
+                session
+                    .last_message
+                    .as_ref()
+                    .map(|message| match message.role {
+                        MessageRole::User => "user",
+                        MessageRole::Agent => "agent",
+                    }),
             ])?;
         }
     }
@@ -215,7 +237,7 @@ pub(crate) fn load_observations(
     scope: Option<&str>,
 ) -> rusqlite::Result<Vec<Observation>> {
     let mut statement = conn.prepare(
-        "SELECT scope_folder, source_id, preset, session_id, folder_path, title, updated_at, model, git_branch
+        "SELECT scope_folder, source_id, preset, session_id, folder_path, title, updated_at, model, git_branch, last_message, message_count, last_message_role
          FROM indexed_sessions WHERE ?1 IS NULL OR scope_folder = ?1",
     )?;
     let rows = statement.query_map(params![scope], |row| {
@@ -234,6 +256,24 @@ pub(crate) fn load_observations(
             updated_at: row.get(6)?,
             model: row.get(7)?,
             git_branch: row.get(8)?,
+            last_message: match (
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(11)?,
+            ) {
+                (Some(text), Some(role)) => match role.as_str() {
+                    "user" => Some(LastMessage {
+                        role: MessageRole::User,
+                        text,
+                    }),
+                    "agent" => Some(LastMessage {
+                        role: MessageRole::Agent,
+                        text,
+                    }),
+                    _ => None,
+                },
+                _ => None,
+            },
+            message_count: row.get(10)?,
         }))
     })?;
     rows.filter_map(|row| row.transpose()).collect()
@@ -356,6 +396,8 @@ pub(crate) fn build_snapshot(
                 },
                 session_id: session_id.to_owned(),
                 title: best.title.clone(),
+                last_message: best.last_message.clone(),
+                message_count: best.message_count,
                 updated_at: best.updated_at.clone(),
                 model: best.model.clone(),
                 git_branch: best.git_branch.clone(),
@@ -401,6 +443,7 @@ pub(crate) struct SessionIndexService {
     runtime: OnceLock<Handle>,
     permits: Semaphore,
     jobs: Mutex<Jobs>,
+    watcher: SessionWatcher,
 }
 
 impl SessionIndexService {
@@ -417,6 +460,7 @@ impl SessionIndexService {
             runtime: OnceLock::new(),
             permits: Semaphore::new(2),
             jobs: Mutex::new(Jobs::default()),
+            watcher: SessionWatcher::new(this.clone()),
         })
     }
 
@@ -442,6 +486,7 @@ impl SessionIndexService {
     }
 
     pub(crate) fn shutdown(&self) {
+        self.watcher.shutdown();
         let jobs = {
             let mut jobs = self.jobs.lock();
             jobs.closed = true;
@@ -450,6 +495,12 @@ impl SessionIndexService {
         for job in jobs.into_values() {
             job.abort.abort();
         }
+    }
+
+    /// A watched store changed. No start announcement: background passes must not flash
+    /// the cached-history state; the finished pass announces itself.
+    pub(crate) fn refresh_watched(&self, key: SourceKey) {
+        self.schedule_key(key);
     }
 
     pub(crate) fn schedule(&self, folder: &Path, source: SourceId, preset: Option<&str>) {
@@ -568,32 +619,56 @@ impl SessionIndexService {
             }
             SourceId::Axo => self
                 .axo
-                .list_rows(key.folder().expect("axo sources are folder-scoped"))
+                .list_history(key.folder().expect("axo sources are folder-scoped"))
                 .map_err(|message| (SessionIndexStatus::Error, message)),
         };
-        // Serialize the closed check with shutdown so a late blocking worker cannot write.
-        let jobs = self.jobs.lock();
-        if jobs.closed {
-            return Ok(BTreeSet::new());
-        }
-        let db = self.db.write();
-        let mut affected = if key.folder().is_some() {
-            BTreeSet::from([key.scope.clone()])
-        } else {
-            source_folders(db.conn(), key)?
+        // A failed pass keeps its last good watch; an unresolvable source watches nothing.
+        let (result, watch) = match result {
+            Ok(mut listing) => {
+                let watch = std::mem::take(&mut listing.watch);
+                (Ok(listing), Some(watch))
+            }
+            Err((SessionIndexStatus::Missing, message)) => (
+                Err((SessionIndexStatus::Missing, message)),
+                Some(Vec::new()),
+            ),
+            Err(failure) => (Err(failure), None),
         };
-        match result {
-            Ok(rows) => commit_listing(
-                db.conn(),
-                key,
-                &Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
-                &rows,
-            )?,
-            Err((status, message)) => record_failure(db.conn(), key, status, &message)?,
-        }
-        if key.folder().is_none() {
-            affected.extend(source_folders(db.conn(), key)?);
-        }
+        // Watch before committing so a watch failure reaches this source's message.
+        let unwatched = watch.and_then(|watch| self.watcher.set(key, watch));
+        let affected = {
+            // Serialize the closed check with shutdown so a late blocking worker cannot write.
+            let jobs = self.jobs.lock();
+            if jobs.closed {
+                return Ok(BTreeSet::new());
+            }
+            let db = self.db.write();
+            let mut affected = if key.folder().is_some() {
+                BTreeSet::from([key.scope.clone()])
+            } else {
+                source_folders(db.conn(), key)?
+            };
+            match result {
+                Ok(listing) => {
+                    let message = match (listing.message(), unwatched) {
+                        (Some(skipped), Some(unwatched)) => Some(format!("{skipped}; {unwatched}")),
+                        (skipped, unwatched) => skipped.or(unwatched),
+                    };
+                    commit_listing(
+                        db.conn(),
+                        key,
+                        &Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
+                        &listing.rows,
+                        message.as_deref(),
+                    )?
+                }
+                Err((status, message)) => record_failure(db.conn(), key, status, &message)?,
+            }
+            if key.folder().is_none() {
+                affected.extend(source_folders(db.conn(), key)?);
+            }
+            affected
+        };
         Ok(affected)
     }
 
@@ -733,6 +808,11 @@ mod tests {
             id: id.into(),
             cwd: Some(FOLDER.into()),
             title: Some(format!("title {id}")),
+            last_message: Some(LastMessage {
+                role: MessageRole::Agent,
+                text: format!("last {id}"),
+            }),
+            message_count: Some(4),
             updated_at: updated_at.map(Into::into),
             model: Some("model".into()),
             git_branch: Some("main".into()),
@@ -754,9 +834,9 @@ mod tests {
         let (_dir, db) = database();
         let conn = db.write();
         let shared = listed("shared", Some("2026-10-01T00:00:00.000Z"));
-        commit_listing(conn.conn(), &key(""), "t1", &[shared.clone()]).unwrap();
-        commit_listing(conn.conn(), &key("work"), "t1", &[shared]).unwrap();
-        commit_listing(conn.conn(), &key(""), "t2", &[]).unwrap();
+        commit_listing(conn.conn(), &key(""), "t1", &[shared.clone()], None).unwrap();
+        commit_listing(conn.conn(), &key("work"), "t1", &[shared], None).unwrap();
+        commit_listing(conn.conn(), &key(""), "t2", &[], None).unwrap();
         drop(conn);
         let snapshot = snapshot(&db, &[key(""), key("work")]);
         assert_eq!(snapshot.sessions.len(), 1);
@@ -769,6 +849,14 @@ mod tests {
             }
         );
         assert_eq!(snapshot.sessions[0].model.as_deref(), Some("model"));
+        assert_eq!(
+            snapshot.sessions[0].last_message,
+            Some(LastMessage {
+                role: MessageRole::Agent,
+                text: "last shared".into(),
+            })
+        );
+        assert_eq!(snapshot.sessions[0].message_count, Some(4));
         assert_eq!(snapshot.sessions[0].git_branch.as_deref(), Some("main"));
     }
 
@@ -776,7 +864,7 @@ mod tests {
     fn failed_refresh_keeps_rows_and_date() {
         let (_dir, db) = database();
         let conn = db.write();
-        commit_listing(conn.conn(), &key(""), "t1", &[listed("one", None)]).unwrap();
+        commit_listing(conn.conn(), &key(""), "t1", &[listed("one", None)], None).unwrap();
         record_failure(
             conn.conn(),
             &key(""),
@@ -808,9 +896,16 @@ mod tests {
     fn empty_success_clears_only_its_source() {
         let (_dir, db) = database();
         let conn = db.write();
-        commit_listing(conn.conn(), &key(""), "t1", &[listed("one", None)]).unwrap();
-        commit_listing(conn.conn(), &key("work"), "t1", &[listed("two", None)]).unwrap();
-        commit_listing(conn.conn(), &key(""), "t2", &[]).unwrap();
+        commit_listing(conn.conn(), &key(""), "t1", &[listed("one", None)], None).unwrap();
+        commit_listing(
+            conn.conn(),
+            &key("work"),
+            "t1",
+            &[listed("two", None)],
+            None,
+        )
+        .unwrap();
+        commit_listing(conn.conn(), &key(""), "t2", &[], None).unwrap();
         drop(conn);
         let snapshot = snapshot(&db, &[key(""), key("work")]);
         assert_eq!(snapshot.sessions.len(), 1);
@@ -825,6 +920,7 @@ mod tests {
             &key("gone"),
             "t1",
             &[listed("one", None)],
+            None,
         )
         .unwrap();
         let snapshot = snapshot(&db, &[key("")]);
@@ -842,8 +938,8 @@ mod tests {
         {
             let conn = db.write();
             let row = listed("shared", Some(&now));
-            commit_listing(conn.conn(), &key(""), &now, &[row.clone()]).unwrap();
-            commit_listing(conn.conn(), &axo_key, &now, &[row]).unwrap();
+            commit_listing(conn.conn(), &key(""), &now, &[row.clone()], None).unwrap();
+            commit_listing(conn.conn(), &axo_key, &now, &[row], None).unwrap();
         }
         let snapshot = snapshot(&db, &[key(""), axo_key]);
         assert_eq!(snapshot.sessions.len(), 2);

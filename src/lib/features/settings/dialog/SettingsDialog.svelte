@@ -14,6 +14,7 @@
   import { IconButton } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
+  import { Spinner } from '$lib/components/ui/progress'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import {
     AppWindow,
@@ -21,7 +22,6 @@
     SaveIcon,
     ChevronRight,
     KeyboardIcon,
-    LoaderCircle,
     PackageIcon,
     ServerIcon,
     SettingsIcon,
@@ -247,7 +247,7 @@
               aria-label={saveTooltip}
             >
               {#if pending > 0}
-                <LoaderCircle size={12} class="animate-spin text-muted" />
+                <Spinner size={12} class="text-muted" />
               {:else if savedFlash}
                 <SaveIcon size={12} class="text-success" />
               {:else}

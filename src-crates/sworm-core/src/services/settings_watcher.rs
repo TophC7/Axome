@@ -183,7 +183,7 @@ fn ensure_sworm_watch(watcher: &mut FolderSettingsWatcher, sworm_dir: &Path) -> 
     Ok(())
 }
 
-fn existing_watch_parent(path: &Path) -> Option<PathBuf> {
+pub(crate) fn existing_watch_parent(path: &Path) -> Option<PathBuf> {
     let mut current = path.parent();
     while let Some(candidate) = current {
         if candidate.exists() {

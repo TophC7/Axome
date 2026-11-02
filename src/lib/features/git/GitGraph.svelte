@@ -12,11 +12,11 @@
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { IconButton } from '$lib/components/ui/button'
   import { SidebarRow } from '$lib/components/ui/sidebar-row'
+  import { Spinner } from '$lib/components/ui/progress'
   import {
     GitBranchPlusIcon,
     GitGraphIcon,
     ListTreeIcon,
-    LoaderCircle,
     MoreHorizontalIcon,
     PackageIcon,
     TagIcon
@@ -130,7 +130,7 @@
                 : 'Worktrees'}
       </span>
       {#if activeTab === 'branches' && branchEntry?.fetching}
-        <LoaderCircle size={11} class="animate-spin text-muted" aria-label="Fetching branches" />
+        <Spinner size={11} class="text-muted" label="Fetching branches" />
       {/if}
     </span>
     <div class="flex items-center gap-0.5">

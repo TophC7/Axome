@@ -139,6 +139,8 @@ mod tests {
             session_id: id.into(),
             folder_path: folder.into(),
             title: None,
+            last_message: None,
+            message_count: None,
             updated_at: updated_at.map(Into::into),
             model: None,
             git_branch: None,

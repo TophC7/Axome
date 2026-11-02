@@ -45,7 +45,8 @@
   } from '$lib/icons/lucideExports'
   import IssueQuickCapture from '$lib/features/issues/IssueQuickCapture.svelte'
   import { ALL_PRIORITIES, priorityToneClass, statusGlyphTone, statusRowLabel } from '$lib/features/issues/visual'
-  import { hasToken, parseQuery, toggleToken } from '$lib/features/issues/query'
+  import { parseQuery } from '$lib/features/issues/query'
+  import { hasToken, toggleToken } from '$lib/utils/queryTokens'
   import { groupIssuesByEpic, type EpicGroup, type SortMode } from '$lib/features/issues/groups'
   import {
     claimIssue,

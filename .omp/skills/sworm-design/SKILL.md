@@ -559,6 +559,12 @@ An **applet** is any item docked at the rail foot. Foot order: Nix, then Remotes
 - stays cheap while closed: work it owns runs only while open; per-folder activation belongs to `WorkbenchView`;
 - styles panel rows with `appletRowClass` (menu-item highlight to `bg-surface`, no hover transition) and section labels with `appletHeadingClass`.
 
+### 11.16 Spinner
+
+`ui/progress`: `Spinner` is the one loading indicator: Lucide `RefreshCw` whose paths spin around the viewBox center (`*:origin-[12px_12px] *:animate-spin`). Never spin the element box: at fractional display scales WebKit snaps a spinning layer to device pixels and the glyph swings off-center. It paints in `currentColor`, so tint it with a text class (`text-muted` in headers, inherited inside filled chips). Pass `label` when it is the only loading cue; it then reads as `role="status"`.
+
+Views that keep themselves current carry no Refresh buttons; a section shows a `Spinner` beside its heading or in its toolbar only while a background refresh runs. A view with no live source, like Home's activity map, keeps its Rescan button and swaps the icon for `Spinner` while scanning. Don't hand-roll another spinning icon.
+
 ---
 
 ## 12 · Do / Don't

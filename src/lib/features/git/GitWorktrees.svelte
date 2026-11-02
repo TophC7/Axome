@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Button, IconButton, iconButtonVariants } from '$lib/components/ui/button'
+  import { Button, iconButtonVariants } from '$lib/components/ui/button'
   import * as Alert from '$lib/components/ui/alert'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { sidebarRowVariants } from '$lib/components/ui/sidebar-row'
+  import { Spinner } from '$lib/components/ui/progress'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { migrateWorktreeChanges, pruneWorktrees, removeWorktree } from '$lib/features/git/actions.svelte'
   import { openGitDialog } from './dialogs/host.svelte'
@@ -15,11 +16,9 @@
     GitBranchIcon,
     GitCommitIcon,
     GitMergeIcon,
-    LoaderCircle,
     Lock,
     MoreHorizontalIcon,
     Plus,
-    RefreshCwIcon,
     Trash2
   } from '$lib/icons/lucideExports'
   import type { GitWorktree } from '$lib/types/backend'
@@ -72,9 +71,9 @@
       Create
     </Button>
     <div class="flex-1"></div>
-    <IconButton tooltip="Refresh Worktrees" disabled={busy || entry?.loading} onclick={refresh}>
-      <RefreshCwIcon size={13} class={entry?.loading ? 'animate-spin' : ''} />
-    </IconButton>
+    {#if entry?.loading && entry.inventory}
+      <Spinner size={12} class="text-muted" label="Refreshing worktrees" />
+    {/if}
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class={iconButtonVariants()} aria-label="Worktree actions" disabled={busy}>
         <MoreHorizontalIcon size={13} />
@@ -102,7 +101,7 @@
   <div class="min-h-0 flex-1 overflow-y-auto">
     {#if !entry || (entry.loading && !entry.inventory)}
       <div class="flex items-center gap-1.5 px-2.5 py-2 text-sm text-subtle" role="status">
-        <LoaderCircle size={12} class="animate-spin" />
+        <Spinner size={12} />
         Loading worktrees…
       </div>
     {:else if entry.inventory?.worktrees.length === 0}

@@ -11,7 +11,8 @@
   import { Button } from '$lib/components/ui/button'
   import nixosUrl from '$lib/assets/nixos.svg?url'
   import MaskIcon from '$lib/icons/MaskIcon.svelte'
-  import { Check, LoaderCircle } from '$lib/icons/lucideExports'
+  import { Check } from '$lib/icons/lucideExports'
+  import { Spinner } from '$lib/components/ui/progress'
   import {
     clearNix,
     evaluateNix,
@@ -55,7 +56,7 @@
               : 'border-edge-strong'}"
           >
             {#if current && busy}
-              <LoaderCircle size={9} class="animate-spin" />
+              <Spinner size={9} />
             {:else if current}
               <Check size={9} strokeWidth={3} />
             {/if}

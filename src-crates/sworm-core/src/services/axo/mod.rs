@@ -7,7 +7,7 @@ mod tests;
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
-    io::{BufRead, BufReader},
+    ops::ControlFlow,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -22,6 +22,7 @@ use axo_ai::ThinkingLevel;
 use chrono::{DateTime, SecondsFormat, Utc};
 use parking_lot::Mutex;
 use sworm_protocol::chat::*;
+use sworm_protocol::session::MessageRole;
 use tokio::runtime::Handle;
 
 use crate::{
@@ -29,7 +30,7 @@ use crate::{
     events::EventSink,
     services::{
         db::DatabaseService,
-        history::{self, HistoryRow},
+        history::{self, HistoryRow, Listing},
         session_index::{SessionIndexService, SourceId},
     },
 };
@@ -506,7 +507,7 @@ impl AxoService {
         }
     }
 
-    pub(crate) fn list_rows(&self, folder: &Path) -> Result<Vec<HistoryRow>, String> {
+    pub(crate) fn list_history(&self, folder: &Path) -> Result<Listing, String> {
         let runtime = self.runtime().ok_or("axo has no runtime")?;
         let service = self.this.upgrade().ok_or("axo service dropped")?;
         let listing_folder = folder.to_owned();
@@ -524,57 +525,86 @@ impl AxoService {
             .block_on(listing)
             .map_err(|e| e.to_string())?
             .map_err(|e| e.to_string())?;
-        let mut rows = Vec::new();
+        let mut listing = Listing::default();
         for info in infos {
-            let read = || -> std::io::Result<Vec<Entry>> {
+            let read = || -> std::io::Result<Option<HistoryRow>> {
                 let mut entries = Vec::new();
-                for line in BufReader::new(std::fs::File::open(&info.path)?)
-                    .lines()
-                    .skip(1)
-                {
-                    let line = line?;
-                    if [
-                        "\"type\":\"submission\"",
-                        "\"type\":\"model_change\"",
-                        "\"type\":\"session_info\"",
-                    ]
-                    .iter()
-                    .any(|kind| line.contains(kind))
+                let mut row = HistoryRow {
+                    message_count: Some(0),
+                    ..HistoryRow::default()
+                };
+                let mut header = true;
+                history::each_line(std::fs::File::open(&info.path)?, |line| {
+                    if std::mem::take(&mut header)
+                        || ![
+                            "\"type\":\"submission\"",
+                            "\"type\":\"message\"",
+                            "\"type\":\"session_info\"",
+                        ]
+                        .iter()
+                        .any(|kind| line.contains(kind))
                     {
-                        if let Ok(entry) = serde_json::from_str::<Entry>(&line) {
-                            entries.push(entry);
-                        }
+                        return ControlFlow::Continue(());
                     }
-                }
-                Ok(entries)
+                    let Ok(entry) = serde_json::from_str::<Entry>(line) else {
+                        return ControlFlow::Continue(());
+                    };
+                    // Count stored user/assistant messages with text, not submissions,
+                    // tool-only replies, system messages, or branch/navigation records.
+                    match entry {
+                        Entry::Message {
+                            message: axo_agent::AgentMessage::Llm(axo_ai::Message::User(user)),
+                            ..
+                        } => row.push_message(
+                            MessageRole::User,
+                            user.content.iter().filter_map(|block| match block {
+                                axo_ai::UserBlock::Text { text } => Some(text.as_str()),
+                                _ => None,
+                            }),
+                        ),
+                        Entry::Message {
+                            message:
+                                axo_agent::AgentMessage::Llm(axo_ai::Message::Assistant(assistant)),
+                            ..
+                        } => {
+                            row.model = Some(format!("{}/{}", assistant.provider, assistant.model));
+                            row.push_message(
+                                MessageRole::Agent,
+                                assistant.content.iter().filter_map(|block| match block {
+                                    axo_ai::AssistantBlock::Text { text, .. } => {
+                                        Some(text.as_str())
+                                    }
+                                    _ => None,
+                                }),
+                            );
+                        }
+                        entry @ (Entry::Submission { .. } | Entry::SessionInfo { .. }) => {
+                            entries.push(entry)
+                        }
+                        _ => {}
+                    }
+                    ControlFlow::Continue(())
+                })?;
+                row.title = convert::title_of(entries.iter());
+                Ok(Some(row))
             };
-            let entries = match read() {
-                Ok(entries) => entries,
-                Err(error) => {
-                    tracing::warn!(path = %info.path.display(), %error, "Cannot read axo session history");
-                    continue;
-                }
+            let Some(Some(mut row)) = history::readable(
+                std::fs::metadata(&info.path)
+                    .and_then(|metadata| history::parsed("axo", &info.path, &metadata, read)),
+                &mut listing.skipped,
+            ) else {
+                continue;
             };
-            let model = entries.iter().rev().find_map(|entry| match entry {
-                Entry::ModelChange {
-                    provider, model_id, ..
-                } => Some(format!("{provider}/{model_id}")),
-                _ => None,
-            });
-            rows.push(HistoryRow {
-                id: info.id,
-                cwd: Some(info.cwd.to_string_lossy().into_owned()),
-                title: convert::title_of(entries.iter()),
-                created_at: Some(info.timestamp),
-                updated_at: Some(
-                    DateTime::<Utc>::from(info.modified)
-                        .to_rfc3339_opts(SecondsFormat::Millis, true),
-                ),
-                model,
-                git_branch: None,
-            });
+            row.id = info.id;
+            row.cwd = Some(info.cwd.to_string_lossy().into_owned());
+            row.created_at = Some(info.timestamp);
+            row.updated_at = Some(
+                DateTime::<Utc>::from(info.modified).to_rfc3339_opts(SecondsFormat::Millis, true),
+            );
+            listing.rows.push(row);
         }
-        Ok(history::normalize(rows, Some(folder), None))
+        listing.rows = history::normalize(std::mem::take(&mut listing.rows), Some(folder), None);
+        Ok(listing)
     }
 
     pub(crate) fn shutdown(&self) {

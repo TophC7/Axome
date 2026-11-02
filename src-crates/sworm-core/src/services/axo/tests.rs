@@ -32,7 +32,7 @@ impl Fixture {
             &json!({"providers": {"test": {
                 "api": "openai-completions",
                 "baseUrl": "http://127.0.0.1:9/v1",
-                "models": [{"id": "m"}]
+                "models": [{"id": "m"}, {"id": "m2"}]
             }}})
             .to_string(),
         )
@@ -373,28 +373,41 @@ async fn idle_session_unloads_and_reopens() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn list_rows_reads_title_and_model() {
+async fn list_history_reads_title_and_model() {
     let fixture = Fixture::new(vec![ScriptedTurn::Reply(reply_text("hello"))]).await;
     let id = fixture.create().await;
     let events = fixture.attach(&id, "a").await;
     fixture.prompt(&id, "hi", &events, 1).await;
+    fixture
+        .service
+        .set_model(&fixture.folder, &id, "test/m2".into())
+        .await
+        .unwrap();
     let service = Arc::clone(&fixture.service);
     let folder = fixture.folder.clone();
-    let rows = tokio::task::spawn_blocking(move || service.list_rows(&folder))
+    let listing = tokio::task::spawn_blocking(move || service.list_history(&folder))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(rows.len(), 1);
-    let row = &rows[0];
+    assert_eq!(listing.rows.len(), 1);
+    let row = &listing.rows[0];
     assert_eq!(row.id, id);
     assert_eq!(row.title.as_deref(), Some("hi"));
+    assert_eq!(
+        row.last_message,
+        Some(sworm_protocol::session::LastMessage {
+            role: sworm_protocol::session::MessageRole::Agent,
+            text: "hello".into(),
+        })
+    );
+    assert_eq!(row.message_count, Some(2));
     assert_eq!(row.model.as_deref(), Some("test/m"));
     assert!(row.created_at.is_some());
     assert!(row.updated_at.is_some());
 }
 
 #[test]
-fn list_rows_rejects_a_stopped_runtime() {
+fn list_history_rejects_a_stopped_runtime() {
     let dir = std::env::temp_dir().join(format!("sworm-axo-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&dir).unwrap();
     let db = Arc::new(DatabaseService::new(dir.join("test.db")).unwrap());
@@ -412,6 +425,6 @@ fn list_rows_rejects_a_stopped_runtime() {
         fixture.service.bind_runtime();
     }
     drop(runtime);
-    let error = fixture.service.list_rows(&fixture.folder).unwrap_err();
+    let error = fixture.service.list_history(&fixture.folder).unwrap_err();
     assert!(error.contains("cancelled"), "{error}");
 }

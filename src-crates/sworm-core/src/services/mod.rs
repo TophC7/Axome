@@ -25,6 +25,7 @@ pub(crate) mod removal;
 pub(crate) mod runs;
 pub mod runtime_info;
 pub(crate) mod session_index;
+pub(crate) mod session_watcher;
 pub mod settings;
 pub mod settings_resolution;
 pub mod settings_watcher;

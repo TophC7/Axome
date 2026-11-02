@@ -11,6 +11,7 @@
   import StageView from '$lib/components/layout/StageView.svelte'
   import { BlurFade } from '$lib/components/ui/blur-fade'
   import { Button, IconButton } from '$lib/components/ui/button'
+  import { Spinner } from '$lib/components/ui/progress'
   import { InfoTooltip } from '$lib/components/ui/tooltip'
   import {
     getDiscoveredProjects,
@@ -182,7 +183,7 @@
             </p>
           </InfoTooltip>
           <IconButton tooltip="Rescan agent history" onclick={rescan} disabled={scanning}>
-            <RefreshCwIcon size={11} class={scanning ? 'animate-spin' : ''} />
+            {#if scanning}<Spinner size={11} />{:else}<RefreshCwIcon size={11} />{/if}
           </IconButton>
         </div>
 

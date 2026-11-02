@@ -37,8 +37,13 @@ async function load(folderPath: string, refresh: boolean): Promise<void> {
   const request = (requests.get(folderPath) ?? 0) + 1
   requests.set(folderPath, request)
   const current = () => store.generation(folderPath) === generation && requests.get(folderPath) === request
-  // Callers may run inside an effect; reading the store there would re-trigger it.
-  untrack(() => store.set(folderPath, { ...getSessionIndex(folderPath), loading: true }))
+  // Event-driven re-reads of a cached snapshot stay silent: flagging them would flicker
+  // the history on every store write while an agent runs. Callers may run inside an
+  // effect; reading the store there would re-trigger it.
+  untrack(() => {
+    const entry = getSessionIndex(folderPath)
+    if (refresh || !entry.snapshot) store.set(folderPath, { ...entry, loading: true })
+  })
   try {
     const snapshot = await (refresh ? backend.sessionIndex.refresh(folderPath) : backend.sessionIndex.get(folderPath))
     if (current()) store.set(folderPath, { snapshot, loading: false, error: null })
@@ -87,11 +92,6 @@ export function activateSessionsFolder(folderPath: string): () => void {
     released = true
     unretain()
   }
-}
-
-/** Explicit refresh; failures land in the entry's `error`. */
-export function refreshSessionIndex(folderPath: string): Promise<void> {
-  return load(folderPath, true)
 }
 
 /** Refresh every loaded folder `affects` selects (settings, Nix and environment changes). */
