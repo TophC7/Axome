@@ -12,7 +12,8 @@
 -->
 
 <script lang="ts">
-  import { CircleAlert, ChevronDown } from '$lib/icons/lucideExports'
+  import { AlertCircleIcon, ChevronDownIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Input } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
@@ -138,7 +139,8 @@
             </span>
           </div>
 
-          <ChevronDown
+          <Icon
+            icon={ChevronDownIcon}
             size={14}
             class="shrink-0 text-subtle transition-transform group-hover:text-fg {open ? 'rotate-180' : ''}"
           />
@@ -148,7 +150,7 @@
           <div
             class="flex items-center gap-2 border-t border-danger/30 bg-danger-bg px-5 py-2 text-sm text-danger-bright"
           >
-            <CircleAlert size={14} />
+            <Icon icon={AlertCircleIcon} size={14} />
             <span>{entry.harness.message}</span>
           </div>
         {/if}

@@ -19,7 +19,8 @@
   import { notify } from '$lib/features/notifications/state.svelte'
   import type { ChatTab } from '$lib/features/workbench/model'
   import { openFileLocation } from '$lib/features/workbench/links/openLink'
-  import { PaperclipIcon } from '$lib/icons/lucideExports'
+  import { PaperclipIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { ChatThinking } from '$lib/types/backend'
   import { getErrorMessage } from '$lib/utils/client-error'
   import { logicalKey } from '$lib/utils/keyboardEvent'
@@ -246,7 +247,7 @@
               {disabled}
               onclick={() => void attachFile()}
             >
-              <PaperclipIcon size={14} />
+              <Icon icon={PaperclipIcon} size={14} />
             </IconButton>
           {/snippet}
           {#snippet end()}

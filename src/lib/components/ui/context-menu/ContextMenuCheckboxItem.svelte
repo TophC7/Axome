@@ -1,7 +1,8 @@
 <script lang="ts">
   import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
   import { cn, type WithoutChildrenOrChild } from '$lib/utils/cn'
-  import { Check } from '$lib/icons/lucideExports'
+  import { CheckIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { menuIndicatorClass, menuIndicatorItemClass } from '../menu-recipe'
   import type { Snippet } from 'svelte'
 
@@ -25,7 +26,7 @@
 >
   {#snippet children({ checked })}
     <span class={menuIndicatorClass}>
-      {#if checked}<Check size={14} class="text-current" />{/if}
+      {#if checked}<Icon icon={CheckIcon} size={14} class="text-current" />{/if}
     </span>
     {@render label?.()}
   {/snippet}

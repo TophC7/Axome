@@ -16,7 +16,7 @@ export const menuContentVariants = tv({
   }
 })
 
-// No automatic svg size: consumers size lucide icons with `size={…}`, which a CSS size would override.
+// No automatic svg size: consumers size icons with `size={…}`, which a CSS size would override.
 // `not-data-disabled` guards fills: an item disabled while highlighted keeps data-highlighted until blur.
 export const menuItemClass = [
   'relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-fg outline-none select-none focus-visible:shadow-focus-ring',
@@ -32,11 +32,9 @@ export const menuItemClass = [
 export const menuIndicatorItemClass = `${menuItemClass} ps-8`
 
 /** Absolute check/radio slot sitting in the item's left padding. */
-export const menuIndicatorClass =
-  'pointer-events-none absolute start-3 flex size-3.5 items-center justify-center'
+export const menuIndicatorClass = 'pointer-events-none absolute start-3 flex size-3.5 items-center justify-center'
 
-export const menuGroupHeadingClass =
-  'px-3 py-1 text-xs font-medium tracking-wide text-muted uppercase data-inset:ps-8'
+export const menuGroupHeadingClass = 'px-3 py-1 text-xs font-medium tracking-wide text-muted uppercase data-inset:ps-8'
 
 export const menuShortcutClass = 'ms-auto ps-6 text-xs text-subtle'
 

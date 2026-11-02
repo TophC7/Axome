@@ -61,17 +61,18 @@
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
   import {
-    FileDiff,
-    Layers,
-    Lock,
-    Plus,
-    CircleDot,
+    FileDiffIcon,
+    Layers01Icon,
+    LockKeyholeIcon,
+    PlusIcon,
+    CircleDotIcon,
     TerminalIcon,
     ServerIcon,
     MessagesSquareIcon
-  } from '$lib/icons/lucideExports'
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
-  import LucideIcon from '$lib/icons/LucideIcon.svelte'
+  import NamedIcon from '$lib/icons/NamedIcon.svelte'
   import { onMount, tick } from 'svelte'
   import { runNotifiedTask } from '$lib/features/notifications/runNotifiedTask'
   import { getTabPresentation } from '$lib/features/workbench/presentation.svelte'
@@ -320,36 +321,29 @@
       >
         {#snippet leading()}
           {#if tab.kind === 'diff'}
-            <FileDiff size={14} class="shrink-0 text-accent" />
+            <Icon icon={FileDiffIcon} size={14} class="shrink-0 text-accent" />
           {:else if tab.kind === 'issue'}
-            <CircleDot size={14} class="shrink-0 text-accent" />
+            <Icon icon={CircleDotIcon} size={14} class="shrink-0 text-accent" />
           {:else if tab.kind === 'epic'}
-            <Layers size={14} class="shrink-0 text-warning" />
+            <Icon icon={Layers01Icon} size={14} class="shrink-0 text-warning" />
           {:else if tab.kind === 'text' && presentation.fileName}
             <!-- Pass the full relative path so the resolver can apply
                      directory-aware rules (e.g. .axome/*.json → axome icon).
                      Falls back to the basename for unsaved "Untitled" tabs. -->
             <FileIcon filename={tab.filePath ?? presentation.fileName} size={14} />
           {:else if tab.kind === 'new-tab'}
-            <Plus size={14} class="shrink-0 text-accent" />
+            <Icon icon={PlusIcon} size={14} class="shrink-0 text-accent" />
           {:else if tab.kind === 'chat'}
-            <MessagesSquareIcon size={14} class="shrink-0 text-accent" />
+            <Icon icon={MessagesSquareIcon} size={14} class="shrink-0 text-accent" />
           {:else if tab.kind === 'shell'}
-            <TerminalIcon size={14} class="shrink-0 text-muted" />
+            <Icon icon={TerminalIcon} size={14} class="shrink-0 text-muted" />
           {:else if tab.kind === 'task'}
-            <!-- Task icon comes from .axome/tasks.jsonc. Any Lucide name
-                     is valid; fall back to the terminal glyph when the
-                     dynamic loader can't find a match. -->
-            {#if presentation.lucideIcon}
-              <LucideIcon name={presentation.lucideIcon} size={14} class="shrink-0 text-accent" />
-            {:else}
-              <TerminalIcon size={14} class="shrink-0 text-accent" />
-            {/if}
+            <NamedIcon name={presentation.taskIcon} fallback={TerminalIcon} size={14} class="shrink-0 text-accent" />
           {:else if presentation.sessionIcon}
             <HarnessIcon icon={presentation.sessionIcon} size={14} />
           {/if}
           {#if tab.locked}
-            <Lock size={11} class="shrink-0 text-muted" />
+            <Icon icon={LockKeyholeIcon} size={11} class="shrink-0 text-muted" />
           {/if}
         {/snippet}
         <span class="max-w-[120px] truncate {presentation.preview ? 'italic' : ''}">
@@ -414,7 +408,7 @@
 {/snippet}
 
 {#snippet groupLabel(group: WorkbenchGroup)}
-  <ServerIcon size={14} class="shrink-0" />
+  <Icon icon={ServerIcon} size={14} class="shrink-0" />
   <span class="truncate">{group.server}</span>
   {#if group.state === 'busy' || group.state === 'revoked'}
     <span class="max-w-28 shrink-0 truncate font-normal">in {group.client ?? 'another app'}</span>

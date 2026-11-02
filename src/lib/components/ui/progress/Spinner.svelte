@@ -6,7 +6,8 @@
 -->
 
 <script lang="ts">
-  import { RefreshCwIcon } from '$lib/icons/lucideExports'
+  import { RefreshCwIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { cn } from '$lib/utils/cn'
 
   let { size = 13, label, class: className }: { size?: number; label?: string; class?: string } = $props()
@@ -16,7 +17,8 @@
      at fractional display scales WebKit snaps a spinning box's layer to device
      pixels, so a box at a subpixel layout position swings up to ~1.5px per turn.
      In-svg rotation is rasterized in place and stays centered. -->
-<RefreshCwIcon
+<Icon
+  icon={RefreshCwIcon}
   data-slot="spinner"
   {size}
   role={label ? 'status' : undefined}

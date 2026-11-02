@@ -58,8 +58,8 @@ pub struct TaskDefinition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env: Option<HashMap<String, String>>,
 
-    /// Lucide icon name used on the tab. Any valid Lucide identifier
-    /// is accepted; invalid names fall back to a default task icon.
+    /// Hugeicons icon slug used on the tab, as in hugeicons.com icon URLs
+    /// (e.g. "play", "search-01"). Unknown names fall back to a default task icon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
 

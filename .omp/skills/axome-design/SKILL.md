@@ -165,10 +165,11 @@ All sizes ship as Tailwind utilities (`text-2xs` … `text-5xl`). Use the named 
 
 ## 4 · Iconography
 
-### 4.1 Lucide for UI chrome
+### 4.1 Hugeicons for UI chrome
 
-- All UI icons come from `@lucide/svelte`, re-exported via `src/lib/icons/lucideExports.ts`.
-- Default stroke width 2.
+- All UI icons come from `@hugeicons/core-free-icons` (free, Stroke Rounded), imported directly by their `*Icon` export name. There is no barrel.
+- Render through `$lib/icons/Icon.svelte` (`<Icon icon={Search01Icon} size={14} />`). Icons are data: registries and props hold `IconData`, not components. Import the type from `$lib/icons/Icon.svelte`.
+- Native stroke width is 1.5. Override `strokeWidth` only for tiny glyphs (checkbox check/minus use 3).
 - Sizes by context:
   - **9–11px** — badges, status glyphs.
   - **12px** — inline with `text-sm` chrome (kbd hints, command palette icons).
@@ -176,7 +177,9 @@ All sizes ship as Tailwind utilities (`text-2xs` … `text-5xl`). Use the named 
   - **18px** — titlebar logo.
   - **28–30px** — empty-state hero icons.
 - Color inherited from `color:`. Match the surrounding text role (`text-muted` secondary, `text-bright` hover, `text-accent` active, `text-danger`/`text-success`/`text-warning` for semantics).
-- When adding a new icon, re-export it from `lucideExports.ts` with the `*Icon` suffix convention (`MenuIcon`, `SearchIcon`, `SettingsIcon`). Exceptions kept for short iconic names (`X`, `Plus`, `Check`).
+- Config-supplied names (task icons) render through `$lib/icons/NamedIcon.svelte` with a required fallback.
+- When choosing a new icon, reuse the variant already used for the same concept: close `XIcon`, delete `Delete02Icon`, search `Search01Icon`, settings `Settings01Icon`, folder `Folder01Icon`.
+- Never add `@hugeicons/svelte`: its wrapper doesn't re-render when the `icon` prop changes.
 
 ### 4.2 Brand SVGs
 
@@ -185,7 +188,7 @@ Raw assets live under `src/lib/assets/` and are imported (`?url`), never served 
 - `axome.svg` — app logo. `github.svg`, `nixos.svg`.
 - Provider marks and wordmarks: `providers/*.svg`, wired in `src/lib/features/sessions/providers/catalog.ts`.
 - Monochrome marks (wordmarks, Nix) paint through `MaskIcon` so they take the text color. Supply `label` for meaningful standalone images; omit it for decorative marks inside labelled controls.
-- Generic options are not brands: Terminal and New File use Lucide (`TerminalIcon`, `FilePlusCornerIcon`) via `ProviderIcon`, colored by tokens like any other UI icon.
+- Generic options are not brands: Terminal and New File use Hugeicons (`TerminalIcon`, `FilePlusCornerIcon`) via `HarnessIcon`, colored by tokens like any other UI icon.
 
 **Provider presence rule.** Provider logos render full-color when the provider is detected, `grayscale + 50% opacity` when not. This is how Axome communicates "connected vs not available" — no extra dot, no extra label.
 
@@ -195,7 +198,7 @@ Raw assets live under `src/lib/assets/` and are imported (`?url`), never served 
 
 ### 4.4 Emoji ban
 
-Never. No unicode-character-as-icon either. If you need a glyph, use Lucide or a bundled brand SVG.
+Never. No unicode-character-as-icon either. If you need a glyph, use Hugeicons or a bundled brand SVG.
 
 ---
 
@@ -514,11 +517,11 @@ Items = `relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 
 - Disabled (`data-disabled`): `cursor-not-allowed text-muted/50`, no fill. Bits rejects selection before running the consumer action.
 - Destructive (`destructive` prop → `data-destructive`): `text-danger`, highlight `bg-danger-bg`, icons `text-danger`.
 - `inset` prop → `data-inset:ps-8`, lining text up with checkbox/radio labels. Available on Item, SubTrigger and GroupHeading.
-- Icons: `[&_svg]:shrink-0`; SVGs without a `text-` class render `text-muted`. No automatic size: pass lucide `size={14}`.
+- Icons: `[&_svg]:shrink-0`; SVGs without a `text-` class render `text-muted`. No automatic size: pass `size={14}` on `Icon`.
 
 Use `onSelect` on Item for mouse and keyboard activation; `onclick` is not part of the wrapper contract. Bits checks disabled before the action and closes afterwards, so an action may mark itself busy or open a dialog without leaving its menu and body lock behind. `event.preventDefault()` on the selection event cancels closing; `closeOnSelect={false}` keeps the menu open intentionally.
 
-CheckboxItem / RadioItem = item recipe + `ps-8`, with the indicator (`Check`, or a `Circle` at `size-2 fill-current`) absolutely placed in the left padding. `closeOnSelect={false}` keeps the menu open.
+CheckboxItem / RadioItem = item recipe + `ps-8`, with the indicator (`CheckIcon`, or `CircleIcon` at `size-2 fill-current`, rendered by `Icon`) absolutely placed in the left padding. `closeOnSelect={false}` keeps the menu open.
 
 GroupHeading = `px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted`. It must sit inside `Group` or `RadioGroup` (bits group context).
 
@@ -565,7 +568,7 @@ An **applet** is any item docked at the rail foot. Foot order: Nix, then Remotes
 
 ### 11.16 Spinner
 
-`ui/progress`: `Spinner` is the one loading indicator: Lucide `RefreshCw` whose paths spin around the viewBox center (`*:origin-[12px_12px] *:animate-spin`). Never spin the element box: at fractional display scales WebKit snaps a spinning layer to device pixels and the glyph swings off-center. It paints in `currentColor`, so tint it with a text class (`text-muted` in headers, inherited inside filled chips). Pass `label` when it is the only loading cue; it then reads as `role="status"`.
+`ui/progress`: `Spinner` is the one loading indicator: Hugeicons `RefreshCwIcon` rendered by `Icon`, whose paths spin around the viewBox center (`*:origin-[12px_12px] *:animate-spin`). Never spin the element box: at fractional display scales WebKit snaps a spinning layer to device pixels and the glyph swings off-center. It paints in `currentColor`, so tint it with a text class (`text-muted` in headers, inherited inside filled chips). Pass `label` when it is the only loading cue; it then reads as `role="status"`.
 
 Views that keep themselves current carry no Refresh buttons; a section shows a `Spinner` beside its heading or in its toolbar only while a background refresh runs. A view with no live source, like Home's activity map, keeps its Rescan button and swaps the icon for `Spinner` while scanning. Don't hand-roll another spinning icon.
 

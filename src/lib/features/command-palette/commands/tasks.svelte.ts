@@ -13,11 +13,10 @@ export function getTaskPaletteGroups(): CommandGroup[] {
   const buckets = new Map<string, Command[]>()
   for (const task of tasks) {
     const heading = task.group?.trim() || 'Tasks'
-    const iconName = task.icon?.trim() || 'terminal'
     const entry: Command = {
       id: `task:${task.id}`,
       label: task.label,
-      lucideIcon: iconName,
+      iconName: task.icon?.trim() || 'terminal',
       keywords: ['task', task.label, task.id, task.group ?? ''],
       onSelect: () => void openTaskTab(folderPath, task)
     }

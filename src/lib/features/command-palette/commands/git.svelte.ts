@@ -15,30 +15,30 @@ import type { GitSummary, GitWorktree } from '$lib/types/backend'
 import { getErrorMessage } from '$lib/utils/client-error'
 import {
   ArrowDownToLineIcon,
-  ArrowRight,
+  ArrowRight02Icon,
   ArrowUpFromLineIcon,
-  Check,
+  CheckIcon,
   CloudIcon,
   CloudUploadIcon,
-  FileDiff,
+  FileDiffIcon,
   GitBranchPlusIcon,
-  GitCommitIcon,
+  GitCommitHorizontalIcon,
   GitMergeIcon,
   GitPullRequestIcon,
   ListTreeIcon,
-  MinusCircle,
+  CircleMinusIcon,
   PackageIcon,
   PackageOpenIcon,
   PencilIcon,
-  PlusCircle,
+  CirclePlusIcon,
   RefreshCwIcon,
-  RotateCw,
+  RefreshIcon,
   ShieldAlertIcon,
-  TagIcon,
-  Trash2,
-  Undo2Icon,
-  X
-} from '$lib/icons/lucideExports'
+  Tag01Icon,
+  Delete02Icon,
+  Undo02Icon,
+  XIcon
+} from '@hugeicons/core-free-icons'
 
 function activeRepo(): { folderPath: string; summary: GitSummary } | null {
   const folderPath = getActiveFolderPath()
@@ -152,7 +152,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-continue',
       label: () => `Continue ${opTitle()}`,
-      icon: Check,
+      icon: CheckIcon,
       keywords: ['git', 'continue', 'merge', 'rebase', 'cherry-pick', 'revert'],
       when: (summary) => summary.operation !== null && summary.conflicts.length === 0,
       run: (folderPath) => actions.continueOperation(folderPath)
@@ -160,7 +160,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-skip',
       label: 'Skip Commit',
-      icon: ArrowRight,
+      icon: ArrowRight02Icon,
       keywords: ['git', 'skip', 'commit', 'rebase', 'cherry-pick', 'revert'],
       when: (summary) => summary.operation !== null && describeOperation(summary.operation).canSkip,
       run: (folderPath) => actions.skipOperation(folderPath)
@@ -168,7 +168,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-abort',
       label: () => `Abort ${opTitle()}`,
-      icon: X,
+      icon: XIcon,
       keywords: ['git', 'abort', 'cancel', 'merge', 'rebase', 'cherry-pick', 'revert'],
       when: (summary) => summary.operation !== null,
       run: (folderPath) => actions.abortOperation(folderPath)
@@ -233,14 +233,14 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-fetch',
       label: 'Fetch',
-      icon: RotateCw,
+      icon: RefreshIcon,
       keywords: ['git', 'fetch', 'remote', 'update'],
       run: (folderPath) => actions.fetchFolder(folderPath)
     }),
     gitCommand({
       id: 'git-commit',
       label: 'Commit',
-      icon: GitCommitIcon,
+      icon: GitCommitHorizontalIcon,
       keywords: ['git', 'commit', 'message', 'save'],
       when: (summary) => idle(summary) && summary.changes.length > 0,
       run: (folderPath) => actions.commitWithPrompt(folderPath, { kind: 'commit', post: 'none' })
@@ -248,7 +248,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-commit-all',
       label: 'Commit All',
-      icon: GitCommitIcon,
+      icon: GitCommitHorizontalIcon,
       keywords: ['git', 'commit', 'all', 'stage', 'save'],
       when: (summary) => idle(summary) && summary.changes.length > 0,
       run: (folderPath) => actions.commitWithPrompt(folderPath, { kind: 'all' })
@@ -272,7 +272,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-commit-amend',
       label: 'Commit (Amend)',
-      icon: GitCommitIcon,
+      icon: GitCommitHorizontalIcon,
       keywords: ['git', 'commit', 'amend', 'rewrite', 'message'],
       when: (summary) => idle(summary) && born(summary),
       run: (folderPath) => actions.commitWithPrompt(folderPath, { kind: 'amend' })
@@ -280,7 +280,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-undo-last-commit',
       label: 'Undo Last Commit',
-      icon: Undo2Icon,
+      icon: Undo02Icon,
       keywords: ['git', 'undo', 'reset', 'revert', 'commit'],
       dangerous: true,
       when: (summary) => idle(summary) && born(summary),
@@ -289,7 +289,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-stage-all',
       label: 'Stage All Changes',
-      icon: PlusCircle,
+      icon: CirclePlusIcon,
       keywords: ['git', 'stage', 'all', 'changes', 'add'],
       when: (summary) => summary.unstaged_count + summary.untracked_count > 0,
       run: (folderPath) => actions.stageAllFolder(folderPath)
@@ -297,7 +297,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-unstage-all',
       label: 'Unstage All Changes',
-      icon: MinusCircle,
+      icon: CircleMinusIcon,
       keywords: ['git', 'unstage', 'all', 'changes', 'index'],
       when: (summary) => summary.staged_count > 0,
       run: (folderPath) => actions.unstageAllFolder(folderPath)
@@ -305,7 +305,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-discard-all',
       label: 'Discard All Changes',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'discard', 'all', 'changes', 'reset', 'clean'],
       dangerous: true,
       when: (summary) => summary.unstaged_count + summary.untracked_count > 0,
@@ -314,7 +314,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-open-changes',
       label: 'Open Changes',
-      icon: FileDiff,
+      icon: FileDiffIcon,
       keywords: ['git', 'open', 'changes', 'diff', 'working', 'tree'],
       when: (summary) => summary.unstaged_count + summary.untracked_count > 0,
       run: (folderPath) => openWorkingTreeDiff(folderPath, false, null, null, { temporary: false })
@@ -322,7 +322,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-checkout-to',
       label: 'Checkout to…',
-      icon: Check,
+      icon: CheckIcon,
       keywords: ['git', 'checkout', 'switch', 'branch', 'ref'],
       when: idle,
       run: (folderPath) => branches.checkoutTo(folderPath)
@@ -330,7 +330,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-checkout-detached',
       label: 'Checkout to (Detached)…',
-      icon: GitCommitIcon,
+      icon: GitCommitHorizontalIcon,
       keywords: ['git', 'checkout', 'detached', 'head', 'ref'],
       when: idle,
       run: async (folderPath) => {
@@ -378,7 +378,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-delete-branch',
       label: 'Delete Branch…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'delete', 'branch', 'remove'],
       dangerous: true,
       run: async (folderPath) => {
@@ -430,7 +430,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-delete-merged-branches',
       label: 'Delete Merged Branches…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'delete', 'merged', 'branches', 'cleanup'],
       dangerous: true,
       when: born,
@@ -497,7 +497,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-stash-drop',
       label: 'Drop Stash…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'drop', 'stash', 'delete', 'remove'],
       dangerous: true,
       run: async (folderPath) => {
@@ -508,7 +508,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-stash-drop-all',
       label: 'Drop All Stashes…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'drop', 'all', 'stashes', 'clear', 'delete'],
       dangerous: true,
       run: (folderPath) => actions.clearStashes(folderPath)
@@ -516,7 +516,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-create-tag',
       label: 'Create Tag…',
-      icon: TagIcon,
+      icon: Tag01Icon,
       keywords: ['git', 'create', 'tag', 'new', 'release'],
       when: born,
       run: (folderPath) => actions.createTag(folderPath, 'HEAD', 'HEAD')
@@ -524,7 +524,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-delete-tag',
       label: 'Delete Tag…',
-      icon: TagIcon,
+      icon: Tag01Icon,
       keywords: ['git', 'delete', 'tag', 'remove'],
       dangerous: true,
       run: async (folderPath) => {
@@ -542,7 +542,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-delete-remote-tag',
       label: 'Delete Remote Tag…',
-      icon: TagIcon,
+      icon: Tag01Icon,
       keywords: ['git', 'delete', 'remote', 'tag', 'remove'],
       dangerous: true,
       run: async (folderPath) => {
@@ -574,7 +574,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-remove-remote',
       label: 'Remove Remote…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'remove', 'remote', 'delete'],
       dangerous: true,
       run: (folderPath) => actions.removeRemote(folderPath)
@@ -590,7 +590,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-remove-worktree',
       label: 'Remove Worktree…',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'remove', 'worktree', 'linked', 'delete'],
       dangerous: true,
       run: async (folderPath) => {
@@ -620,7 +620,7 @@ export function getGitCommandDefinitions(): AppCommandDefinition[] {
     gitCommand({
       id: 'git-prune-worktrees',
       label: 'Prune Stale Worktrees',
-      icon: Trash2,
+      icon: Delete02Icon,
       keywords: ['git', 'prune', 'stale', 'worktrees', 'cleanup'],
       run: (folderPath) => actions.pruneWorktrees(folderPath)
     })

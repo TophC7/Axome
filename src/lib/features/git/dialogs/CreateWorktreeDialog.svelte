@@ -9,7 +9,8 @@
   import * as branches from '$lib/features/git/branches.svelte'
   import DialogError from '$lib/features/git/dialogs/DialogError.svelte'
   import { runDialogSubmit } from '$lib/features/git/dialogs/runDialogSubmit.svelte'
-  import { FolderOpenIcon } from '$lib/icons/lucideExports'
+  import { FolderOpenIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { GitWorktreeCheckout } from '$lib/types/backend'
   import { getErrorMessage } from '$lib/utils/client-error'
   import { validateBranchName } from '$lib/utils/git/branchValidation'
@@ -243,7 +244,7 @@
                 spellcheck={false}
               />
               <Button type="button" size="sm" onclick={() => void browse()}>
-                <FolderOpenIcon size={14} />
+                <Icon icon={FolderOpenIcon} size={14} />
                 {browseBusy ? 'Browsing…' : 'Browse…'}
               </Button>
             </div>

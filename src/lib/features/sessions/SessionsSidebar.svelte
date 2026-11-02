@@ -11,7 +11,8 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import * as Resizable from '$lib/components/ui/resizable'
   import { SidebarRow } from '$lib/components/ui/sidebar-row'
-  import { AlertTriangle, MessagesSquareIcon, Plus, TerminalIcon, X } from '$lib/icons/lucideExports'
+  import { TriangleAlertIcon, MessagesSquareIcon, PlusIcon, TerminalIcon, XIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { ChatStatus, ChatTab, SessionStatus, SessionTab, ShellTab } from '$lib/features/workbench/model'
   import { getActiveTabId, getTabs, setActiveTab } from '$lib/features/workbench/state.svelte'
   import { closeTabWithChecks } from '$lib/features/workbench/tabActions.svelte'
@@ -64,11 +65,11 @@
   {#snippet headerActions()}
     <DropdownMenu.Root>
       <DropdownMenu.Trigger aria-label="New session" class={iconButtonVariants()}>
-        <Plus size={12} />
+        <Icon icon={PlusIcon} size={12} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Item onSelect={() => newChat(folderPath)}>
-          <MessagesSquareIcon size={14} />
+          <Icon icon={MessagesSquareIcon} size={14} />
           <span>New Chat</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
@@ -81,7 +82,7 @@
         <DropdownMenu.Separator />
         {#each shellLaunchers as launcher (launcher.preset)}
           <DropdownMenu.Item onSelect={() => startShell(folderPath, launcher.preset)}>
-            <TerminalIcon size={14} />
+            <Icon icon={TerminalIcon} size={14} />
             <span>{launcher.label}</span>
           </DropdownMenu.Item>
         {/each}
@@ -92,7 +93,7 @@
   <div class="flex h-full min-h-0 flex-col">
     {#if liveAgents > 1}
       <Alert.Root variant="warning" layout="banner">
-        <AlertTriangle size={13} class="mt-0.5 shrink-0" />
+        <Icon icon={TriangleAlertIcon} size={13} class="mt-0.5 shrink-0" />
         <span>{liveAgents} agents share this working tree</span>
       </Alert.Root>
     {/if}
@@ -126,9 +127,9 @@
         onclick={() => setActiveTab(session.id)}
       >
         {#if session.kind === 'shell'}
-          <TerminalIcon size={12} />
+          <Icon icon={TerminalIcon} size={12} />
         {:else if session.kind === 'chat'}
-          <MessagesSquareIcon size={12} />
+          <Icon icon={MessagesSquareIcon} size={12} />
         {:else}
           {@const meta = sessionBrand(session.folderPath, session.harnessId)}
           {#if meta.icon}<HarnessIcon icon={meta.icon} size={12} />{/if}
@@ -148,16 +149,16 @@
             void closeTabWithChecks(session.id)
           }}
         >
-          <X size={11} />
+          <Icon icon={XIcon} size={11} />
         </IconButton>
       </div>
     </div>
   {:else}
     <SidebarRow variant="info" divider={false}>No open sessions</SidebarRow>
     <SidebarRow variant="action" divider={false} onclick={() => newChat(folderPath)}>
-      <MessagesSquareIcon size={12} />
+      <Icon icon={MessagesSquareIcon} size={12} />
       <span class="min-w-0 flex-1 truncate">Start Chat</span>
-      <Plus size={12} class="shrink-0" />
+      <Icon icon={PlusIcon} size={12} class="shrink-0" />
     </SidebarRow>
     {#each launchers as launcher (launcher.id)}
       <SidebarRow
@@ -167,14 +168,14 @@
       >
         <HarnessIcon icon={launcher.icon} size={12} />
         <span class="min-w-0 flex-1 truncate">Start {launcher.label}</span>
-        <Plus size={12} class="shrink-0" />
+        <Icon icon={PlusIcon} size={12} class="shrink-0" />
       </SidebarRow>
     {/each}
     {#each shellLaunchers as launcher (launcher.preset)}
       <SidebarRow variant="action" divider={false} onclick={() => startShell(folderPath, launcher.preset)}>
-        <TerminalIcon size={12} />
+        <Icon icon={TerminalIcon} size={12} />
         <span class="min-w-0 flex-1 truncate">Start {launcher.label}</span>
-        <Plus size={12} class="shrink-0" />
+        <Icon icon={PlusIcon} size={12} class="shrink-0" />
       </SidebarRow>
     {/each}
   {/each}

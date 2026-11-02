@@ -11,16 +11,17 @@
   import * as worktrees from '$lib/features/git/worktrees.svelte'
   import { openFolder } from '$lib/features/workbench/state.svelte'
   import {
-    AlertTriangle,
+    TriangleAlertIcon,
     FolderOpenIcon,
     GitBranchIcon,
-    GitCommitIcon,
+    GitCommitHorizontalIcon,
     GitMergeIcon,
-    Lock,
+    LockKeyholeIcon,
     MoreHorizontalIcon,
-    Plus,
-    Trash2
-  } from '$lib/icons/lucideExports'
+    PlusIcon,
+    Delete02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { GitWorktree } from '$lib/types/backend'
   import { getErrorMessage } from '$lib/utils/client-error'
 
@@ -67,7 +68,7 @@
       disabled={busy}
       onclick={() => openGitDialog({ kind: 'create_worktree', folderPath })}
     >
-      <Plus size={14} />
+      <Icon icon={PlusIcon} size={14} />
       Create
     </Button>
     <div class="flex-1"></div>
@@ -76,14 +77,14 @@
     {/if}
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class={iconButtonVariants()} aria-label="Worktree actions" disabled={busy}>
-        <MoreHorizontalIcon size={13} />
+        <Icon icon={MoreHorizontalIcon} size={13} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Item
           disabled={busy || entry?.loading || !entry?.inventory}
           onSelect={() => void runAction(pruneWorktrees)}
         >
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Prune Stale Worktrees</span>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
@@ -92,7 +93,7 @@
 
   {#if error}
     <Alert.Root variant="danger" layout="banner">
-      <AlertTriangle size={13} class="shrink-0" />
+      <Icon icon={TriangleAlertIcon} size={13} class="shrink-0" />
       <span class="min-w-0 flex-1 break-words">{error}</span>
       <Button size="xs" variant="ghost" disabled={busy || entry?.loading} onclick={refresh}>Retry</Button>
     </Alert.Root>
@@ -124,12 +125,13 @@
                   }}
                 >
                   {#if worktree.branch}
-                    <GitBranchIcon
+                    <Icon
+                      icon={GitBranchIcon}
                       size={12}
                       class={worktree.isCurrent ? 'shrink-0 text-accent' : 'shrink-0 text-muted'}
                     />
                   {:else}
-                    <GitCommitIcon size={12} class="shrink-0 text-muted" />
+                    <Icon icon={GitCommitHorizontalIcon} size={12} class="shrink-0 text-muted" />
                   {/if}
                   <span class="min-w-0 flex-1 space-y-0.5">
                     <span class="flex min-w-0 items-center gap-1.5">
@@ -139,12 +141,14 @@
                       </span>
                       {#if worktree.isMain}<span class="text-2xs text-muted">Main</span>{/if}
                       {#if worktree.isCurrent}<span class="text-2xs text-accent">Current</span>{/if}
-                      {#if worktree.locked !== null}<Lock
+                      {#if worktree.locked !== null}<Icon
+                          icon={LockKeyholeIcon}
                           size={11}
                           class="shrink-0 text-warning"
                           aria-label="Locked"
                         />{/if}
-                      {#if worktree.prunable !== null}<AlertTriangle
+                      {#if worktree.prunable !== null}<Icon
+                          icon={TriangleAlertIcon}
                           size={11}
                           class="shrink-0 text-warning"
                           aria-label="Prunable"
@@ -178,14 +182,14 @@
                 disabled={busy || !openable}
                 onSelect={() => void runAction(() => openFolder(worktree.path))}
               >
-                <FolderOpenIcon size={14} />
+                <Icon icon={FolderOpenIcon} size={14} />
                 <span>Open Worktree</span>
               </ContextMenu.Item>
               <ContextMenu.Item
                 disabled={busy || !openable || worktree.isMain}
                 onSelect={() => void runAction((path) => migrateWorktreeChanges(path, worktree.path))}
               >
-                <GitMergeIcon size={14} />
+                <Icon icon={GitMergeIcon} size={14} />
                 <span>Migrate Changes to Main</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
@@ -194,7 +198,7 @@
                 disabled={busy || !openable || worktree.isMain || worktree.locked !== null}
                 onSelect={() => void runAction((path) => removeWorktree(path, worktree.path))}
               >
-                <Trash2 size={14} />
+                <Icon icon={Delete02Icon} size={14} />
                 <span>Remove Worktree…</span>
               </ContextMenu.Item>
             </ContextMenu.Content>

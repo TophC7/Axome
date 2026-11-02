@@ -6,7 +6,8 @@
 <script lang="ts">
   import { IconButton } from '$lib/components/ui/button'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { ArrowDown, ArrowUp, Minus, Plus, Undo2Icon, X } from '$lib/icons/lucideExports'
+  import { ArrowDown02Icon, ArrowUp02Icon, MinusIcon, PlusIcon, Undo02Icon, XIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
 
   type StageKind = 'stage' | 'unstage'
 
@@ -55,24 +56,24 @@
     <div class="flex shrink-0 items-center gap-0.5">
       <IconButton tooltip={stageLabel} ariaLabel={stageLabel} onclick={run(onStage)}>
         {#if stageKind === 'unstage'}
-          <Minus size={13} />
+          <Icon icon={MinusIcon} size={13} />
         {:else}
-          <Plus size={13} />
+          <Icon icon={PlusIcon} size={13} />
         {/if}
       </IconButton>
       {#if revertLabel}
         <IconButton tooltip={revertLabel} ariaLabel={revertLabel} onclick={run(onRevert)} disabled={!canRevert}>
-          <Undo2Icon size={13} />
+          <Icon icon={Undo02Icon} size={13} />
         </IconButton>
       {/if}
       <IconButton tooltip="Previous change" ariaLabel="Previous change" onclick={run(onPrevious)}>
-        <ArrowUp size={13} />
+        <Icon icon={ArrowUp02Icon} size={13} />
       </IconButton>
       <IconButton tooltip="Next change" ariaLabel="Next change" onclick={run(onNext)}>
-        <ArrowDown size={13} />
+        <Icon icon={ArrowDown02Icon} size={13} />
       </IconButton>
       <IconButton tooltip="Close" ariaLabel="Close" onclick={run(onClose)}>
-        <X size={13} />
+        <Icon icon={XIcon} size={13} />
       </IconButton>
     </div>
   </div>

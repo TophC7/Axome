@@ -12,11 +12,3 @@ export function getTaskTabTitle(tab: TaskTab): string {
   }
   return tab.label
 }
-
-/**
- * Return the Lucide icon name to use for this task tab. Falls back to
- * a generic "terminal" icon when the task has no icon configured.
- */
-export function getTaskTabIcon(tab: TaskTab): string {
-  return tab.icon ?? 'terminal'
-}

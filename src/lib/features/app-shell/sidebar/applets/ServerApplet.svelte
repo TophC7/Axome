@@ -7,7 +7,8 @@
 <script lang="ts">
   import RailApplet, { appletHeadingClass, appletRowClass } from './RailApplet.svelte'
   import type { ToneStatus } from '$lib/components/ui/status-dot'
-  import { FolderIcon, SearchIcon, ServerIcon } from '$lib/icons/lucideExports'
+  import { Folder01Icon, Search01Icon, ServerIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getHostConnection } from '$lib/api/hostConnection.svelte'
   import type { WebConnectionState } from '$lib/api/transport.web'
   import { goToFolder, localHostLabel, openBrowser } from '$lib/features/browser/state.svelte'
@@ -40,7 +41,7 @@
 
 <RailApplet bind:open label="Server" {status}>
   {#snippet icon()}
-    <ServerIcon size={16} />
+    <Icon icon={ServerIcon} size={16} />
   {/snippet}
 
   <p class="px-2 pb-1 text-xs text-subtle">Terminal, LSP, and file streams reconnect on their own.</p>
@@ -49,7 +50,7 @@
     <div class={appletHeadingClass}>Recent</div>
     {#each recents as { path } (path)}
       <button type="button" class={appletRowClass} title={path} onclick={() => go(() => goToFolder(path))}>
-        <FolderIcon size={12} class="shrink-0 text-muted" />
+        <Icon icon={Folder01Icon} size={12} class="shrink-0 text-muted" />
         <span class="shrink-0">{basename(path) || '/'}</span>
         <span class="min-w-0 truncate font-mono text-xs text-subtle">{parentPath(path)}</span>
       </button>
@@ -61,7 +62,7 @@
     class={cn(appletRowClass, 'text-muted')}
     onclick={() => go(() => openBrowser({ server: null }))}
   >
-    <SearchIcon size={12} class="shrink-0" />
+    <Icon icon={Search01Icon} size={12} class="shrink-0" />
     <span>Browse {localHostLabel()}…</span>
   </button>
 </RailApplet>

@@ -9,7 +9,8 @@
   import { InfoTooltip } from '$lib/components/ui/tooltip'
   import { ensureGitWatch, getGitFreshness, getGitSummary } from '$lib/features/git/state.svelte'
   import { backend } from '$lib/api/backend'
-  import { AlertTriangle, GitBranchIcon } from '$lib/icons/lucideExports'
+  import { TriangleAlertIcon, GitBranchIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
   import { runNotifiedTask } from '$lib/features/notifications/runNotifiedTask'
 
@@ -20,7 +21,6 @@
   let watchError = $derived(freshness.watchError)
   let isRepo = $derived(summary?.is_repo ?? true)
   let showWatchError = $derived(!!watchError && (summary?.is_repo ?? !!readError))
-
 
   // Init/clone state
   let cloneUrl = $state('')
@@ -79,7 +79,6 @@
     if (cloneSucceeded) cloneUrl = ''
     initBusy = false
   }
-
 </script>
 
 <SidebarPanel title="Git">
@@ -116,7 +115,7 @@
   <div class="flex h-full min-h-0 flex-col">
     {#if readError}
       <Alert.Root variant="danger" layout="banner">
-        <AlertTriangle size={13} class="mt-0.5 shrink-0" />
+        <Icon icon={TriangleAlertIcon} size={13} class="mt-0.5 shrink-0" />
         <div class="min-w-0">
           <p class="font-medium">{summary ? 'Git status is stale.' : 'Git status unavailable.'}</p>
           <p class="mt-0.5 text-2xs break-words text-muted">{readError}</p>
@@ -125,7 +124,7 @@
     {/if}
     {#if showWatchError}
       <Alert.Root variant="warning" layout="banner">
-        <AlertTriangle size={13} class="mt-0.5 shrink-0" />
+        <Icon icon={TriangleAlertIcon} size={13} class="mt-0.5 shrink-0" />
         <div class="min-w-0">
           <p class="font-medium">Git change watcher is degraded. Changes may be delayed.</p>
           <p class="mt-0.5 text-2xs break-words text-muted">{watchError}</p>
@@ -141,7 +140,7 @@
         <!-- Not a git repository. Offer init or clone. -->
         <div class="flex flex-col gap-4 px-3 py-4">
           <div class="flex flex-col items-center gap-2 py-4 text-center">
-            <GitBranchIcon size={28} class="text-subtle" />
+            <Icon icon={GitBranchIcon} size={28} class="text-subtle" />
             <p class="text-sm text-muted">This folder is not a git repository.</p>
           </div>
 
@@ -193,4 +192,3 @@
     </div>
   </div>
 </SidebarPanel>
-

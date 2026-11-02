@@ -4,7 +4,8 @@
   import DiffStack from '$lib/features/workbench/surfaces/diff/DiffStack.svelte'
   import type { DiffContentFetcher } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
   import { parseStashMessage } from '$lib/features/git/gitRefs'
-  import { PackageIcon, GitBranchIcon, CalendarIcon } from '$lib/icons/lucideExports'
+  import { PackageIcon, GitBranchIcon, Calendar03Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { timeAgo, formatFullDate } from '$lib/utils/date'
   import { createTrackedAsyncLoad } from '$lib/utils/trackedAsyncLoad.svelte'
 
@@ -49,17 +50,17 @@
       <h2 class="mb-2 text-md leading-snug font-semibold text-bright">{parsed.label}</h2>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
         <span class="flex items-center gap-1">
-          <PackageIcon size={12} />
+          <Icon icon={PackageIcon} size={12} />
           <code class="font-mono text-accent">stash@{'{' + stashIndex + '}'}</code>
         </span>
         <span class="flex items-center gap-1">
-          <CalendarIcon size={12} />
+          <Icon icon={Calendar03Icon} size={12} />
           {timeAgo(stashEntry.date)}
           <span class="text-subtle">({formatFullDate(stashEntry.date)})</span>
         </span>
         {#if parsed.branch}
           <span class="flex items-center gap-1">
-            <GitBranchIcon size={12} />
+            <Icon icon={GitBranchIcon} size={12} />
             <code class="font-mono text-muted">{parsed.branch}</code>
           </span>
         {/if}

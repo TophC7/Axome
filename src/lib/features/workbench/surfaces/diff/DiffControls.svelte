@@ -14,7 +14,8 @@
   import { Button, IconButton } from '$lib/components/ui/button'
   import { Separator } from '$lib/components/ui/separator'
   import * as Tabs from '$lib/components/ui/tabs'
-  import { ChevronsDownUp, ChevronsUpDown } from '$lib/icons/lucideExports'
+  import { ChevronsDownUpIcon, UnfoldMoreIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { MAX_FONT_SIZE, MIN_FONT_SIZE } from '$lib/features/settings/state/typography.svelte'
 
   let {
@@ -55,9 +56,9 @@
   {#if onToggleAll}
     <IconButton tooltip={anyExpanded ? 'Collapse all files' : 'Expand all files'} onclick={onToggleAll}>
       {#if anyExpanded}
-        <ChevronsDownUp size={14} />
+        <Icon icon={ChevronsDownUpIcon} size={14} />
       {:else}
-        <ChevronsUpDown size={14} />
+        <Icon icon={UnfoldMoreIcon} size={14} />
       {/if}
     </IconButton>
   {/if}

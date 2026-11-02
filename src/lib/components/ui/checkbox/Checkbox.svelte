@@ -3,14 +3,15 @@
   Checkbox — bits-ui wrapper with Axome design tokens.
 
   Renders a 14×14 square with an accent fill when checked and a
-  Lucide Check glyph. Use inside a <label> or pair with a sibling
+  Hugeicons check glyph. Use inside a <label> or pair with a sibling
   span for the label text.
 -->
 
 <script lang="ts">
   import { Checkbox } from 'bits-ui'
   import { cn } from '$lib/utils/cn'
-  import { Check, Minus } from '$lib/icons/lucideExports'
+  import { CheckIcon, MinusIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
 
   let {
     checked = $bindable(false),
@@ -48,9 +49,9 @@
 >
   {#snippet children({ checked: c, indeterminate: i })}
     {#if i}
-      <Minus size={10} strokeWidth={3} />
+      <Icon icon={MinusIcon} size={10} strokeWidth={3} />
     {:else if c}
-      <Check size={10} strokeWidth={3} />
+      <Icon icon={CheckIcon} size={10} strokeWidth={3} />
     {/if}
   {/snippet}
 </Checkbox.Root>

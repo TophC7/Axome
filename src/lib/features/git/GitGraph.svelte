@@ -19,8 +19,9 @@
     ListTreeIcon,
     MoreHorizontalIcon,
     PackageIcon,
-    TagIcon
-  } from '$lib/icons/lucideExports'
+    Tag01Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { SvelteMap } from 'svelte/reactivity'
   import * as branches from '$lib/features/git/branches.svelte'
   import { getGitSidebarTab, setGitSidebarTab } from '$lib/features/app-shell/sidebar/state.svelte'
@@ -135,23 +136,23 @@
     </span>
     <div class="flex items-center gap-0.5">
       <IconButton tooltip="Commit graph" active={activeTab === 'graph'} onclick={() => setGitSidebarTab('graph')}>
-        <GitGraphIcon size={13} />
+        <Icon icon={GitGraphIcon} size={13} />
       </IconButton>
       <IconButton
         tooltip="Stashes{stashCount > 0 ? ` (${stashCount})` : ''}"
         active={activeTab === 'stashes'}
         onclick={() => setGitSidebarTab('stashes')}
       >
-        <PackageIcon size={13} />
+        <Icon icon={PackageIcon} size={13} />
       </IconButton>
       <IconButton tooltip="Branches" active={activeTab === 'branches'} onclick={() => setGitSidebarTab('branches')}>
-        <GitBranchPlusIcon size={13} />
+        <Icon icon={GitBranchPlusIcon} size={13} />
       </IconButton>
       <IconButton tooltip="Tags" active={activeTab === 'tags'} onclick={() => setGitSidebarTab('tags')}>
-        <TagIcon size={13} />
+        <Icon icon={Tag01Icon} size={13} />
       </IconButton>
       <IconButton tooltip="Worktrees" active={activeTab === 'worktrees'} onclick={() => setGitSidebarTab('worktrees')}>
-        <ListTreeIcon size={13} />
+        <Icon icon={ListTreeIcon} size={13} />
       </IconButton>
     </div>
   </div>
@@ -196,7 +197,7 @@
           {/each}
           {#if getGraphHasMore(folderPath)}
             <SidebarRow variant="action" disabled={loadingMore} onclick={() => void loadMore()}>
-              <MoreHorizontalIcon size={13} />
+              <Icon icon={MoreHorizontalIcon} size={13} />
               <span>{loadingMore ? 'Loading…' : 'Load More'}</span>
             </SidebarRow>
           {/if}

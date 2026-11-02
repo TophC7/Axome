@@ -4,8 +4,9 @@
   import { PaletteDialog, PaletteFooter } from '$lib/components/ui/command'
   import { Kbd } from '$lib/components/ui/kbd'
   import RebindDialog from '$lib/features/command-palette/shortcuts/RebindDialog.svelte'
-  import { HistoryIcon, PencilIcon } from '$lib/icons/lucideExports'
-  import LucideIcon from '$lib/icons/LucideIcon.svelte'
+  import { HistoryIcon, PencilIcon, TerminalIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
+  import NamedIcon from '$lib/icons/NamedIcon.svelte'
   import { cn } from '$lib/utils/cn'
   import { getAppCommandGroups, getEditorCommandGroups } from '$lib/features/command-palette/commands/registry.svelte'
   import { getTaskPaletteGroups } from '$lib/features/command-palette/commands/tasks.svelte'
@@ -310,21 +311,16 @@
         {/if}
         <Command.Group heading={group.heading}>
           {#each group.commands as cmd (cmd.id)}
-            {@const Icon = cmd.icon}
             {@const defaultKeybindings = cmd.defaultKeybindings ?? []}
             {@const effectiveShortcuts = getEffectiveBindings(commandBindingId(cmd), defaultKeybindings)}
             {@const canEditShortcut = cmd.defaultKeybindings !== undefined}
             <Command.Item value={cmd.id} keywords={cmd.keywords} onSelect={() => run(cmd)} class="group">
-              {#if Icon}
-                <Icon />
+              {#if cmd.icon}
+                <Icon icon={cmd.icon} />
               {:else if cmd.iconSrc}
                 <img src={cmd.iconSrc} alt="" class="h-4 w-4 shrink-0 opacity-60" />
-              {:else if cmd.lucideIcon}
-                <!-- LucideIcon lazy-loads a Svelte chunk per icon name.
-                           Callers pass a fallback (e.g. 'terminal') at command
-                           build time so invalid names degrade to no icon rather
-                           than layout shift. -->
-                <LucideIcon name={cmd.lucideIcon} size={16} class="shrink-0 opacity-60" />
+              {:else if cmd.iconName}
+                <NamedIcon name={cmd.iconName} fallback={TerminalIcon} size={16} class="shrink-0" />
               {/if}
               {#if cmd.subtitle}
                 <span class="truncate">{cmd.label}</span>
@@ -348,7 +344,7 @@
                           : 'flex w-28 items-center justify-end gap-1 px-1.5 py-1 text-xs whitespace-nowrap'
                       )}
                     >
-                      <PencilIcon class="size-3" />
+                      <Icon icon={PencilIcon} class="size-3" />
                       {#if !primaryShortcut}
                         <span>Add shortcut</span>
                       {/if}

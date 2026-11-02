@@ -6,7 +6,15 @@
   import DiffStack from '$lib/features/workbench/surfaces/diff/DiffStack.svelte'
   import type { DiffContentFetcher } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
   import { IconButton } from '$lib/components/ui/button'
-  import { GitCommitIcon, GitBranchIcon, UserIcon, CalendarIcon, CopyIcon, Check } from '$lib/icons/lucideExports'
+  import {
+    GitCommitHorizontalIcon,
+    GitBranchIcon,
+    UserIcon,
+    Calendar03Icon,
+    CopyIcon,
+    CheckIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { createTrackedAsyncLoad } from '$lib/utils/trackedAsyncLoad.svelte'
 
   let {
@@ -39,7 +47,6 @@
   const contentFetcher: DiffContentFetcher = (entry) =>
     backend.git.getDiffFile(folderPath, { kind: 'commit', hash: commitHash }, entry.path, entry.oldPath, entry.status)
 
-
   async function copyHash() {
     await platform.clipboard.writeText(commitHash)
     copied = true
@@ -56,15 +63,15 @@
       <h2 class="mb-2 text-md leading-snug font-semibold text-bright">{detail.message}</h2>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
         <span class="flex items-center gap-1">
-          <UserIcon size={12} />
+          <Icon icon={UserIcon} size={12} />
           {detail.author}
         </span>
         <span class="flex items-center gap-1">
-          <CalendarIcon size={12} />
+          <Icon icon={Calendar03Icon} size={12} />
           {formatFullDate(detail.date)}
         </span>
         <span class="flex items-center gap-1">
-          <GitCommitIcon size={12} />
+          <Icon icon={GitCommitHorizontalIcon} size={12} />
           <code class="font-mono text-accent">{detail.short_hash}</code>
           <IconButton
             tooltip="Copy full hash"
@@ -72,15 +79,15 @@
             onclick={copyHash}
           >
             {#if copied}
-              <Check size={11} />
+              <Icon icon={CheckIcon} size={11} />
             {:else}
-              <CopyIcon size={11} />
+              <Icon icon={CopyIcon} size={11} />
             {/if}
           </IconButton>
         </span>
         {#if detail.parents.length > 0}
           <span class="flex items-center gap-1">
-            <GitBranchIcon size={12} />
+            <Icon icon={GitBranchIcon} size={12} />
             {#each detail.parents as parent, i}
               {#if i > 0}<span class="text-subtle">+</span>{/if}
               <code class="font-mono text-muted">{parent.slice(0, 7)}</code>

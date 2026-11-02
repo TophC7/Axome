@@ -14,7 +14,15 @@
   import { Button } from '$lib/components/ui/button'
   import { Input, Select, Textarea } from '$lib/components/ui/input'
   import { DetailPanel, DetailPanelRow } from '$lib/components/ui/detail-panel'
-  import { CircleDot, GitBranchIcon, Hash, Layers, MessageSquare, SparklesIcon } from '$lib/icons/lucideExports'
+  import {
+    CircleDotIcon,
+    GitBranchIcon,
+    HashIcon,
+    Layers01Icon,
+    MessageSquareIcon,
+    SparklesIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { addIssueComment, claimIssue, updateIssue } from '$lib/features/issues/state.svelte'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
@@ -199,11 +207,11 @@
                 class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-edge bg-ground"
               >
                 {#if item.kind === 'comment'}
-                  <MessageSquare size={13} class="text-accent" />
+                  <Icon icon={MessageSquareIcon} size={13} class="text-accent" />
                 {:else if item.data.action === 'create'}
-                  <SparklesIcon size={13} class="text-success" />
+                  <Icon icon={SparklesIcon} size={13} class="text-success" />
                 {:else}
-                  <CircleDot size={12} class="text-muted" />
+                  <Icon icon={CircleDotIcon} size={12} class="text-muted" />
                 {/if}
               </span>
               <div class="min-w-0 flex-1">
@@ -265,12 +273,12 @@
         </DetailPanelRow>
 
         <DetailPanelRow label="Tags">
-          {#snippet icon()}<Hash size={10} />{/snippet}
+          {#snippet icon()}<Icon icon={HashIcon} size={10} />{/snippet}
           <Input bind:value={form.drafts.tags} placeholder="comma, separated" />
         </DetailPanelRow>
 
         <DetailPanelRow label="Epic">
-          {#snippet icon()}<Layers size={10} />{/snippet}
+          {#snippet icon()}<Icon icon={Layers01Icon} size={10} />{/snippet}
           {#if epicRef}
             <span class="font-mono text-2xs text-warning">◆ {epicRef.id}</span>
             <span class="truncate text-2xs text-fg" title={epicRef.title}>{epicRef.title}</span>
@@ -280,7 +288,7 @@
         </DetailPanelRow>
 
         <DetailPanelRow label="Parent">
-          {#snippet icon()}<GitBranchIcon size={10} />{/snippet}
+          {#snippet icon()}<Icon icon={GitBranchIcon} size={10} />{/snippet}
           {#if parentIssue}
             <button
               type="button"

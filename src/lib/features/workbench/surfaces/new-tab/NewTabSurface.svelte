@@ -23,21 +23,22 @@
   import { openTaskTab } from '$lib/features/tasks/service.svelte'
   import { getTasksReactive } from '$lib/features/tasks/state.svelte'
   import { createUntitledTextSurface } from '$lib/features/workbench/surfaces/text/service.svelte'
-  import LucideIcon from '$lib/icons/LucideIcon.svelte'
+  import NamedIcon from '$lib/icons/NamedIcon.svelte'
+  import Icon from '$lib/icons/Icon.svelte'
   import MaskIcon from '$lib/icons/MaskIcon.svelte'
   import nixosUrl from '$lib/assets/nixos.svg?url'
   import {
-    ArrowDown,
-    ArrowUp,
-    ArrowUpRightIcon,
+    ArrowDown02Icon,
+    ArrowUp02Icon,
+    ArrowUpRight01Icon,
     FilePlusCornerIcon,
     GitBranchIcon,
     MessagesSquareIcon,
     MonitorIcon,
-    Play,
+    PlayIcon,
     ServerIcon,
     TerminalIcon
-  } from '$lib/icons/lucideExports'
+  } from '@hugeicons/core-free-icons'
   import { platform } from '$lib/platform'
   import type { TaskDefinition } from '$lib/types/backend'
   import { basename, splitRemotePath } from '$lib/utils/paths'
@@ -145,7 +146,7 @@
 <StageView>
   {#snippet footer()}
     <Button variant="outline" size="sm" class="text-muted" onclick={() => openBrowser()}>
-      <ArrowUpRightIcon size={14} class="shrink-0" />
+      <Icon icon={ArrowUpRight01Icon} size={14} class="shrink-0" />
       Open Another Project…
       <KbdGroup class="ml-1">
         {#each openShortcut as part (part)}<Kbd class="h-5 min-w-5 rounded-sm px-1">{part}</Kbd>{/each}
@@ -157,19 +158,19 @@
     <div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted">
       <span class="inline-flex items-center gap-1.5">
         {#if remote}
-          <ServerIcon size={12} class="shrink-0" /><span class="font-mono">{remote.server}</span>
+          <Icon icon={ServerIcon} size={12} class="shrink-0" /><span class="font-mono">{remote.server}</span>
         {:else}
-          <MonitorIcon size={12} class="shrink-0" />{localHostLabel()}
+          <Icon icon={MonitorIcon} size={12} class="shrink-0" />{localHostLabel()}
         {/if}
       </span>
       {#if git?.is_repo}
         <span class="inline-flex items-center gap-1.5 font-mono">
-          <GitBranchIcon size={12} class="shrink-0" />{git.branch ?? 'Detached'}
+          <Icon icon={GitBranchIcon} size={12} class="shrink-0" />{git.branch ?? 'Detached'}
           {#if git.ahead}<span class="inline-flex items-center" title="Commits Ahead"
-              ><ArrowUp size={12} />{git.ahead}</span
+              ><Icon icon={ArrowUp02Icon} size={12} />{git.ahead}</span
             >{/if}
           {#if git.behind}<span class="inline-flex items-center" title="Commits Behind"
-              ><ArrowDown size={12} />{git.behind}</span
+              ><Icon icon={ArrowDown02Icon} size={12} />{git.behind}</span
             >{/if}
         </span>
         <span class="inline-flex items-center gap-1.5">
@@ -235,11 +236,7 @@
       <div class="flex flex-wrap justify-center gap-2">
         {#each tasks as task (task.id)}
           <Button size="sm" title={task.command} onclick={() => runTask(task)}>
-            {#if task.icon}
-              <LucideIcon name={task.icon} size={14} class="shrink-0" />
-            {:else}
-              <Play size={14} class="shrink-0" />
-            {/if}
+            <NamedIcon name={task.icon} fallback={PlayIcon} size={14} class="shrink-0" />
             {task.label}
           </Button>
         {/each}

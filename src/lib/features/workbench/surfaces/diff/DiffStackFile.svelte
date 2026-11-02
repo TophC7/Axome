@@ -6,16 +6,21 @@
 <script lang="ts">
   import type { FileDiff } from '$lib/types/backend'
   import type { DiffModelStore } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
-  import {
-    openCommitSnapshot,
-    openStashSnapshot
-  } from '$lib/features/workbench/surfaces/diff/service.svelte'
+  import { openCommitSnapshot, openStashSnapshot } from '$lib/features/workbench/surfaces/diff/service.svelte'
   import { openTextFile } from '$lib/features/workbench/surfaces/text/service.svelte'
   import MonacoDiffBody from '$lib/features/editor/renderers/monaco/diff/MonacoDiffBody.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import { Separator } from '$lib/components/ui/separator'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { AlertTriangle, ChevronRight, ChevronsDownUp, ChevronsUpDown, SquareArrowOutUpRight, Eye } from '$lib/icons/lucideExports'
+  import {
+    TriangleAlertIcon,
+    ChevronRightIcon,
+    ChevronsDownUpIcon,
+    UnfoldMoreIcon,
+    SquareArrowOutUpRightIcon,
+    EyeIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon, { type IconData } from '$lib/icons/Icon.svelte'
   import { gitStatusMeta } from '$lib/features/git/gitStatus'
 
   interface Props {
@@ -103,13 +108,13 @@
   })
 </script>
 
-{#snippet headerAction(Icon: typeof Eye, label: string, onclick: () => void)}
+{#snippet headerAction(icon: IconData, label: string, onclick: () => void)}
   <Tooltip.Root delayDuration={300}>
     <Tooltip.Trigger
       class="rounded p-1 text-muted transition-colors hover:bg-accent/15 hover:text-fg focus-visible:shadow-focus-ring focus-visible:outline-none"
       {onclick}
     >
-      <Icon size={12} />
+      <Icon {icon} size={12} />
     </Tooltip.Trigger>
     <Tooltip.Content sideOffset={4}>{label}</Tooltip.Content>
   </Tooltip.Root>
@@ -121,7 +126,11 @@
       class="flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left hover:bg-overlay focus-visible:shadow-focus-ring focus-visible:outline-none"
       onclick={() => onToggle(file.path)}
     >
-      <ChevronRight size={12} class="shrink-0 text-muted transition-transform {expanded ? 'rotate-90' : ''}" />
+      <Icon
+        icon={ChevronRightIcon}
+        size={12}
+        class="shrink-0 text-muted transition-transform {expanded ? 'rotate-90' : ''}"
+      />
       <span class="text-2xs font-bold {status.color}" title={status.label}>{status.letter}</span>
       <FileIcon filename={file.path} size={13} />
       <span class="min-w-0 truncate font-mono text-sm text-fg">
@@ -140,7 +149,7 @@
            since it has no effect on a collapsed body. -->
       {#if expanded && storeReady && !binary}
         {@render headerAction(
-          hasExpandedUnchanged ? ChevronsDownUp : ChevronsUpDown,
+          hasExpandedUnchanged ? ChevronsDownUpIcon : UnfoldMoreIcon,
           hasExpandedUnchanged ? 'Collapse unchanged code' : 'Expand all unchanged code',
           toggleHideUnchanged
         )}
@@ -150,17 +159,17 @@
           <Separator orientation="vertical" class="mx-1 h-4" />
         {/if}
         {#if commitHash}
-          {@render headerAction(Eye, 'View at commit', () => viewAtCommit(file.path))}
+          {@render headerAction(EyeIcon, 'View at commit', () => viewAtCommit(file.path))}
           {#if file.status !== 'deleted'}
-            {@render headerAction(SquareArrowOutUpRight, 'Open current file', () => openInEditor(file.path))}
+            {@render headerAction(SquareArrowOutUpRightIcon, 'Open current file', () => openInEditor(file.path))}
           {/if}
         {:else if stashIndex != null}
-          {@render headerAction(Eye, 'View in stash', () => viewAtStash(file.path))}
+          {@render headerAction(EyeIcon, 'View in stash', () => viewAtStash(file.path))}
           {#if file.status !== 'deleted'}
-            {@render headerAction(SquareArrowOutUpRight, 'Open current file', () => openInEditor(file.path))}
+            {@render headerAction(SquareArrowOutUpRightIcon, 'Open current file', () => openInEditor(file.path))}
           {/if}
         {:else}
-          {@render headerAction(SquareArrowOutUpRight, 'Open in editor', () => openInEditor(file.path))}
+          {@render headerAction(SquareArrowOutUpRightIcon, 'Open in editor', () => openInEditor(file.path))}
         {/if}
       {/if}
     </div>
@@ -173,7 +182,7 @@
       <div class="px-4 py-6 text-center text-sm text-subtle">Loading editor...</div>
     {:else if binary}
       <div class="flex items-center gap-2 px-4 py-6 text-sm text-subtle">
-        <AlertTriangle size={14} class="shrink-0 text-muted" />
+        <Icon icon={TriangleAlertIcon} size={14} class="shrink-0 text-muted" />
         <span>Binary file; content not shown</span>
       </div>
     {:else if store.get(file.path)}

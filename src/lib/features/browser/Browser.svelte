@@ -21,19 +21,20 @@
   import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import {
-    ArrowDown,
-    ArrowLeft,
-    ArrowRight,
-    ArrowUp,
-    ChevronRight,
-    Eye,
-    EyeOff,
+    ArrowDown02Icon,
+    ArrowLeft02Icon,
+    ArrowRight02Icon,
+    ArrowUp02Icon,
+    ChevronRightIcon,
+    EyeIcon,
+    EyeOffIcon,
     FolderOpenIcon,
-    Layers,
+    Layers01Icon,
     MonitorIcon,
     ServerIcon,
-    SettingsIcon
-  } from '$lib/icons/lucideExports'
+    Settings01Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { platform } from '$lib/platform'
   import type { FolderEntry, WorkbenchInfo } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
@@ -574,10 +575,10 @@
 {#snippet locationIcon(row: Location)}
   {#if row.kind === 'folder'}
     <FileIcon filename={row.label} folder expanded={selected?.key === row.key} size={16} />
-  {:else if row.kind === 'workbench'}<Layers />
+  {:else if row.kind === 'workbench'}<Icon icon={Layers01Icon} />
   {:else if row.kind === 'server'}
-    {#if row.server}<ServerIcon />{:else}<MonitorIcon />{/if}
-  {:else}<SettingsIcon />{/if}
+    {#if row.server}<Icon icon={ServerIcon} />{:else}<Icon icon={MonitorIcon} />{/if}
+  {:else}<Icon icon={Settings01Icon} />{/if}
 {/snippet}
 
 <!-- Mount after the initiating dialog so equal-z portals keep this palette on top. -->
@@ -628,7 +629,7 @@
       {#if path}
         {#if !selection}
           <IconButton size="md" tooltip="Locations" shortcut="Alt+Home" onclick={() => showLocations()}>
-            <ArrowLeft size={14} />
+            <Icon icon={ArrowLeft02Icon} size={14} />
           </IconButton>
         {/if}
         <PathBar {path} onnavigate={browse} onhosts={() => showLocations(true)} hostPinned={selection !== null} />
@@ -636,14 +637,16 @@
         <span class="min-w-0 flex-1 px-1 text-xs text-muted">Locations</span>
       {/if}
       {#if !selection}
-        <Button variant="ghost" size="xs" onclick={() => showLocations(true)}><ServerIcon size={12} />Servers</Button>
+        <Button variant="ghost" size="xs" onclick={() => showLocations(true)}
+          ><Icon icon={ServerIcon} size={12} />Servers</Button
+        >
       {/if}
       {#if path}
         <IconButton size="md" tooltip="Parent Folder" shortcut="Left" disabled={parentOf(path) === path} onclick={goUp}>
-          <ArrowUp size={14} />
+          <Icon icon={ArrowUp02Icon} size={14} />
         </IconButton>
         <IconButton size="md" tooltip="Edit Location" shortcut="Ctrl+L" onclick={() => void editLocation()}>
-          <FolderOpenIcon size={14} />
+          <Icon icon={FolderOpenIcon} size={14} />
         </IconButton>
         <IconButton
           size="md"
@@ -653,7 +656,7 @@
             showHidden = !showHidden
           }}
         >
-          {#if showHidden}<EyeOff size={14} />{:else}<Eye size={14} />{/if}
+          {#if showHidden}<Icon icon={EyeOffIcon} size={14} />{:else}<Icon icon={EyeIcon} size={14} />{/if}
         </IconButton>
         <Button
           variant={selection ? 'accent' : 'ghost'}
@@ -671,7 +674,7 @@
           disabled={choosingFolder || systemPickerOpen}
           onclick={() => void pickFolder()}
         >
-          <FolderOpenIcon size={14} />
+          <Icon icon={FolderOpenIcon} size={14} />
         </IconButton>
       {/if}
     </div>
@@ -721,7 +724,10 @@
             {#if !path && row.detail}<span class="ml-auto min-w-0 truncate text-xs text-subtle" title={row.detail}
                 >{row.detail}</span
               >{/if}
-            {#if row.kind === 'folder' || row.kind === 'server'}<ChevronRight class={path ? 'ml-auto' : ''} />{/if}
+            {#if row.kind === 'folder' || row.kind === 'server'}<Icon
+                icon={ChevronRightIcon}
+                class={path ? 'ml-auto' : ''}
+              />{/if}
           </button>
         {:else}
           <div class="px-2 py-6 text-center text-sm text-muted" role="status">
@@ -757,8 +763,10 @@
                   )}
                   onclick={() => browse(entry.path)}
                 >
-                  <FileIcon filename={entry.name} folder size={16} /><span class="truncate">{entry.name}</span
-                  ><ChevronRight class="ml-auto" />
+                  <FileIcon filename={entry.name} folder size={16} /><span class="truncate">{entry.name}</span><Icon
+                    icon={ChevronRightIcon}
+                    class="ml-auto"
+                  />
                 </button>
               {:else}
                 <div class="flex min-w-0 items-center gap-2 px-2 py-1.5 text-sm text-muted">
@@ -773,7 +781,8 @@
     <PaletteFooter>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span class="flex items-center gap-1.5"
-          ><Kbd><ArrowUp size={12} /></Kbd><Kbd><ArrowDown size={12} /></Kbd>navigate</span
+          ><Kbd><Icon icon={ArrowUp02Icon} size={12} /></Kbd><Kbd><Icon icon={ArrowDown02Icon} size={12} /></Kbd
+          >navigate</span
         >
         <span class="flex items-center gap-1.5"
           ><Kbd>Enter</Kbd>{selection ? 'select' : selected?.kind === 'server' ? 'browse' : 'open'}</span
@@ -784,13 +793,13 @@
           {#if selected?.kind === 'folder'}
             <span class="flex items-center gap-1.5"
               ><Kbd
-                >{#if search}Alt+{/if}<ArrowRight size={12} /></Kbd
+                >{#if search}Alt+{/if}<Icon icon={ArrowRight02Icon} size={12} /></Kbd
               >browse</span
             >
           {/if}
           {#if path}<span class="flex items-center gap-1.5"
               ><Kbd
-                >{#if search}Alt+{/if}<ArrowLeft size={12} /></Kbd
+                >{#if search}Alt+{/if}<Icon icon={ArrowLeft02Icon} size={12} /></Kbd
               >parent</span
             >{/if}
           <span class="flex items-center gap-1.5"><Kbd>Ctrl+L</Kbd>path</span>

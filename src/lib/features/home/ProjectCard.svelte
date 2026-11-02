@@ -2,7 +2,8 @@
   import ActivityHeatmap from '$lib/features/activity-map/ActivityHeatmap.svelte'
   import AheadBehindBadge from '$lib/features/git/AheadBehindBadge.svelte'
   import { sessionBrand } from '$lib/features/sessions/harnesses/catalog'
-  import { GitBranchIcon } from '$lib/icons/lucideExports'
+  import { GitBranchIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import appIconUrl from '$lib/assets/axome.svg?url'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
   import type { GitBrief } from '$lib/types/backend'
@@ -62,7 +63,7 @@
 
   <div class="flex h-4 w-full min-w-0 items-center gap-1.5 text-2xs text-muted">
     {#if git?.is_repo}
-      <GitBranchIcon size={10} class="shrink-0 text-subtle" />
+      <Icon icon={GitBranchIcon} size={10} class="shrink-0 text-subtle" />
       <span class="truncate font-mono">{git.branch ?? 'detached'}</span>
       {#if git.changed > 0}
         <span class="shrink-0 text-warning">{git.changed} changed</span>

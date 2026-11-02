@@ -17,21 +17,22 @@
   import { Spinner } from '$lib/components/ui/progress'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import {
-    AppWindow,
+    AppWindowIcon,
     PaintbrushIcon,
     SaveIcon,
-    ChevronRight,
+    ChevronRightIcon,
     KeyboardIcon,
     PackageIcon,
     ServerIcon,
-    SettingsIcon,
+    Settings01Icon,
     TerminalIcon,
-    X
-  } from '$lib/icons/lucideExports'
+    XIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon, { type IconData } from '$lib/icons/Icon.svelte'
   import { getSettingsHost, getSettingsServer, loadSettings } from '$lib/features/settings/state/settings.svelte'
   import { getActiveFolderPath } from '$lib/features/workbench/state.svelte'
   import { platform } from '$lib/platform'
-  import { onMount, type Component } from 'svelte'
+  import { onMount } from 'svelte'
 
   import GeneralView from '$lib/features/settings/views/GeneralView.svelte'
   import KeyboardShortcutsView from '$lib/features/settings/views/KeyboardShortcutsView.svelte'
@@ -47,19 +48,19 @@
 
   // NAV //
 
-  type NavIcon = { kind: 'lucide'; icon: Component } | { kind: 'file'; filename: string }
+  type NavIcon = { kind: 'icon'; icon: IconData } | { kind: 'file'; filename: string }
   type NavItem = { id: string; label: string; icon: NavIcon; native?: true }
 
   const GENERAL_ITEMS: NavItem[] = [
-    { id: 'appearance', label: 'Appearance', icon: { kind: 'lucide', icon: PaintbrushIcon } },
-    { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: { kind: 'lucide', icon: KeyboardIcon } },
-    { id: 'harnesses', label: 'Harnesses', icon: { kind: 'lucide', icon: PackageIcon } },
-    { id: 'shell', label: 'Shell', icon: { kind: 'lucide', icon: TerminalIcon } },
-    { id: 'window', label: 'Window', icon: { kind: 'lucide', icon: AppWindow }, native: true },
+    { id: 'appearance', label: 'Appearance', icon: { kind: 'icon', icon: PaintbrushIcon } },
+    { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', icon: { kind: 'icon', icon: KeyboardIcon } },
+    { id: 'harnesses', label: 'Harnesses', icon: { kind: 'icon', icon: PackageIcon } },
+    { id: 'shell', label: 'Shell', icon: { kind: 'icon', icon: TerminalIcon } },
+    { id: 'window', label: 'Window', icon: { kind: 'icon', icon: AppWindowIcon }, native: true },
     {
       id: 'remote-servers',
       label: 'Remote Servers',
-      icon: { kind: 'lucide', icon: ServerIcon },
+      icon: { kind: 'icon', icon: ServerIcon },
       native: true
     }
   ]
@@ -158,7 +159,7 @@
       <aside class="flex w-[200px] shrink-0 flex-col border-r border-edge">
         <header class="flex h-12 shrink-0 items-center border-b border-edge bg-surface px-4">
           <Dialog.Title class="flex items-center gap-2 text-md font-semibold text-bright">
-            <SettingsIcon size={14} class="text-accent" />
+            <Icon icon={Settings01Icon} size={14} class="text-accent" />
             <span>Settings</span>
           </Dialog.Title>
         </header>
@@ -178,15 +179,14 @@
                 class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-left
                        {active === item.id ? 'bg-accent/15 text-bright' : 'text-muted hover:bg-surface hover:text-fg'}"
               >
-                {#if item.icon.kind === 'lucide'}
-                  {@const IconComp = item.icon.icon}
-                  <IconComp size={14} class="shrink-0" />
+                {#if item.icon.kind === 'icon'}
+                  <Icon icon={item.icon.icon} size={14} class="shrink-0" />
                 {:else if item.icon.kind === 'file'}
                   <FileIcon filename={item.icon.filename} size={14} />
                 {/if}
                 <span class="flex-1">{item.label}</span>
                 {#if active === item.id}
-                  <ChevronRight size={12} class="text-accent" />
+                  <Icon icon={ChevronRightIcon} size={12} class="text-accent" />
                 {/if}
               </button>
             {/each}
@@ -199,7 +199,7 @@
         <header class="flex h-12 shrink-0 items-center justify-between border-b border-edge bg-surface px-5">
           <Dialog.Title class="truncate text-md font-semibold text-bright">{activeLabel}</Dialog.Title>
           <IconButton tooltip="Close" onclick={onClose}>
-            <X size={14} />
+            <Icon icon={XIcon} size={14} />
           </IconButton>
         </header>
 
@@ -249,9 +249,9 @@
               {#if pending > 0}
                 <Spinner size={12} class="text-muted" />
               {:else if savedFlash}
-                <SaveIcon size={12} class="text-success" />
+                <Icon icon={SaveIcon} size={12} class="text-success" />
               {:else}
-                <SaveIcon size={12} class="text-subtle" />
+                <Icon icon={SaveIcon} size={12} class="text-subtle" />
               {/if}
             </Tooltip.Trigger>
             <Tooltip.Content side="top">{saveTooltip}</Tooltip.Content>

@@ -1,3 +1,4 @@
+import { File02Icon } from '@hugeicons/core-free-icons'
 import type { Command, CommandGroup } from './types'
 import { getProjectFilePaths } from '$lib/features/files/projectFiles.svelte'
 import { openTextFile } from '$lib/features/workbench/surfaces/text/service.svelte'
@@ -114,7 +115,7 @@ export function getFilePaletteGroups(
       id: `file:${path}`,
       label: basename(path),
       subtitle: dir || undefined,
-      lucideIcon: 'file',
+      icon: File02Icon,
       keywords: [path],
       onSelect: onPick
         ? () => onPick(path)

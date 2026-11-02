@@ -11,7 +11,8 @@
   import RailApplet, { appletRowClass } from './RailApplet.svelte'
   import { Button } from '$lib/components/ui/button'
   import { StatusDot, type ToneStatus } from '$lib/components/ui/status-dot'
-  import { FolderIcon, Layers, SearchIcon, ServerIcon } from '$lib/icons/lucideExports'
+  import { Folder01Icon, Layers01Icon, Search01Icon, ServerIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import {
     getServers,
     getWorkbenchSections,
@@ -78,7 +79,7 @@
 {#if servers.length > 0}
   <RailApplet bind:open label="Remote servers" {status}>
     {#snippet icon()}
-      <ServerIcon size={16} />
+      <Icon icon={ServerIcon} size={16} />
     {/snippet}
 
     <div class="flex max-h-96 flex-col gap-2 overflow-y-auto">
@@ -103,7 +104,7 @@
               class={appletRowClass}
               onclick={() => go(() => goToWorkbench(workbench, server.name))}
             >
-              <Layers size={12} class="shrink-0 text-muted" />
+              <Icon icon={Layers01Icon} size={12} class="shrink-0 text-muted" />
               <span class="min-w-0 flex-1 truncate">{workbenchTitle(workbench)}</span>
               {#if detail}<span class="shrink-0 text-xs text-subtle">{detail}</span>{/if}
             </button>
@@ -116,7 +117,7 @@
               title={recent.path}
               onclick={() => go(() => goToFolder(recent.path))}
             >
-              <FolderIcon size={12} class="shrink-0 text-muted" />
+              <Icon icon={Folder01Icon} size={12} class="shrink-0 text-muted" />
               <span class="shrink-0">{basename(recent.remotePath) || '/'}</span>
               <span class="min-w-0 truncate font-mono text-xs text-subtle">{parentPath(recent.remotePath)}</span>
             </button>
@@ -127,7 +128,7 @@
             class={cn(appletRowClass, 'text-muted')}
             onclick={() => go(() => openBrowser({ server: server.name }))}
           >
-            <SearchIcon size={12} class="shrink-0" />
+            <Icon icon={Search01Icon} size={12} class="shrink-0" />
             <span>Browse {server.name}…</span>
           </button>
         </section>

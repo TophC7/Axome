@@ -11,8 +11,15 @@
   import { Button, IconButton } from '$lib/components/ui/button'
   import * as Breadcrumb from '$lib/components/ui/breadcrumb'
   import PanelHeader from '$lib/components/layout/PanelHeader.svelte'
-  import { Layers, RefreshCwIcon } from '$lib/icons/lucideExports'
-  import { getIssueDetail, getIssueEpics, getIssues, reloadIssueDetail, watchIssueDetail } from '$lib/features/issues/state.svelte'
+  import { Layers01Icon, RefreshCwIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
+  import {
+    getIssueDetail,
+    getIssueEpics,
+    getIssues,
+    reloadIssueDetail,
+    watchIssueDetail
+  } from '$lib/features/issues/state.svelte'
   import { openIssueTab } from '$lib/features/workbench/surfaces/issue/service.svelte'
   import IssueDetailForm from './IssueDetailForm.svelte'
   import type { IssueTab } from '$lib/features/workbench/model'
@@ -43,47 +50,50 @@
   <PanelHeader>
     {#snippet left()}
       <Breadcrumb.Root class="text-2xs">
-          {#if epicRef}
-            <Breadcrumb.Item class="font-mono text-warning" title={epicRef.title}>
-              <Layers size={11} class="shrink-0" />
-              <span>{epicRef.id}</span>
-              <span class="max-w-[20ch] truncate font-sans text-subtle">{epicRef.title}</span>
-            </Breadcrumb.Item>
-            <Breadcrumb.Separator />
-          {/if}
-          {#if parentIssue}
-            <Breadcrumb.Item class="font-mono">
-              <button
-                type="button"
-                class="flex items-center gap-1 text-accent hover:underline focus-visible:shadow-focus-ring focus-visible:outline-none"
-                onclick={() => openIssueTab(folderPath, parentIssue!.id, parentIssue!.title)}
-                title={parentIssue.title}
-              >
-                <span>{parentIssue.id}</span>
-                <span class="max-w-[20ch] truncate font-sans text-subtle">{parentIssue.title}</span>
-              </button>
-            </Breadcrumb.Item>
-            <Breadcrumb.Separator />
-          {/if}
-          <Breadcrumb.Item>
-            <Breadcrumb.Page class="flex items-center gap-1.5 font-mono">
-              <span class="text-muted">{tab.issueId}</span>
-              <span class="max-w-[36ch] truncate font-sans text-fg">
-                {detail?.issue.title ?? tab.title}
-              </span>
-            </Breadcrumb.Page>
+        {#if epicRef}
+          <Breadcrumb.Item class="font-mono text-warning" title={epicRef.title}>
+            <Icon icon={Layers01Icon} size={11} class="shrink-0" />
+            <span>{epicRef.id}</span>
+            <span class="max-w-[20ch] truncate font-sans text-subtle">{epicRef.title}</span>
           </Breadcrumb.Item>
+          <Breadcrumb.Separator />
+        {/if}
+        {#if parentIssue}
+          <Breadcrumb.Item class="font-mono">
+            <button
+              type="button"
+              class="flex items-center gap-1 text-accent hover:underline focus-visible:shadow-focus-ring focus-visible:outline-none"
+              onclick={() => openIssueTab(folderPath, parentIssue!.id, parentIssue!.title)}
+              title={parentIssue.title}
+            >
+              <span>{parentIssue.id}</span>
+              <span class="max-w-[20ch] truncate font-sans text-subtle">{parentIssue.title}</span>
+            </button>
+          </Breadcrumb.Item>
+          <Breadcrumb.Separator />
+        {/if}
+        <Breadcrumb.Item>
+          <Breadcrumb.Page class="flex items-center gap-1.5 font-mono">
+            <span class="text-muted">{tab.issueId}</span>
+            <span class="max-w-[36ch] truncate font-sans text-fg">
+              {detail?.issue.title ?? tab.title}
+            </span>
+          </Breadcrumb.Page>
+        </Breadcrumb.Item>
       </Breadcrumb.Root>
     {/snippet}
     {#snippet right()}
       <IconButton tooltip="Refresh" onclick={refresh}>
-        <RefreshCwIcon size={11} />
+        <Icon icon={RefreshCwIcon} size={11} />
       </IconButton>
     {/snippet}
   </PanelHeader>
 
   {#if slot?.error}
-    <div role="alert" class="flex items-center justify-between gap-3 border-b border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger">
+    <div
+      role="alert"
+      class="flex items-center justify-between gap-3 border-b border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger"
+    >
       <span>{slot.error}</span>
       <Button size="sm" onclick={refresh}>Refresh</Button>
     </div>

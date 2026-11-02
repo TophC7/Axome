@@ -1,10 +1,9 @@
-import type { IconProps } from '@lucide/svelte'
-import type { Component } from 'svelte'
+import type { IconData } from '$lib/icons/Icon.svelte'
 import { getExtensionCatalog } from '$lib/features/extensions/catalog.svelte'
 import type { HarnessDescriptor } from '$lib/types/backend'
 
-/** A brand mark's image URL, or a Lucide icon for generic options such as Terminal. */
-export type HarnessIconSource = string | Component<IconProps>
+/** A brand mark's image URL, or Hugeicons icon data for generic options such as Terminal. */
+export type HarnessIconSource = string | IconData
 
 export function getHarness(folderPath: string | null | undefined, id: string): HarnessDescriptor | null {
   return getExtensionCatalog(folderPath)?.runtime.harnesses.find((harness) => harness.id === id) ?? null

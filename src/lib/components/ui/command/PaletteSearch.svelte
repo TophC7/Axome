@@ -8,7 +8,8 @@
 
 <script lang="ts">
   import { cn } from '$lib/utils/cn'
-  import { SearchIcon } from '$lib/icons/lucideExports'
+  import { Search01Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { Snippet } from 'svelte'
   import type { HTMLAttributes } from 'svelte/elements'
 
@@ -26,6 +27,6 @@
   class={cn('flex shrink-0 items-center gap-2 border-b border-edge px-3 focus-within:border-accent', className)}
   {...rest}
 >
-  <SearchIcon class="size-4 shrink-0 text-muted" aria-hidden="true" />
+  <Icon icon={Search01Icon} class="size-4 shrink-0 text-muted" aria-hidden="true" />
   {#if children}{@render children(paletteSearchInputVariants())}{/if}
 </div>

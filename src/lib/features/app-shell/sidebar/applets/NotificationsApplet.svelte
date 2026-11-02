@@ -6,7 +6,8 @@
 
 <script lang="ts">
   import RailButton from '../RailButton.svelte'
-  import { BellIcon } from '$lib/icons/lucideExports'
+  import { BellIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import {
     getNotifications,
     isNotificationCenterOpen,
@@ -26,5 +27,5 @@
   data-notifications-toggle="true"
   onclick={toggleNotificationCenter}
 >
-  <BellIcon size={16} />
+  <Icon icon={BellIcon} size={16} />
 </RailButton>

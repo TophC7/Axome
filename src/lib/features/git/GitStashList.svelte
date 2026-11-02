@@ -10,16 +10,17 @@
   import { Button, IconButton, iconButtonVariants } from '$lib/components/ui/button'
   import { sidebarRowVariants } from '$lib/components/ui/sidebar-row'
   import {
-    ClockIcon,
+    Clock01Icon,
     CopyIcon,
     GitBranchIcon,
-    GitCommitIcon,
+    GitCommitHorizontalIcon,
     MoreHorizontalIcon,
     PackageIcon,
     PackageOpenIcon,
-    Play,
-    Trash2
-  } from '$lib/icons/lucideExports'
+    PlayIcon,
+    Delete02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { GRAPH_COLORS } from '$lib/features/git/graph'
   import {
     applyStash,
@@ -84,41 +85,41 @@
       disabled={(summary?.staged_count ?? 0) + (summary?.unstaged_count ?? 0) === 0}
       onclick={() => void promptStash(folderPath, { kind: 'all', includeUntracked: false })}
     >
-      <PackageIcon size={14} />
+      <Icon icon={PackageIcon} size={14} />
       Stash…
     </Button>
     <div class="flex-1"></div>
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class={iconButtonVariants()} aria-label="Stash Actions">
-        <MoreHorizontalIcon size={13} />
+        <Icon icon={MoreHorizontalIcon} size={13} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Item
           disabled={(summary?.changes.length ?? 0) === 0}
           onSelect={() => void promptStash(folderPath, { kind: 'all', includeUntracked: true })}
         >
-          <PackageIcon size={14} />
+          <Icon icon={PackageIcon} size={14} />
           <span>Stash (Include Untracked)…</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item
           disabled={(summary?.staged_count ?? 0) === 0}
           onSelect={() => void promptStash(folderPath, { kind: 'staged' })}
         >
-          <PackageIcon size={14} />
+          <Icon icon={PackageIcon} size={14} />
           <span>Stash Staged…</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
         <DropdownMenu.Item disabled={stashes.length === 0} onSelect={() => void applyStash(folderPath, 0)}>
-          <PackageOpenIcon size={14} />
+          <Icon icon={PackageOpenIcon} size={14} />
           <span>Apply Latest Stash</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item disabled={stashes.length === 0} onSelect={() => void popLatestStash(folderPath)}>
-          <Play size={14} />
+          <Icon icon={PlayIcon} size={14} />
           <span>Pop Latest Stash</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
         <DropdownMenu.Item destructive disabled={stashes.length === 0} onSelect={() => void clearStashes(folderPath)}>
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Drop All Stashes…</span>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
@@ -166,7 +167,7 @@
                   <Tooltip.Content class="max-w-80" sideOffset={6} side="right" align="center">
                     <div class="flex flex-col gap-2 py-0.5">
                       <div class="flex items-center gap-1 text-sm">
-                        <ClockIcon size={10} class="text-subtle" />
+                        <Icon icon={Clock01Icon} size={10} class="text-subtle" />
                         <span class="text-muted">{timeAgo(stash.date)}</span>
                         <span class="text-subtle">({formatFullDate(stash.date)})</span>
                       </div>
@@ -200,7 +201,7 @@
                 </span>
                 <div class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
                   <IconButton tooltip="Pop (apply + remove)" tooltipSide="left" onclick={() => handlePop(stash.index)}>
-                    <Play size={12} />
+                    <Icon icon={PlayIcon} size={12} />
                   </IconButton>
                   <IconButton
                     tooltip="Drop stash"
@@ -208,38 +209,38 @@
                     tone="danger"
                     onclick={() => handleDrop(stash.index)}
                   >
-                    <Trash2 size={12} />
+                    <Icon icon={Delete02Icon} size={12} />
                   </IconButton>
                 </div>
               </div>
             </ContextMenu.Trigger>
             <ContextMenu.Content>
               <ContextMenu.Item onSelect={() => void openStashDiff(folderPath, stash.index, stash.message)}>
-                <GitCommitIcon size={14} />
+                <Icon icon={GitCommitHorizontalIcon} size={14} />
                 <span>Open Changes</span>
               </ContextMenu.Item>
               <ContextMenu.Item onSelect={() => void applyStash(folderPath, stash.index)}>
-                <PackageOpenIcon size={14} />
+                <Icon icon={PackageOpenIcon} size={14} />
                 <span>Apply Stash</span>
               </ContextMenu.Item>
               <ContextMenu.Item onSelect={() => void handlePop(stash.index)}>
-                <Play size={14} />
+                <Icon icon={PlayIcon} size={14} />
                 <span>Pop Stash</span>
               </ContextMenu.Item>
               <ContextMenu.Item onSelect={() => void branchFromStash(folderPath, stash.index)}>
-                <GitBranchIcon size={14} />
+                <Icon icon={GitBranchIcon} size={14} />
                 <span>Create Branch from Stash…</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
               <ContextMenu.Item destructive onSelect={() => void handleDrop(stash.index)}>
-                <Trash2 size={14} />
+                <Icon icon={Delete02Icon} size={14} />
                 <span>Drop Stash…</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
               <ContextMenu.Item
                 onSelect={() => void copyToClipboard(`stash@{${stash.index}}`, 'Copy stash name failed')}
               >
-                <CopyIcon size={14} />
+                <Icon icon={CopyIcon} size={14} />
                 <span>Copy Stash Name</span>
               </ContextMenu.Item>
             </ContextMenu.Content>

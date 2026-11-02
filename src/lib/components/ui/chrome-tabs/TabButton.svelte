@@ -2,7 +2,8 @@
 <script lang="ts">
   import TabBeam, { POSITION_CLASS, type BeamPosition } from '$lib/components/ui/TabBeam.svelte'
   import { cn } from '$lib/utils/cn'
-  import { X } from '$lib/icons/lucideExports'
+  import { XIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { Snippet } from 'svelte'
   import type { HTMLButtonAttributes } from 'svelte/elements'
 
@@ -71,7 +72,7 @@
       onclick={handleClose}
       onkeydown={(event) => event.key === 'Enter' && handleClose(event)}
     >
-      <X size={12} />
+      <Icon icon={XIcon} size={12} />
     </span>
   {/if}
 </button>

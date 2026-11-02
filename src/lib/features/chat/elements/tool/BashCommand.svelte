@@ -1,6 +1,7 @@
 <script lang="ts">
   import { IconButton } from '$lib/components/ui/button'
-  import { CopyIcon } from '$lib/icons/lucideExports'
+  import { CopyIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { copyToClipboard } from '$lib/utils/clipboard'
   import { codeTokens } from '$lib/utils/syntaxHighlight'
 
@@ -57,7 +58,7 @@
         >{@render source()}</code
       ></pre>
     <IconButton tooltip="Copy Command" class="shrink-0" onclick={() => void copyToClipboard(command)}
-      ><CopyIcon size={12} /></IconButton
+      ><Icon icon={CopyIcon} size={12} /></IconButton
     >
   </div>
 {/if}

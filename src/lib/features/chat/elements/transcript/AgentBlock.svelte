@@ -6,7 +6,15 @@
   import { formatCost, formatCount, formatDuration, formatTokens } from '$lib/features/chat/format'
   import { turnDurationMs, type ToolStep, type Turn } from '$lib/features/chat/turns'
   import type { BlockView } from '$lib/features/chat/view'
-  import { AlertTriangle, ChevronRight, CircleXIcon, CopyIcon, GitForkIcon, InfoIcon } from '$lib/icons/lucideExports'
+  import {
+    TriangleAlertIcon,
+    ChevronRightIcon,
+    CircleXIcon,
+    CopyIcon,
+    GitForkIcon,
+    InfoIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { copyToClipboard } from '$lib/utils/clipboard'
   import { cn } from '$lib/utils/cn'
   import ThinkingBlock from './ThinkingBlock.svelte'
@@ -149,7 +157,11 @@
       {#if turn.running}<StatusDot tone="working" size="sm" />{/if}
       <span class="tabular-nums">{summary}</span>
       {#if failed}<span class="text-danger">{failed} failed</span>{/if}
-      {#if work.length}<ChevronRight size={14} class={cn('transition-transform', open && 'rotate-90')} />{/if}
+      {#if work.length}<Icon
+          icon={ChevronRightIcon}
+          size={14}
+          class={cn('transition-transform', open && 'rotate-90')}
+        />{/if}
     </button>
   {/if}
   {#if shown.length}
@@ -159,9 +171,8 @@
   {/if}
   {#each answer as step (step.id)}{@render render(step)}{/each}
   {#each notices as notice}
-    {@const Icon = notice.danger ? CircleXIcon : AlertTriangle}
     <div class={cn('flex items-start gap-2 text-sm', notice.danger ? 'text-danger' : 'text-warning')}>
-      <Icon size={14} class="shrink-0" />
+      <Icon icon={notice.danger ? CircleXIcon : TriangleAlertIcon} size={14} class="shrink-0" />
       <span class="whitespace-pre-wrap">{notice.text}</span>
     </div>
   {/each}
@@ -169,13 +180,13 @@
     <div class="flex min-h-5 max-w-full items-center gap-1 self-start text-subtle">
       {#if lastAssistant}
         <IconButton tooltip="Copy" class="shrink-0 text-subtle" onclick={() => void copyToClipboard(copyText)}
-          ><CopyIcon size={14} /></IconButton
+          ><Icon icon={CopyIcon} size={14} /></IconButton
         >
         <IconButton
           tooltip="Fork"
           class="shrink-0 text-subtle"
           disabled={!canBranch}
-          onclick={() => void controller.fork(lastAssistant.id)}><GitForkIcon size={14} /></IconButton
+          onclick={() => void controller.fork(lastAssistant.id)}><Icon icon={GitForkIcon} size={14} /></IconButton
         >
       {/if}
       {#if duration !== null || usage}
@@ -185,7 +196,7 @@
           tooltipSide="top"
           class="shrink-0 text-subtle"
         >
-          <InfoIcon size={14} />
+          <Icon icon={InfoIcon} size={14} />
         </IconButton>
       {/if}
       {#if lastAssistant}

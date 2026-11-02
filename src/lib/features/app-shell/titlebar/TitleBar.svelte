@@ -11,7 +11,8 @@
   import TitleTabStrip from './TitleTabStrip.svelte'
   import WindowControls from './WindowControls.svelte'
   import { isCommandPaletteOpen, setCommandPaletteOpen } from '$lib/features/command-palette/state.svelte'
-  import { CommandIcon } from '$lib/icons/lucideExports'
+  import { CommandIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getCommandShortcut } from '$lib/features/command-palette/shortcuts/registry.svelte'
 
   const shownFolder = $derived(getShownSidebarFolder())
@@ -40,7 +41,7 @@
       active={isCommandPaletteOpen()}
       onclick={() => setCommandPaletteOpen(true)}
     >
-      <CommandIcon size={14} />
+      <Icon icon={CommandIcon} size={14} />
     </IconButton>
   </div>
 

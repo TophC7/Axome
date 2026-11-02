@@ -4,7 +4,8 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import * as Popover from '$lib/components/ui/popover'
   import * as Command from '$lib/components/ui/command'
-  import { Check, ChevronDown } from '$lib/icons/lucideExports'
+  import { CheckIcon, ChevronDownIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
 
   let {
     label,
@@ -53,7 +54,7 @@
           class="max-w-48 hover:bg-raised"
         >
           <span class="truncate">{currentName}</span>
-          <ChevronDown size={12} />
+          <Icon icon={ChevronDownIcon} size={12} />
         </Button>
       {/snippet}
     </Tooltip.Trigger>
@@ -101,7 +102,7 @@
                     <span class="text-sm">{choice.name}</span>
                   </div>
                   {#if choice.value === value}
-                    <Check size={12} class="size-3!" />
+                    <Icon icon={CheckIcon} size={12} class="size-3!" />
                   {/if}
                 </Command.Item>
               {/each}

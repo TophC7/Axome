@@ -3,7 +3,8 @@
   import { Textarea } from '$lib/components/ui/input'
   import type { ChatController } from '$lib/features/chat/controller.svelte'
   import type { TurnConfig, UserEntry } from '$lib/features/chat/turns'
-  import { ChevronLeft, ChevronRight, CopyIcon, GitForkIcon, PencilIcon } from '$lib/icons/lucideExports'
+  import { ChevronLeftIcon, ChevronRightIcon, CopyIcon, GitForkIcon, PencilIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { copyToClipboard } from '$lib/utils/clipboard'
   import { cn } from '$lib/utils/cn'
   import { KeyHint } from '../key-hint'
@@ -96,7 +97,7 @@
           disabled={!canBranch || branchIndex <= 0}
           onclick={() => void controller.selectBranch(entry.body.siblings[branchIndex - 1])}
         >
-          <ChevronLeft size={12} />
+          <Icon icon={ChevronLeftIcon} size={12} />
         </IconButton>
         <span class="tabular-nums">{branchIndex + 1}/{entry.body.siblings.length}</span>
         <IconButton
@@ -104,22 +105,22 @@
           disabled={!canBranch || branchIndex >= entry.body.siblings.length - 1}
           onclick={() => void controller.selectBranch(entry.body.siblings[branchIndex + 1])}
         >
-          <ChevronRight size={12} />
+          <Icon icon={ChevronRightIcon} size={12} />
         </IconButton>
       </div>
     {/if}
     <div class="flex items-center gap-1">
       <IconButton tooltip="Edit" class="text-subtle" disabled={!canBranch} onclick={() => controller.startEdit(entry)}
-        ><PencilIcon size={14} /></IconButton
+        ><Icon icon={PencilIcon} size={14} /></IconButton
       >
       <IconButton
         tooltip="Fork"
         class="text-subtle"
         disabled={!canBranch}
-        onclick={() => void controller.fork(entry.id)}><GitForkIcon size={14} /></IconButton
+        onclick={() => void controller.fork(entry.id)}><Icon icon={GitForkIcon} size={14} /></IconButton
       >
       <IconButton tooltip="Copy" class="text-subtle" onclick={() => void copyToClipboard(entry.body.text)}
-        ><CopyIcon size={14} /></IconButton
+        ><Icon icon={CopyIcon} size={14} /></IconButton
       >
     </div>
   </div>

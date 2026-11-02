@@ -18,7 +18,7 @@
 -->
 
 <script lang="ts">
-  import { untrack, type Component } from 'svelte'
+  import { untrack } from 'svelte'
   import SidebarPanel from '$lib/features/app-shell/sidebar/SidebarPanel.svelte'
   import { IconButton, iconButtonVariants } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -30,19 +30,20 @@
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import {
     ArchiveIcon,
-    Check,
-    Circle,
-    CircleCheck,
-    CircleDot,
-    CircleSlash,
+    CheckIcon,
+    CircleIcon,
+    CircleCheckIcon,
+    CircleDotIcon,
+    CircleSlashIcon,
     ClipboardIcon,
-    Filter,
-    Layers,
-    Plus,
+    FilterIcon,
+    Layers01Icon,
+    PlusIcon,
     RefreshCwIcon,
-    Trash2,
-    X
-  } from '$lib/icons/lucideExports'
+    Delete02Icon,
+    XIcon
+  } from '@hugeicons/core-free-icons'
+  import Icon, { type IconData } from '$lib/icons/Icon.svelte'
   import IssueQuickCapture from '$lib/features/issues/IssueQuickCapture.svelte'
   import { ALL_PRIORITIES, priorityToneClass, statusGlyphTone, statusRowLabel } from '$lib/features/issues/visual'
   import { parseQuery } from '$lib/features/issues/query'
@@ -88,12 +89,12 @@
 
   // Row glyphs only; tones come from visual.ts so the sidebar and
   // editor surface can't drift apart.
-  const STATUS_ICON: Record<IssueStatus, Component> = {
-    todo: Circle,
-    in_progress: CircleDot,
-    blocked: CircleSlash,
-    completed: CircleCheck,
-    wont_fix: X,
+  const STATUS_ICON: Record<IssueStatus, IconData> = {
+    todo: CircleIcon,
+    in_progress: CircleDotIcon,
+    blocked: CircleSlashIcon,
+    completed: CircleCheckIcon,
+    wont_fix: XIcon,
     archived: ArchiveIcon
   }
 
@@ -209,7 +210,7 @@
 <SidebarPanel title="Issues">
   {#snippet headerActions()}
     <IconButton tooltip="Refresh issues" onclick={refresh}>
-      <RefreshCwIcon size={11} />
+      <Icon icon={RefreshCwIcon} size={11} />
     </IconButton>
   {/snippet}
   {#snippet headerExtra()}
@@ -267,7 +268,7 @@
             class={cn(iconButtonVariants(), 'absolute top-1/2 right-0.5 size-6 -translate-y-1/2')}
             aria-label="Filter options"
           >
-            <Filter size={12} />
+            <Icon icon={FilterIcon} size={12} />
           </DropdownMenu.Trigger>
           <DropdownMenu.Content class="min-w-[230px]" align="end">
             <DropdownMenu.Group>
@@ -317,9 +318,9 @@
       class="h-7 shrink-0 border-b border-edge bg-ground"
       onclick={() => openCapture('epic')}
     >
-      <Layers size={12} class="shrink-0" />
+      <Icon icon={Layers01Icon} size={12} class="shrink-0" />
       <span>New epic…</span>
-      <Plus size={12} class="ml-auto shrink-0" />
+      <Icon icon={PlusIcon} size={12} class="ml-auto shrink-0" />
     </SidebarRow>
 
     <div class="min-h-0 flex-1 overflow-y-auto text-base">
@@ -341,7 +342,7 @@
 {#snippet epicTooltip(epic: IssueEpic, group: EpicGroup)}
   <div class="flex max-w-90 flex-col gap-2 py-0.5">
     <div class="flex items-center gap-1.5">
-      <Layers size={10} class="text-warning" />
+      <Icon icon={Layers01Icon} size={10} class="text-warning" />
       <span class="min-w-0 truncate font-mono text-sm text-warning">{epic.id}</span>
       <span class="shrink-0 rounded bg-surface px-1 py-px text-2xs text-muted uppercase">epic</span>
     </div>
@@ -423,7 +424,7 @@
             ondblclick={() => void openEpicTab(folderPath, epic.id, epic.title)}
             aria-expanded={!collapsed}
           >
-            <Layers size={12} class="shrink-0 text-warning" />
+            <Icon icon={Layers01Icon} size={12} class="shrink-0 text-warning" />
             <span class="shrink-0 font-mono text-2xs text-warning">{epic.id}</span>
             <span class="min-w-0 flex-1 truncate text-fg">{epic.title}</span>
             <ProgressBar done={group.done} active={group.active} total={group.total} />
@@ -435,11 +436,11 @@
       </ContextMenu.Trigger>
       <ContextMenu.Content>
         <ContextMenu.Item onSelect={() => void openEpicTab(folderPath, epic.id, epic.title)}>
-          <Layers size={14} />
+          <Icon icon={Layers01Icon} size={14} />
           <span>Open epic</span>
         </ContextMenu.Item>
         <ContextMenu.Item onSelect={() => openCapture('issue', epic.id)}>
-          <Plus size={14} />
+          <Icon icon={PlusIcon} size={14} />
           <span>New issue in epic…</span>
         </ContextMenu.Item>
         <ContextMenu.Separator />
@@ -448,24 +449,24 @@
             onSelect={() =>
               void run('Archive epic failed', () => updateEpic(folderPath, epic.id, { status: 'archived' }))}
           >
-            <ArchiveIcon size={14} />
+            <Icon icon={ArchiveIcon} size={14} />
             <span>Archive epic</span>
           </ContextMenu.Item>
         {/if}
         <ContextMenu.Item onSelect={() => void run('Copy id failed', () => platform.clipboard.writeText(epic.id))}>
-          <ClipboardIcon size={14} />
+          <Icon icon={ClipboardIcon} size={14} />
           <span>Copy id</span>
         </ContextMenu.Item>
         <ContextMenu.Separator />
         <ContextMenu.Item destructive onSelect={() => void confirmDeleteEpic(epic)}>
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Delete epic…</span>
         </ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Root>
   {:else}
     <SidebarRow variant="section" onclick={() => toggleEpic(id)} aria-expanded={!collapsed}>
-      <Layers size={12} class="shrink-0 text-warning" />
+      <Icon icon={Layers01Icon} size={12} class="shrink-0 text-warning" />
       <span class="min-w-0 flex-1 truncate text-subtle italic">Unassigned</span>
       <ProgressBar done={group.done} active={group.active} total={group.total} />
     </SidebarRow>
@@ -482,7 +483,7 @@
       {#if epic}
         <SidebarRow variant="action" on="surface" divider={false} onclick={() => openCapture('issue', epic.id)}>
           <span>New issue…</span>
-          <Plus size={12} class="ml-auto shrink-0" />
+          <Icon icon={PlusIcon} size={12} class="ml-auto shrink-0" />
         </SidebarRow>
       {/if}
     </div>
@@ -490,7 +491,6 @@
 {/snippet}
 
 {#snippet issueRow(issue: Issue, parent: Issue | null, depth: number)}
-  {@const StatusIcon = STATUS_ICON[issue.status]}
   {@const tone = statusGlyphTone(issue.status)}
   <ContextMenu.Root>
     <ContextMenu.Trigger class="contents">
@@ -502,7 +502,7 @@
           onclick={() => void openIssueTab(folderPath, issue.id, issue.title)}
         >
           <TreeIndentGuides {depth} />
-          <StatusIcon size={12} class="shrink-0 {tone}" />
+          <Icon icon={STATUS_ICON[issue.status]} size={12} class="shrink-0 {tone}" />
           <span class="shrink-0 font-mono text-2xs text-subtle">{issue.id}</span>
           <span class="min-w-0 flex-1 truncate text-fg group-hover/row:text-bright">{issue.title}</span>
           <span class="shrink-0 font-mono text-2xs {priorityToneClass(issue.priority)}">P{issue.priority}</span>
@@ -514,11 +514,11 @@
     </ContextMenu.Trigger>
     <ContextMenu.Content>
       <ContextMenu.Item onSelect={() => void openIssueTab(folderPath, issue.id, issue.title)}>
-        <CircleDot size={14} />
+        <Icon icon={CircleDotIcon} size={14} />
         <span>Open issue</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={() => void run('Claim failed', () => claimIssue(folderPath, issue.id))}>
-        <Check size={14} />
+        <Icon icon={CheckIcon} size={14} />
         <span>Claim</span>
       </ContextMenu.Item>
       <ContextMenu.Separator />
@@ -534,12 +534,12 @@
       {/each}
       <ContextMenu.Separator />
       <ContextMenu.Item onSelect={() => void run('Copy id failed', () => platform.clipboard.writeText(issue.id))}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy id</span>
       </ContextMenu.Item>
       <ContextMenu.Separator />
       <ContextMenu.Item destructive onSelect={() => void confirmDeleteIssue(issue)}>
-        <Trash2 size={14} />
+        <Icon icon={Delete02Icon} size={14} />
         <span>Delete issue…</span>
       </ContextMenu.Item>
     </ContextMenu.Content>

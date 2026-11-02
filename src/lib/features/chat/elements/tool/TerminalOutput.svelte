@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { IconButton } from '$lib/components/ui/button'
-  import { CopyIcon } from '$lib/icons/lucideExports'
+  import { CopyIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { ChatContent } from '$lib/types/backend'
   import { copyToClipboard } from '$lib/utils/clipboard'
 
@@ -20,6 +21,6 @@
     class="shrink-0"
     disabled={!hasText}
     onclick={() => void copyToClipboard(output.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n'))}
-    ><CopyIcon size={12} /></IconButton
+    ><Icon icon={CopyIcon} size={12} /></IconButton
   >
 </div>

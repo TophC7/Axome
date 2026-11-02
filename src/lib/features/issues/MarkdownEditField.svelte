@@ -10,7 +10,8 @@
   import { Button } from '$lib/components/ui/button'
   import { Textarea } from '$lib/components/ui/input'
   import MarkdownRenderer from '$lib/components/markdown/MarkdownRenderer.svelte'
-  import { PencilIcon } from '$lib/icons/lucideExports'
+  import { PencilIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
 
   let {
     value = $bindable(''),
@@ -50,7 +51,7 @@
     {/if}
     <div class="absolute top-2 right-2 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
       <Button size="xs" variant="ghost" onclick={() => (editing = true)} aria-label="Edit description">
-        <PencilIcon size={10} />
+        <Icon icon={PencilIcon} size={10} />
         Edit
       </Button>
     </div>

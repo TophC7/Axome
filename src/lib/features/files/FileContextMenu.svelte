@@ -20,22 +20,23 @@
   import {
     FolderOpenIcon,
     FileCodeIcon,
-    FileDiff,
-    Eye,
-    EyeOff,
-    PlusCircle,
-    MinusCircle,
+    FileDiffIcon,
+    EyeIcon,
+    EyeOffIcon,
+    CirclePlusIcon,
+    CircleMinusIcon,
     GitBranchIcon,
     GitCompareIcon,
     ScissorsIcon,
     CopyIcon,
     ClipboardIcon,
     PencilIcon,
-    Trash2,
-    Plus,
-    SquareArrowOutUpRight,
+    Delete02Icon,
+    PlusIcon,
+    SquareArrowOutUpRightIcon,
     ClipboardPasteIcon
-  } from '$lib/icons/lucideExports'
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { Snippet } from 'svelte'
 
   let {
@@ -101,7 +102,7 @@
       <!-- ── File/folder-targeted menu ── -->
       {#if canRevealInFileManager}
         <ContextMenu.Item onSelect={onRevealInFolder}>
-          <FolderOpenIcon size={14} />
+          <Icon icon={FolderOpenIcon} size={14} />
           <span>Reveal in File Manager</span>
         </ContextMenu.Item>
       {/if}
@@ -112,7 +113,7 @@
         {/if}
 
         <ContextMenu.Item onSelect={onOpenInEditor}>
-          <FileCodeIcon size={14} />
+          <Icon icon={FileCodeIcon} size={14} />
           <span>Open in Editor</span>
         </ContextMenu.Item>
 
@@ -122,13 +123,13 @@
             onSelect={() =>
               openWorkingTreeDiff(folderPath, state.unstaged.length === 0, path, path, { temporary: false })}
           >
-            <FileDiff size={14} />
+            <Icon icon={FileDiffIcon} size={14} />
             <span>Open Changes</span>
           </ContextMenu.Item>
         {/if}
         {#if git?.inHead}
           <ContextMenu.Item onSelect={() => openHeadFile(folderPath, path)}>
-            <Eye size={14} />
+            <Icon icon={EyeIcon} size={14} />
             <span>Open File (HEAD)</span>
           </ContextMenu.Item>
         {/if}
@@ -144,7 +145,7 @@
             onSelect={() =>
               openWorkingTreeDiff(folderPath, state.unstaged.length === 0, path, null, { temporary: false })}
           >
-            <FileDiff size={14} />
+            <Icon icon={FileDiffIcon} size={14} />
             <span>Open Changes</span>
           </ContextMenu.Item>
         {/if}
@@ -152,7 +153,7 @@
           <ContextMenu.Item
             onSelect={() => runPathsAction(folderPath, 'stage', state.unstaged, describe(state.unstaged))}
           >
-            <PlusCircle size={14} />
+            <Icon icon={CirclePlusIcon} size={14} />
             <span>Stage Changes</span>
           </ContextMenu.Item>
         {/if}
@@ -160,7 +161,7 @@
           <ContextMenu.Item
             onSelect={() => runPathsAction(folderPath, 'unstage', state.staged, describe(state.staged))}
           >
-            <MinusCircle size={14} />
+            <Icon icon={CircleMinusIcon} size={14} />
             <span>Unstage Changes</span>
           </ContextMenu.Item>
         {/if}
@@ -169,16 +170,16 @@
             destructive
             onSelect={() => confirmDiscardPaths(folderPath, state.unstaged, describe(state.unstaged))}
           >
-            <Trash2 size={14} />
+            <Icon icon={Delete02Icon} size={14} />
             <span>Discard Changes</span>
           </ContextMenu.Item>
           <ContextMenu.Item onSelect={() => ignoreFiles(folderPath, [path])}>
-            <EyeOff size={14} />
+            <Icon icon={EyeOffIcon} size={14} />
             <span>Add to .gitignore</span>
           </ContextMenu.Item>
         {/if}
         <ContextMenu.Item onSelect={() => revealInSourceControl(folderPath, path)}>
-          <GitBranchIcon size={14} />
+          <Icon icon={GitBranchIcon} size={14} />
           <span>Reveal in Source Control</span>
         </ContextMenu.Item>
       {/if}
@@ -187,17 +188,17 @@
         {@const compareFile = file}
         <ContextMenu.Separator />
         <ContextMenu.Item onSelect={() => selectForCompare(compareFile)}>
-          <GitCompareIcon size={14} />
+          <Icon icon={GitCompareIcon} size={14} />
           <span>Select for Compare</span>
         </ContextMenu.Item>
         {#if canCompareWithSelected(compareFile)}
           <ContextMenu.Item onSelect={() => compareWithSelected(compareFile)}>
-            <GitCompareIcon size={14} />
+            <Icon icon={GitCompareIcon} size={14} />
             <span>Compare with Selected</span>
           </ContextMenu.Item>
         {/if}
         <ContextMenu.Item onSelect={() => void compareWithClipboard(compareFile)}>
-          <ClipboardPasteIcon size={14} />
+          <Icon icon={ClipboardPasteIcon} size={14} />
           <span>Compare with Clipboard</span>
         </ContextMenu.Item>
       {/if}
@@ -208,16 +209,16 @@
 
       {#if canNativeFileClipboard}
         <ContextMenu.Item onSelect={onCut}>
-          <ScissorsIcon size={14} />
+          <Icon icon={ScissorsIcon} size={14} />
           <span>Cut</span>
         </ContextMenu.Item>
         <ContextMenu.Item onSelect={onCopy}>
-          <CopyIcon size={14} />
+          <Icon icon={CopyIcon} size={14} />
           <span>Copy</span>
         </ContextMenu.Item>
         {#if targetType === 'directory'}
           <ContextMenu.Item onSelect={onPaste}>
-            <ClipboardPasteIcon size={14} />
+            <Icon icon={ClipboardPasteIcon} size={14} />
             <span>Paste</span>
           </ContextMenu.Item>
         {/if}
@@ -226,39 +227,39 @@
       {#if canNativeFileClipboard}<ContextMenu.Separator />{/if}
 
       <ContextMenu.Item onSelect={onCopyPath}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy Path</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={onCopyRelativePath}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy Relative Path</span>
       </ContextMenu.Item>
 
       <ContextMenu.Separator />
 
       <ContextMenu.Item onSelect={onRename}>
-        <PencilIcon size={14} />
+        <Icon icon={PencilIcon} size={14} />
         <span>Rename</span>
       </ContextMenu.Item>
       <ContextMenu.Item destructive onSelect={onDelete}>
-        <Trash2 size={14} />
+        <Icon icon={Delete02Icon} size={14} />
         <span>Delete</span>
       </ContextMenu.Item>
     {:else}
       <!-- ── Empty space menu ── -->
       <ContextMenu.Item onSelect={onNewFile}>
-        <Plus size={14} />
+        <Icon icon={PlusIcon} size={14} />
         <span>New File</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={onNewFolder}>
-        <FolderOpenIcon size={14} />
+        <Icon icon={FolderOpenIcon} size={14} />
         <span>New Folder</span>
       </ContextMenu.Item>
       <ContextMenu.Separator />
 
       {#if canNativeFileClipboard}
         <ContextMenu.Item onSelect={onPaste}>
-          <ClipboardPasteIcon size={14} />
+          <Icon icon={ClipboardPasteIcon} size={14} />
           <span>Paste</span>
         </ContextMenu.Item>
       {/if}
@@ -267,12 +268,12 @@
 
       {#if canRevealInFileManager}
         <ContextMenu.Item onSelect={onOpenExternal}>
-          <SquareArrowOutUpRight size={14} />
+          <Icon icon={SquareArrowOutUpRightIcon} size={14} />
           <span>Reveal in File Manager</span>
         </ContextMenu.Item>
       {/if}
       <ContextMenu.Item onSelect={onCopyFolderPath}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy Path</span>
       </ContextMenu.Item>
     {/if}

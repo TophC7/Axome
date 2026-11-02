@@ -1,7 +1,8 @@
 <script lang="ts">
   import { backend } from '$lib/api/backend'
   import { Button } from '$lib/components/ui/button'
-  import { HardDriveIcon, HomeIcon, MonitorIcon, ServerIcon } from '$lib/icons/lucideExports'
+  import { HardDriveIcon, Home01Icon, MonitorIcon, ServerIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { PathRoot } from '$lib/types/backend'
   import { isEqualOrParent, normalizeAbsolutePath, splitRemotePath } from '$lib/utils/paths'
   import { localHostLabel } from './state.svelte'
@@ -67,13 +68,16 @@
     title={hostPinned ? 'Selection stays on this server' : 'Choose Server'}
     onclick={onhosts}
   >
-    {#if remote}<ServerIcon size={12} />{:else}<MonitorIcon size={12} />{/if}
+    {#if remote}<Icon icon={ServerIcon} size={12} />{:else}<Icon icon={MonitorIcon} size={12} />{/if}
     {remote?.server ?? localHostLabel()}
   </Button>
   <Button variant="ghost" size="xs" class="shrink-0 font-mono" title={root} onclick={() => onnavigate(root)}>/</Button>
   {#if anchor}
     <Button variant="ghost" size="xs" class="shrink-0" title={anchor.path} onclick={() => onnavigate(anchor.path)}>
-      {#if anchor.kind === 'home'}<HomeIcon size={12} />{:else}<HardDriveIcon size={12} />{/if}
+      {#if anchor.kind === 'home'}<Icon icon={Home01Icon} size={12} />{:else}<Icon
+          icon={HardDriveIcon}
+          size={12}
+        />{/if}
       {anchor.label}
     </Button>
   {/if}

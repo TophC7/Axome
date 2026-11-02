@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { IconButton } from '$lib/components/ui/button'
-  import { ArrowDown } from '$lib/icons/lucideExports'
+  import { ArrowDown02Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { cn } from '$lib/utils/cn'
 
   let { children, footer }: { children?: Snippet; footer?: Snippet } = $props()
@@ -63,7 +64,7 @@
           onclick={scrollToBottom}
           class="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 border border-edge bg-raised shadow-popover"
         >
-          <ArrowDown size={14} />
+          <Icon icon={ArrowDown02Icon} size={14} />
         </IconButton>
       {/if}
       {#if footer}{@render footer()}{/if}

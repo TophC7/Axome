@@ -31,10 +31,11 @@ export default defineConfig({
 
   // Pre-bundle Monaco worker entry points so dev doesn't re-scan them on each load.
   optimizeDeps: {
-    // LucideIcon intentionally globs package icons for arbitrary task icon names.
-    // Dependency discovery cannot resolve those imports from Svelte virtual modules.
+    // Discovery is off; every dependency that needs dev pre-bundling is listed explicitly.
     noDiscovery: true,
     include: [
+      // Root index re-exports ~6k per-icon modules; pre-bundle it so dev loads one module, not thousands.
+      '@hugeicons/core-free-icons',
       // Markdown parsing uses CommonJS dependencies; discovery is disabled above.
       'unified',
       'remark-parse',

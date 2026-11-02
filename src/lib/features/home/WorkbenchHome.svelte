@@ -25,7 +25,8 @@
   import { getRecentFolders } from '$lib/features/folders/state.svelte'
   import { notify } from '$lib/features/notifications/state.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
-  import { FolderOpenIcon, RefreshCwIcon } from '$lib/icons/lucideExports'
+  import { FolderOpenIcon, RefreshCwIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import appIconUrl from '$lib/assets/axome.svg?url'
   import type { GitBrief, WorkbenchInfo } from '$lib/types/backend'
   import ContinueRow from './ContinueRow.svelte'
@@ -148,7 +149,7 @@
           <p class="m-0 text-base text-muted">Agentic Development Environment</p>
         </div>
         <Button size="sm" onclick={() => openBrowser()}>
-          <FolderOpenIcon size={14} />
+          <Icon icon={FolderOpenIcon} size={14} />
           Open Folder
         </Button>
       </header>
@@ -183,7 +184,7 @@
             </p>
           </InfoTooltip>
           <IconButton tooltip="Rescan agent history" onclick={rescan} disabled={scanning}>
-            {#if scanning}<Spinner size={11} />{:else}<RefreshCwIcon size={11} />{/if}
+            {#if scanning}<Spinner size={11} />{:else}<Icon icon={RefreshCwIcon} size={11} />{/if}
           </IconButton>
         </div>
 

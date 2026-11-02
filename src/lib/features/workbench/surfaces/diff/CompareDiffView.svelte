@@ -6,7 +6,8 @@
   import type { CompareFileSide, CompareSide } from '$lib/features/workbench/model'
   import DiffStack from '$lib/features/workbench/surfaces/diff/DiffStack.svelte'
   import { compareSideLabel } from '$lib/features/workbench/surfaces/diff/service.svelte'
-  import { GitCompareIcon } from '$lib/icons/lucideExports'
+  import { GitCompareIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
   import { dirname } from '$lib/utils/paths'
   import { createTrackedAsyncLoad } from '$lib/utils/trackedAsyncLoad.svelte'
@@ -111,7 +112,7 @@
   <div class="shrink-0 border-b border-edge bg-surface px-4 py-3">
     <h2 class="mb-2 text-md leading-snug font-semibold text-bright">{leftLabel} ↔ {rightLabel}</h2>
     <div class="flex items-center gap-2 text-sm text-muted">
-      <GitCompareIcon size={12} />
+      <Icon icon={GitCompareIcon} size={12} />
       <span class="font-mono">{left.kind === 'clipboard' ? 'Clipboard' : left.path} ↔ {right.path}</span>
     </div>
   </div>

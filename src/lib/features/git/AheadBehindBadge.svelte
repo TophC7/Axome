@@ -4,7 +4,8 @@
 -->
 
 <script lang="ts">
-  import { ArrowDown, ArrowUp } from '$lib/icons/lucideExports'
+  import { ArrowDown02Icon, ArrowUp02Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
 
   let {
     ahead,
@@ -28,15 +29,12 @@
   <span class="inline-flex shrink-0 items-center gap-1 font-mono text-2xs">
     {#if ahead > 0}
       <span class="inline-flex items-center gap-0.5 {tone('ahead')}" title="{ahead} ahead">
-        <ArrowUp size={9} />{ahead}
+        <Icon icon={ArrowUp02Icon} size={9} />{ahead}
       </span>
     {/if}
     {#if behind > 0}
-      <span
-        class="inline-flex items-center gap-0.5 {tone('behind')}"
-        title="{behind} behind"
-      >
-        <ArrowDown size={9} />{behind}
+      <span class="inline-flex items-center gap-0.5 {tone('behind')}" title="{behind} behind">
+        <Icon icon={ArrowDown02Icon} size={9} />{behind}
       </span>
     {/if}
   </span>

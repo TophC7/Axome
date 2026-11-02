@@ -4,7 +4,8 @@
   import { Input } from '$lib/components/ui/input'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tabs from '$lib/components/ui/tabs'
-  import { CircleAlert, ChevronDown, RefreshCwIcon } from '$lib/icons/lucideExports'
+  import { AlertCircleIcon, ChevronDownIcon, RefreshCwIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getLspServers, getLspServersLoading, loadLspServers } from '$lib/features/settings/state/lspSettings.svelte'
   import { getFormatterStatuses, loadFormatterStatuses } from '$lib/features/settings/state/formatterSettings.svelte'
   import { getFormatterPolicy } from '$lib/features/extensions/catalog.svelte'
@@ -218,7 +219,7 @@
               </div>
               {#if status.status === 'missing' && status.message}
                 <div class="flex items-center gap-2 bg-danger-bg/40 px-5 py-2 text-sm text-danger-bright">
-                  <CircleAlert size={14} />
+                  <Icon icon={AlertCircleIcon} size={14} />
                   <span>{status.message}</span>
                 </div>
               {/if}
@@ -241,7 +242,7 @@
   <h4 class="text-sm font-semibold text-bright">Language servers</h4>
 
   <Button variant="outline" size="xs" onclick={refresh}>
-    <RefreshCwIcon size={12} />
+    <Icon icon={RefreshCwIcon} size={12} />
     Refresh
   </Button>
 </section>
@@ -298,7 +299,8 @@
             {/if}
           </div>
 
-          <ChevronDown
+          <Icon
+            icon={ChevronDownIcon}
             size={14}
             class="shrink-0 text-subtle transition-transform group-hover:text-fg {open ? 'rotate-180' : ''}"
           />
@@ -306,7 +308,7 @@
 
         {#if entry.server.message}
           <div class="flex items-center gap-2 bg-danger-bg/40 px-5 py-2 text-sm text-danger-bright">
-            <CircleAlert size={14} />
+            <Icon icon={AlertCircleIcon} size={14} />
             <span>{entry.server.message}</span>
           </div>
         {/if}

@@ -14,7 +14,8 @@
   import NotificationsApplet from './applets/NotificationsApplet.svelte'
   import RemotesApplet from './applets/RemotesApplet.svelte'
   import ServerApplet from './applets/ServerApplet.svelte'
-  import { GitBranchIcon, FolderOpenIcon, ClipboardListIcon, MessageSquare } from '$lib/icons/lucideExports'
+  import { GitBranchIcon, FolderOpenIcon, ClipboardListIcon, MessageSquareIcon } from '@hugeicons/core-free-icons'
+  import Icon, { type IconData } from '$lib/icons/Icon.svelte'
   import { getGitSummary } from '$lib/features/git/state.svelte'
   import { describeOperation } from '$lib/features/git/operation'
   import { countLiveAgents } from '$lib/features/sessions/service.svelte'
@@ -50,8 +51,8 @@
     }
   }
 
-  const views: { id: SidebarView; icon: typeof GitBranchIcon; label: string }[] = [
-    { id: 'sessions', icon: MessageSquare, label: 'Sessions' },
+  const views: { id: SidebarView; icon: IconData; label: string }[] = [
+    { id: 'sessions', icon: MessageSquareIcon, label: 'Sessions' },
     { id: 'files', icon: FolderOpenIcon, label: 'Files' },
     { id: 'git', icon: GitBranchIcon, label: 'Git' },
     { id: 'issues', icon: ClipboardListIcon, label: 'Issues' }
@@ -69,7 +70,7 @@
           active={isActive}
           onclick={() => handleClick(view.id)}
         >
-          <view.icon size={16} />
+          <Icon icon={view.icon} size={16} />
         </RailButton>
         <!-- After the button: RailButton is positioned (for its status dot), so an earlier sibling would paint under its active background. -->
         {#if isActive}

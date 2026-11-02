@@ -9,7 +9,8 @@
 <script lang="ts">
   import type { CommitDetail, GraphCommit } from '$lib/types/backend'
   import { timeAgo, formatFullDate } from '$lib/utils/date'
-  import { Check, ClockIcon, CopyIcon, GitCommitIcon } from '$lib/icons/lucideExports'
+  import { CheckIcon, Clock01Icon, CopyIcon, GitCommitHorizontalIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { IconButton } from '$lib/components/ui/button'
   import { platform } from '$lib/platform'
 
@@ -68,7 +69,7 @@
     <span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-success" aria-hidden="true"></span>
     <span class="font-semibold text-fg">{commit.author}</span>
     <span class="text-subtle">,</span>
-    <ClockIcon size={10} class="text-subtle" />
+    <Icon icon={Clock01Icon} size={10} class="text-subtle" />
     <span class="text-muted">{timeAgo(commit.date)}</span>
     <span class="text-subtle">({formatFullDate(commit.date)})</span>
   </div>
@@ -124,13 +125,13 @@
 
   <!-- Hash + copy -->
   <div class="flex items-center gap-1.5 text-xs">
-    <GitCommitIcon size={10} class="text-subtle" />
+    <Icon icon={GitCommitHorizontalIcon} size={10} class="text-subtle" />
     <span class="font-mono text-accent">{commit.short_hash}</span>
     <IconButton ariaLabel="Copy full hash" onclick={copyHash}>
       {#if copied}
-        <Check size={12} class="text-success" />
+        <Icon icon={CheckIcon} size={12} class="text-success" />
       {:else}
-        <CopyIcon size={12} />
+        <Icon icon={CopyIcon} size={12} />
       {/if}
     </IconButton>
   </div>

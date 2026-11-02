@@ -11,7 +11,8 @@
   import { Button } from '$lib/components/ui/button'
   import nixosUrl from '$lib/assets/nixos.svg?url'
   import MaskIcon from '$lib/icons/MaskIcon.svelte'
-  import { Check } from '$lib/icons/lucideExports'
+  import { CheckIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { Spinner } from '$lib/components/ui/progress'
   import {
     clearNix,
@@ -58,7 +59,7 @@
             {#if current && busy}
               <Spinner size={9} />
             {:else if current}
-              <Check size={9} strokeWidth={3} />
+              <Icon icon={CheckIcon} size={9} strokeWidth={3} />
             {/if}
           </span>
           <span class="truncate font-mono {current ? 'text-bright' : 'text-fg'}">{file}</span>

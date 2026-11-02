@@ -2,7 +2,8 @@
   import * as Alert from '$lib/components/ui/alert'
   import { IconButton } from '$lib/components/ui/button'
   import TabBeam from '$lib/components/ui/TabBeam.svelte'
-  import { X } from '$lib/icons/lucideExports'
+  import { XIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { Notification, NotificationTone } from '$lib/features/notifications/state.svelte'
   import { cn } from '$lib/utils/cn'
 
@@ -48,6 +49,6 @@
   </div>
 
   <IconButton tooltip="Dismiss" class="absolute top-2 right-2" onclick={() => onDismiss(notification.id)}>
-    <X size={10} />
+    <Icon icon={XIcon} size={10} />
   </IconButton>
 </Alert.Root>

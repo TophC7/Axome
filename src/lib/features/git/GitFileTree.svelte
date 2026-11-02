@@ -10,15 +10,16 @@
   import { IconButton } from '$lib/components/ui/button'
   import { NetLineChange } from '$lib/components/ui/net-line-change'
   import {
-    Check,
-    FileDiff,
-    MinusCircle,
+    CheckIcon,
+    FileDiffIcon,
+    CircleMinusIcon,
     PackageIcon,
-    PlusCircle,
-    SquareArrowOutUpRight,
-    Trash2,
-    Undo2Icon
-  } from '$lib/icons/lucideExports'
+    CirclePlusIcon,
+    SquareArrowOutUpRightIcon,
+    Delete02Icon,
+    Undo02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { stageFiles, unstageFiles } from '$lib/features/git/state.svelte'
   import { markResolved, stageAllFolder, stashFolder, unstageAllFolder } from '$lib/features/git/actions.svelte'
   import {
@@ -266,7 +267,7 @@
               tone="danger"
               onclick={() => void confirmDiscardPaths(folderPath, files, description)}
             >
-              <Undo2Icon size={13} />
+              <Icon icon={Undo02Icon} size={13} />
             </IconButton>
           {/if}
           {#if isStaged}
@@ -274,19 +275,19 @@
               tooltip="Unstage changes"
               onclick={() => void runPathsAction(folderPath, 'unstage', files, description)}
             >
-              <MinusCircle size={13} />
+              <Icon icon={CircleMinusIcon} size={13} />
             </IconButton>
           {:else}
             <IconButton
               tooltip="Stage changes"
               onclick={() => void runPathsAction(folderPath, 'stage', files, description)}
             >
-              <PlusCircle size={13} />
+              <Icon icon={CirclePlusIcon} size={13} />
             </IconButton>
           {/if}
           {#if node.type === 'file' && node.change?.status !== 'D'}
             <IconButton tooltip="Open actual file" onclick={() => void openActualFile(folderPath, target.path)}>
-              <SquareArrowOutUpRight size={13} />
+              <Icon icon={SquareArrowOutUpRightIcon} size={13} />
             </IconButton>
           {/if}
         {/snippet}
@@ -309,12 +310,12 @@
             <div class="ml-auto flex items-center gap-0.5 opacity-0 transition-all group-hover/hdr:opacity-100">
               {#if isStaged}
                 <IconButton tooltip="Unstage all" onclick={() => unstageAllFolder(folderPath)}>
-                  <MinusCircle size={13} />
+                  <Icon icon={CircleMinusIcon} size={13} />
                 </IconButton>
               {/if}
               {#if !isStaged}
                 <IconButton tooltip="Stage all" onclick={() => stageAllFolder(folderPath)}>
-                  <PlusCircle size={13} />
+                  <Icon icon={CirclePlusIcon} size={13} />
                 </IconButton>
               {/if}
               {#if !isStaged}
@@ -322,7 +323,7 @@
                   tooltip="Stash all"
                   onclick={() => stashFolder(folderPath, { kind: 'all', includeUntracked: true })}
                 >
-                  <PackageIcon size={13} />
+                  <Icon icon={PackageIcon} size={13} />
                 </IconButton>
               {/if}
               {#if !isStaged}
@@ -331,14 +332,14 @@
                   class="rounded p-0.5 text-muted hover:text-danger"
                   onclick={() => void confirmDiscardAll(folderPath)}
                 >
-                  <Trash2 size={13} />
+                  <Icon icon={Delete02Icon} size={13} />
                 </IconButton>
               {/if}
               <IconButton
                 tooltip="View all {label.toLowerCase()} diffs"
                 onclick={() => openWorkingTreeDiff(folderPath, isStaged, null, null, { temporary: false })}
               >
-                <FileDiff size={13} />
+                <Icon icon={FileDiffIcon} size={13} />
               </IconButton>
             </div>
           {/if}
@@ -403,7 +404,7 @@
             disabled={resolving}
             onclick={() => void resolveConflicts(summary.conflicts.map((conflict) => conflict.path))}
           >
-            <Check size={13} />
+            <Icon icon={CheckIcon} size={13} />
           </IconButton>
         </div>
       </div>
@@ -419,11 +420,11 @@
           onclick={() =>
             void resolveConflicts(node.change ? [node.change.path] : getFilesUnderPath(node.path, summary.conflicts))}
         >
-          <PlusCircle size={13} />
+          <Icon icon={CirclePlusIcon} size={13} />
         </IconButton>
         {#if node.change && node.change.kind !== 'both_deleted'}
           <IconButton tooltip="Open actual file" onclick={() => void openActualFile(folderPath, node.path)}>
-            <SquareArrowOutUpRight size={13} />
+            <Icon icon={SquareArrowOutUpRightIcon} size={13} />
           </IconButton>
         {/if}
       {/snippet}

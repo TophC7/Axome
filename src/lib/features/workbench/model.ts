@@ -143,7 +143,7 @@ export interface TaskTab extends TabBase {
   activeFilePath: string | null
   /** Cached label from the task definition (display-only; refreshes on reload). */
   label: string
-  /** Cached Lucide icon name. */
+  /** Cached Hugeicons slug from the task definition. */
   icon: string | null
   /** Optional group label used by the command palette and menus. */
   group: string | null

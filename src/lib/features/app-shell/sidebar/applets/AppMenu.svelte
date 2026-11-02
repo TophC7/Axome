@@ -8,7 +8,8 @@
 <script lang="ts">
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import type { ToneStatus } from '$lib/components/ui/status-dot'
-  import { AlertTriangle, SettingsIcon } from '$lib/icons/lucideExports'
+  import { TriangleAlertIcon, Settings01Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { getSettingsDiagnostics } from '$lib/features/settings/state/diagnostics.svelte'
   import RailButton from '../RailButton.svelte'
   import { buildAppMenu } from './appMenu'
@@ -31,7 +32,9 @@
 <DropdownMenu.Root bind:open>
   <DropdownMenu.Trigger>
     {#snippet child({ props })}
-      <RailButton {...props} label="Settings" {status} active={open}><SettingsIcon size={16} /></RailButton>
+      <RailButton {...props} label="Settings" {status} active={open}
+        ><Icon icon={Settings01Icon} size={16} /></RailButton
+      >
     {/snippet}
   </DropdownMenu.Trigger>
 
@@ -39,7 +42,7 @@
     {#if status}
       <div class="max-w-80 px-2.5 py-1.5">
         <div class="flex items-center gap-1.5 text-xs font-medium text-warning-bright">
-          <AlertTriangle size={11} />
+          <Icon icon={TriangleAlertIcon} size={11} />
           {status.text}
         </div>
         {#each diagnostics.slice(0, SHOWN_DIAGNOSTICS) as diagnostic}

@@ -13,7 +13,8 @@
   import { SidebarRow } from '$lib/components/ui/sidebar-row'
   import { StatusDot, type StatusTone } from '$lib/components/ui/status-dot'
   import { Spinner } from '$lib/components/ui/progress'
-  import { Filter, MessagesSquareIcon } from '$lib/icons/lucideExports'
+  import { FilterIcon, MessagesSquareIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { IndexedSession } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
   import { timeAgo } from '$lib/utils/date'
@@ -142,7 +143,7 @@
           class={cn(iconButtonVariants(), 'absolute top-1/2 right-0.5 size-6 -translate-y-1/2')}
           aria-label="Filter options"
         >
-          <Filter size={12} />
+          <Icon icon={FilterIcon} size={12} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content class="min-w-[230px]" align="end">
           {#if agentOptions.length > 0}
@@ -157,7 +158,7 @@
                   {#if option.brand?.icon}
                     <HarnessIcon icon={option.brand.icon} size={14} />
                   {:else if !option.brand}
-                    <MessagesSquareIcon size={14} />
+                    <Icon icon={MessagesSquareIcon} size={14} />
                   {/if}
                   <span>{option.brand?.label ?? 'axo'}</span>
                   <span class="ms-auto font-mono text-2xs text-muted">{option.token}</span>
@@ -266,7 +267,7 @@
                 {/if}
                 <span class="flex min-w-0 items-center gap-1 text-2xs whitespace-nowrap text-subtle">
                   {#if session.source.kind === 'axo'}
-                    <MessagesSquareIcon size={11} class="shrink-0" />
+                    <Icon icon={MessagesSquareIcon} size={11} class="shrink-0" />
                   {:else if brand?.icon}
                     <HarnessIcon icon={brand.icon} size={11} class="shrink-0" />
                   {/if}

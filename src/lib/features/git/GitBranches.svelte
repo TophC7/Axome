@@ -46,13 +46,13 @@
   import { GRAPH_COLORS } from '$lib/features/git/graph'
   import { openGitDialog } from './dialogs/host.svelte'
   import {
-    ArrowDown01Icon,
+    ArrowDownZeroOneIcon,
     ArrowDownAZIcon,
     ArrowUpFromLineIcon,
     ArrowDownToLineIcon,
-    Check,
+    CheckIcon,
     ClipboardIcon,
-    ClockIcon,
+    Clock01Icon,
     CloudIcon,
     CloudOffIcon,
     CloudUploadIcon,
@@ -65,12 +65,13 @@
     ListTreeIcon,
     MoreHorizontalIcon,
     PencilIcon,
-    Plus,
+    PlusIcon,
     RefreshCwIcon,
-    RotateCw,
-    TagIcon,
-    Trash2
-  } from '$lib/icons/lucideExports'
+    RefreshIcon,
+    Tag01Icon,
+    Delete02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { BranchSummary, CommitDetail, GitWorktreeCheckout, GraphCommit } from '$lib/types/backend'
   import { formatFullDate, timeAgo } from '$lib/utils/date'
   import { SvelteMap } from 'svelte/reactivity'
@@ -320,51 +321,51 @@
 
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class={iconButtonVariants()} aria-label="Branch actions">
-        <MoreHorizontalIcon size={13} />
+        <Icon icon={MoreHorizontalIcon} size={13} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content class="min-w-[210px]" align="end">
         <DropdownMenu.Item onSelect={() => openCreateDialog()}>
-          <Plus size={14} />
+          <Icon icon={PlusIcon} size={14} />
           <span>Create Branch…</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={() => void branches.checkoutTo(folderPath)}>
-          <Check size={14} />
+          <Icon icon={CheckIcon} size={14} />
           <span>Checkout to…</span>
         </DropdownMenu.Item>
 
         <DropdownMenu.Separator />
 
         <DropdownMenu.Item disabled={entry?.fetching === true} onSelect={() => void runFetch()}>
-          <RefreshCwIcon size={14} />
+          <Icon icon={RefreshCwIcon} size={14} />
           <span>Fetch</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item
           disabled={!summary?.branch || !!summary?.upstream}
           onSelect={() => void publishBranch(folderPath)}
         >
-          <CloudUploadIcon size={14} />
+          <Icon icon={CloudUploadIcon} size={14} />
           <span>Publish Branch</span>
         </DropdownMenu.Item>
         <DropdownMenu.Sub>
           <DropdownMenu.SubTrigger>
-            <CloudIcon size={14} />
+            <Icon icon={CloudIcon} size={14} />
             <span>Remotes</span>
           </DropdownMenu.SubTrigger>
           <DropdownMenu.SubContent>
             <DropdownMenu.Item onSelect={() => void addRemote(folderPath)}>
-              <Plus size={14} />
+              <Icon icon={PlusIcon} size={14} />
               <span>Add Remote…</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => void renameRemote(folderPath)}>
-              <PencilIcon size={14} />
+              <Icon icon={PencilIcon} size={14} />
               <span>Rename Remote…</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => void setRemoteUrl(folderPath)}>
-              <CloudIcon size={14} />
+              <Icon icon={CloudIcon} size={14} />
               <span>Set Remote URL…</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item destructive onSelect={() => void removeRemote(folderPath)}>
-              <Trash2 size={14} />
+              <Icon icon={Delete02Icon} size={14} />
               <span>Remove Remote…</span>
             </DropdownMenu.Item>
           </DropdownMenu.SubContent>
@@ -373,7 +374,7 @@
         <DropdownMenu.Separator />
 
         <DropdownMenu.Item disabled={summary?.unborn} onSelect={() => void deleteMergedBranches(folderPath)}>
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Delete Merged Branches…</span>
         </DropdownMenu.Item>
 
@@ -381,28 +382,28 @@
 
         <DropdownMenu.Item onSelect={toggleLayout}>
           {#if prefs?.layout === 'tree'}
-            <ListIcon size={14} />
+            <Icon icon={ListIcon} size={14} />
             <span>Switch to Flat List</span>
           {:else}
-            <ListTreeIcon size={14} />
+            <Icon icon={ListTreeIcon} size={14} />
             <span>Switch to Tree</span>
           {/if}
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={toggleSort}>
           {#if prefs?.sort === 'alpha'}
-            <ArrowDown01Icon size={14} />
+            <Icon icon={ArrowDownZeroOneIcon} size={14} />
             <span>Sort by Date</span>
           {:else}
-            <ArrowDownAZIcon size={14} />
+            <Icon icon={ArrowDownAZIcon} size={14} />
             <span>Sort Alphabetically</span>
           {/if}
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={toggleShowRemote}>
           {#if prefs?.showRemote}
-            <CloudOffIcon size={14} />
+            <Icon icon={CloudOffIcon} size={14} />
             <span>Hide Remote Branches</span>
           {:else}
-            <CloudIcon size={14} />
+            <Icon icon={CloudIcon} size={14} />
             <span>Show Remote Branches</span>
           {/if}
         </DropdownMenu.Item>
@@ -460,7 +461,7 @@
   {@const branchAge = timeAgo(branch.tip.date)}
   <div class="flex max-w-90 flex-col gap-2 py-0.5">
     <div class="flex items-center gap-1.5">
-      <GitBranchIcon size={10} style="color: {color}" />
+      <Icon icon={GitBranchIcon} size={10} style="color: {color}" />
       <span class="min-w-0 truncate font-mono text-sm text-fg">{branch.name}</span>
       <span class="shrink-0 rounded bg-surface px-1 py-px text-2xs text-muted uppercase">{branch.kind}</span>
     </div>
@@ -471,7 +472,7 @@
       <span class="font-mono text-accent">{branch.tip.shortHash}</span>
       <span class="text-muted">{branch.tip.author}</span>
       <span class="text-subtle">,</span>
-      <ClockIcon size={10} class="text-subtle" />
+      <Icon icon={Clock01Icon} size={10} class="text-subtle" />
       <span class="text-muted">{branchAge}</span>
       <span class="text-subtle">({formatFullDate(branch.tip.date)})</span>
     </div>
@@ -488,7 +489,7 @@
     {#if branch.worktreePath}
       <div class="space-y-1 text-xs">
         <div class="flex items-center gap-1 text-muted">
-          <ListTreeIcon size={11} class={branch.isCurrent ? 'text-accent' : 'text-muted'} />
+          <Icon icon={ListTreeIcon} size={11} class={branch.isCurrent ? 'text-accent' : 'text-muted'} />
           <span>{branch.isCurrent ? 'Current worktree' : 'Checked out in another worktree'}</span>
         </div>
         <div class="font-mono break-all text-muted">{branch.worktreePath}</div>
@@ -543,7 +544,7 @@
           class="text-xs"
           onclick={() => void loadBranchHistory(branch, history.limit + BRANCH_HISTORY_PAGE_SIZE)}
         >
-          <MoreHorizontalIcon size={12} class="shrink-0" />
+          <Icon icon={MoreHorizontalIcon} size={12} class="shrink-0" />
           <span>Show More</span>
         </SidebarRow>
       {/if}
@@ -594,13 +595,14 @@
             aria-label={`${branch.name} branch`}
             onclick={() => toggleBranchHistory(branch)}
           >
-            <GitBranchIcon size={12} class={branch.isCurrent ? 'text-accent' : 'text-muted'} {color} />
+            <Icon icon={GitBranchIcon} size={12} class={branch.isCurrent ? 'text-accent' : 'text-muted'} {color} />
             <span class="min-w-0 flex-1 truncate">
               {displayName ??
                 (prefs?.layout === 'tree' && branch.kind === 'local' ? basename(branch.name) : branch.name)}
             </span>
             {#if branch.worktreePath}
-              <ListTreeIcon
+              <Icon
+                icon={ListTreeIcon}
                 size={11}
                 class={branch.isCurrent ? 'shrink-0 text-accent' : 'shrink-0 text-muted'}
                 aria-label={branch.isCurrent ? 'Current worktree' : 'Checked out elsewhere'}
@@ -630,7 +632,7 @@
                   compareWithHead(branch)
                 }}
               >
-                <GitCompareIcon size={12} />
+                <Icon icon={GitCompareIcon} size={12} />
               </IconButton>
             {/if}
             {#if action.kind !== 'disabled'}
@@ -643,11 +645,11 @@
                 }}
               >
                 {#if action.kind === 'push'}
-                  <ArrowUpFromLineIcon size={12} />
+                  <Icon icon={ArrowUpFromLineIcon} size={12} />
                 {:else if action.kind === 'pull'}
-                  <ArrowDownToLineIcon size={12} />
+                  <Icon icon={ArrowDownToLineIcon} size={12} />
                 {:else}
-                  <RotateCw size={12} />
+                  <Icon icon={RefreshIcon} size={12} />
                 {/if}
               </IconButton>
             {/if}
@@ -660,7 +662,7 @@
                   checkoutBranch(branch)
                 }}
               >
-                <Check size={12} />
+                <Icon icon={CheckIcon} size={12} />
               </IconButton>
             {/if}
           </div>
@@ -671,13 +673,13 @@
     <ContextMenu.Content>
       {#if !branch.isCurrent}
         <ContextMenu.Item onSelect={() => checkoutBranch(branch)}>
-          <Check size={14} />
+          <Icon icon={CheckIcon} size={14} />
           <span>Checkout</span>
         </ContextMenu.Item>
       {/if}
       {#if branch.worktreePath && !branch.isCurrent}
         <ContextMenu.Item onSelect={() => void openFolder(branch.worktreePath!)}>
-          <FolderOpenIcon size={14} />
+          <Icon icon={FolderOpenIcon} size={14} />
           <span>Open Worktree</span>
         </ContextMenu.Item>
       {/if}
@@ -685,18 +687,18 @@
         onSelect={() =>
           void branches.checkoutRef(folderPath, { kind: 'detached', rev: branch.name, label: branch.name })}
       >
-        <GitBranchIcon size={14} />
+        <Icon icon={GitBranchIcon} size={14} />
         <span>Checkout (Detached)</span>
       </ContextMenu.Item>
 
       {#if !branch.isCurrent}
         <ContextMenu.Separator />
         <ContextMenu.Item onSelect={() => openMergeDialog(branch)}>
-          <GitMergeIcon size={14} />
+          <Icon icon={GitMergeIcon} size={14} />
           <span>Merge into Current…</span>
         </ContextMenu.Item>
         <ContextMenu.Item onSelect={() => void rebaseCurrentOnto(folderPath, branch.name)}>
-          <GitPullRequestIcon size={14} />
+          <Icon icon={GitPullRequestIcon} size={14} />
           <span>Rebase Current onto This…</span>
         </ContextMenu.Item>
       {/if}
@@ -704,33 +706,33 @@
       <ContextMenu.Separator />
 
       <ContextMenu.Item onSelect={() => openCreateDialog(branch.name)}>
-        <Plus size={14} />
+        <Icon icon={PlusIcon} size={14} />
         <span>Create Branch…</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={() => void createTag(folderPath, branch.name, branch.name)}>
-        <TagIcon size={14} />
+        <Icon icon={Tag01Icon} size={14} />
         <span>Create Tag…</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={() => openCreateWorktreeDialog(branch)}>
-        <ListTreeIcon size={14} />
+        <Icon icon={ListTreeIcon} size={14} />
         <span>Create Worktree…</span>
       </ContextMenu.Item>
       {#if branch.kind === 'local'}
         <ContextMenu.Item onSelect={() => openRenameDialog(branch)}>
-          <PencilIcon size={14} />
+          <Icon icon={PencilIcon} size={14} />
           <span>Rename…</span>
         </ContextMenu.Item>
       {/if}
       {#if !branch.isCurrent}
         <ContextMenu.Item destructive onSelect={() => openDeleteDialog(branch)}>
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Delete…</span>
         </ContextMenu.Item>
 
         <ContextMenu.Separator />
 
         <ContextMenu.Item onSelect={() => compareWithHead(branch)}>
-          <GitCompareIcon size={14} />
+          <Icon icon={GitCompareIcon} size={14} />
           <span>Compare with HEAD</span>
         </ContextMenu.Item>
       {/if}
@@ -740,41 +742,41 @@
 
         {#if branch.kind === 'local' && branch.isCurrent && branch.upstream}
           <ContextMenu.Item onSelect={() => void pullFolder(folderPath, false)}>
-            <ArrowDownToLineIcon size={14} />
+            <Icon icon={ArrowDownToLineIcon} size={14} />
             <span>Pull</span>
           </ContextMenu.Item>
           <ContextMenu.Item onSelect={() => void pullFolder(folderPath, true)}>
-            <ArrowDownToLineIcon size={14} />
+            <Icon icon={ArrowDownToLineIcon} size={14} />
             <span>Pull (Rebase)</span>
           </ContextMenu.Item>
         {/if}
         {#if branch.kind === 'local' && branch.upstream}
           <ContextMenu.Item onSelect={() => void pushFolder(folderPath, branch.name)}>
-            <ArrowUpFromLineIcon size={14} />
+            <Icon icon={ArrowUpFromLineIcon} size={14} />
             <span>Push</span>
           </ContextMenu.Item>
         {/if}
         {#if branch.kind === 'local' && !branch.upstream}
           <ContextMenu.Item onSelect={() => void publishBranch(folderPath, branch.name)}>
-            <CloudUploadIcon size={14} />
+            <Icon icon={CloudUploadIcon} size={14} />
             <span>Publish Branch</span>
           </ContextMenu.Item>
         {/if}
         {#if branch.kind === 'local' && !branch.isCurrent && branch.behind > 0 && branch.upstream}
           <ContextMenu.Item onSelect={() => void fastForwardBranch(folderPath, branch.name)}>
-            <ArrowDownToLineIcon size={14} />
+            <Icon icon={ArrowDownToLineIcon} size={14} />
             <span>Fast-Forward</span>
           </ContextMenu.Item>
         {/if}
         {#if branch.kind === 'local'}
           <ContextMenu.Item onSelect={() => openUpstreamDialog(branch)}>
-            <CloudIcon size={14} />
+            <Icon icon={CloudIcon} size={14} />
             <span>Set Upstream…</span>
           </ContextMenu.Item>
         {/if}
         {#if branch.kind === 'local' && branch.upstream}
           <ContextMenu.Item onSelect={() => void unsetUpstream(folderPath, branch.name)}>
-            <CloudOffIcon size={14} />
+            <Icon icon={CloudOffIcon} size={14} />
             <span>Unset Upstream</span>
           </ContextMenu.Item>
         {/if}
@@ -783,11 +785,11 @@
       <ContextMenu.Separator />
 
       <ContextMenu.Item onSelect={() => void copyToClipboard(branch.name, 'Copy branch name failed')}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy Branch Name</span>
       </ContextMenu.Item>
       <ContextMenu.Item onSelect={() => void copyToClipboard(branch.tip.hash, 'Copy commit hash failed')}>
-        <ClipboardIcon size={14} />
+        <Icon icon={ClipboardIcon} size={14} />
         <span>Copy Commit Hash</span>
       </ContextMenu.Item>
     </ContextMenu.Content>

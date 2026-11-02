@@ -14,12 +14,13 @@
     CopyIcon,
     FolderOpenIcon,
     GitBranchIcon,
-    GitCommitIcon,
+    GitCommitHorizontalIcon,
     GitCompareIcon,
     MoreHorizontalIcon,
-    Plus,
-    TagIcon
-  } from '$lib/icons/lucideExports'
+    PlusIcon,
+    Tag01Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { formatFullDate, timeAgo } from '$lib/utils/date'
   import { copyToClipboard } from '$lib/utils/clipboard'
 
@@ -41,17 +42,17 @@
       disabled={summary?.unborn}
       onclick={() => void createTag(folderPath, 'HEAD', 'HEAD')}
     >
-      <Plus size={14} />
+      <Icon icon={PlusIcon} size={14} />
       Create
     </Button>
     <div class="flex-1"></div>
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class={iconButtonVariants()} aria-label="Tag Actions">
-        <MoreHorizontalIcon size={13} />
+        <Icon icon={MoreHorizontalIcon} size={13} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Item onSelect={() => void pushTag(folderPath, null)}>
-          <CloudUploadIcon size={14} />
+          <Icon icon={CloudUploadIcon} size={14} />
           <span>Push All Tags…</span>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
@@ -75,7 +76,7 @@
                   class={sidebarRowVariants({ variant: 'leaf' })}
                   onclick={() => void openCommitDiff(folderPath, tag.hash, tag.shortHash, tag.subject)}
                 >
-                  <TagIcon size={12} class="shrink-0 text-muted" />
+                  <Icon icon={Tag01Icon} size={12} class="shrink-0 text-muted" />
                   <span class="min-w-0 flex-1 truncate font-mono">{tag.name}</span>
                   <span class="shrink-0 font-mono text-2xs text-subtle">{tag.shortHash}</span>
                   <span class="shrink-0 font-mono text-2xs text-subtle">{timeAgo(tag.date)}</span>
@@ -89,18 +90,18 @@
             </ContextMenu.Trigger>
             <ContextMenu.Content>
               <ContextMenu.Item onSelect={() => void openCommitDiff(folderPath, tag.hash, tag.shortHash, tag.subject)}>
-                <GitCommitIcon size={14} />
+                <Icon icon={GitCommitHorizontalIcon} size={14} />
                 <span>Open Changes</span>
               </ContextMenu.Item>
               <ContextMenu.Item
                 onSelect={() => void checkoutRef(folderPath, { kind: 'detached', rev: tag.name, label: tag.name })}
               >
-                <GitCommitIcon size={14} />
+                <Icon icon={GitCommitHorizontalIcon} size={14} />
                 <span>Checkout (Detached)</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
               <ContextMenu.Item onSelect={() => openGitDialog({ kind: 'create_branch', folderPath, base: tag.name })}>
-                <GitBranchIcon size={14} />
+                <Icon icon={GitBranchIcon} size={14} />
                 <span>Create Branch…</span>
               </ContextMenu.Item>
               <ContextMenu.Item
@@ -111,7 +112,7 @@
                     checkout: { kind: 'new_branch', name: '', base: tag.name }
                   })}
               >
-                <FolderOpenIcon size={14} />
+                <Icon icon={FolderOpenIcon} size={14} />
                 <span>Create Worktree…</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
@@ -119,35 +120,35 @@
                 onSelect={() =>
                   void openRangeDiff(folderPath, { rev: tag.name, label: tag.name }, { rev: 'HEAD', label: 'HEAD' })}
               >
-                <GitCompareIcon size={14} />
+                <Icon icon={GitCompareIcon} size={14} />
                 <span>Compare with HEAD</span>
               </ContextMenu.Item>
               <ContextMenu.Item
                 onSelect={() => void openRangeDiff(folderPath, { rev: tag.name, label: tag.name }, null)}
               >
-                <GitCompareIcon size={14} />
+                <Icon icon={GitCompareIcon} size={14} />
                 <span>Compare with Working Tree</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
               <ContextMenu.Item onSelect={() => void pushTag(folderPath, tag.name)}>
-                <CloudUploadIcon size={14} />
+                <Icon icon={CloudUploadIcon} size={14} />
                 <span>Push Tag…</span>
               </ContextMenu.Item>
               <ContextMenu.Item destructive onSelect={() => void deleteTag(folderPath, tag.name)}>
-                <TagIcon size={14} />
+                <Icon icon={Tag01Icon} size={14} />
                 <span>Delete Tag…</span>
               </ContextMenu.Item>
               <ContextMenu.Item destructive onSelect={() => void deleteRemoteTag(folderPath, tag.name)}>
-                <TagIcon size={14} />
+                <Icon icon={Tag01Icon} size={14} />
                 <span>Delete Tag from Remote…</span>
               </ContextMenu.Item>
               <ContextMenu.Separator />
               <ContextMenu.Item onSelect={() => void copyToClipboard(tag.name, 'Copy tag name failed')}>
-                <CopyIcon size={14} />
+                <Icon icon={CopyIcon} size={14} />
                 <span>Copy Tag Name</span>
               </ContextMenu.Item>
               <ContextMenu.Item onSelect={() => void copyToClipboard(tag.hash, 'Copy commit hash failed')}>
-                <CopyIcon size={14} />
+                <Icon icon={CopyIcon} size={14} />
                 <span>Copy Commit Hash</span>
               </ContextMenu.Item>
             </ContextMenu.Content>

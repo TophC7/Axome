@@ -4,7 +4,8 @@
   import { getGitSummary } from '$lib/features/git/state.svelte'
   import DiffStack from '$lib/features/workbench/surfaces/diff/DiffStack.svelte'
   import type { DiffContentFetcher } from '$lib/features/editor/renderers/monaco/diff/diffModels.svelte'
-  import { GitCompareIcon } from '$lib/icons/lucideExports'
+  import { GitCompareIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { createTrackedAsyncLoad } from '$lib/utils/trackedAsyncLoad.svelte'
   import { getErrorMessage } from '$lib/utils/client-error'
 
@@ -67,7 +68,7 @@
   <div class="shrink-0 border-b border-edge bg-surface px-4 py-3">
     <h2 class="mb-2 text-md leading-snug font-semibold text-bright">{baseLabel} ↔ {targetLabel}</h2>
     <div class="flex items-center gap-2 text-sm text-muted">
-      <GitCompareIcon size={12} />
+      <Icon icon={GitCompareIcon} size={12} />
       <span class="font-mono">{base.slice(0, 7)} ↔ {target?.slice(0, 7) ?? 'working tree'}</span>
     </div>
   </div>

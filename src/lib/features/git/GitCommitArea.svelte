@@ -4,15 +4,16 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { Textarea } from '$lib/components/ui/input'
   import {
-    ArrowUp,
-    Check,
-    ChevronDown,
+    ArrowUp02Icon,
+    CheckIcon,
+    ChevronDownIcon,
     CloudUploadIcon,
-    GitCommitIcon,
-    PlusCircle,
+    GitCommitHorizontalIcon,
+    CirclePlusIcon,
     RefreshCwIcon,
-    Undo2Icon
-  } from '$lib/icons/lucideExports'
+    Undo02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { GitSummary } from '$lib/types/backend'
   import AheadBehindBadge from './AheadBehindBadge.svelte'
   import {
@@ -132,24 +133,24 @@
         onclick={runPrimary}
       >
         {#if action.kind === 'continue'}
-          <Check size={13} />
+          <Icon icon={CheckIcon} size={13} />
           {action.title}
         {:else if action.kind === 'commit'}
           {#if action.post === 'push'}
-            <ArrowUp size={13} />
+            <Icon icon={ArrowUp02Icon} size={13} />
             Commit &amp; Push
           {:else if action.post === 'sync'}
-            <RefreshCwIcon size={13} />
+            <Icon icon={RefreshCwIcon} size={13} />
             Commit &amp; Sync
           {:else}
-            <Check size={13} />
+            <Icon icon={CheckIcon} size={13} />
             Commit
           {/if}
         {:else if action.kind === 'publish'}
-          <CloudUploadIcon size={13} />
+          <Icon icon={CloudUploadIcon} size={13} />
           Publish Branch
         {:else}
-          <RefreshCwIcon size={13} />
+          <Icon icon={RefreshCwIcon} size={13} />
           Sync Changes
           <AheadBehindBadge ahead={action.ahead} behind={action.behind} />
         {/if}
@@ -160,13 +161,13 @@
           aria-label="Commit Options"
           class="flex items-center rounded border border-edge bg-raised px-1 py-1 text-muted transition-colors hover:border-accent hover:text-bright focus-visible:shadow-focus-ring focus-visible:outline-none"
         >
-          <ChevronDown size={11} />
+          <Icon icon={ChevronDownIcon} size={11} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
           {#if display}
             {#if action.kind === 'continue'}
               <DropdownMenu.Item disabled={busy || !action.enabled} onSelect={runPrimary}>
-                <Check size={14} />
+                <Icon icon={CheckIcon} size={14} />
                 {action.title}
               </DropdownMenu.Item>
             {/if}
@@ -182,15 +183,15 @@
             <DropdownMenu.Separator />
           {/if}
           <DropdownMenu.Item disabled={!canCommit || busy} onSelect={() => chooseCommit('none')}>
-            <Check size={14} />
+            <Icon icon={CheckIcon} size={14} />
             Commit
           </DropdownMenu.Item>
           <DropdownMenu.Item disabled={!canPostCommit || busy} onSelect={() => chooseCommit('push')}>
-            <ArrowUp size={14} />
+            <Icon icon={ArrowUp02Icon} size={14} />
             Commit &amp; Push
           </DropdownMenu.Item>
           <DropdownMenu.Item disabled={!canPostCommit || busy} onSelect={() => chooseCommit('sync')}>
-            <RefreshCwIcon size={14} />
+            <Icon icon={RefreshCwIcon} size={14} />
             Commit &amp; Sync
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
@@ -198,11 +199,11 @@
             disabled={!hasHead || summary.operation !== null || busy}
             onSelect={() => runCommit({ kind: 'amend' })}
           >
-            <GitCommitIcon size={14} />
+            <Icon icon={GitCommitHorizontalIcon} size={14} />
             Commit (Amend)
           </DropdownMenu.Item>
           <DropdownMenu.Item disabled={!canCommit || busy} onSelect={() => runCommit({ kind: 'all' })}>
-            <PlusCircle size={14} />
+            <Icon icon={CirclePlusIcon} size={14} />
             Commit All
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
@@ -220,7 +221,7 @@
           </DropdownMenu.CheckboxItem>
           <DropdownMenu.Separator />
           <DropdownMenu.Item destructive disabled={!hasHead || summary.operation !== null || busy} onSelect={runUndo}>
-            <Undo2Icon size={14} />
+            <Icon icon={Undo02Icon} size={14} />
             Undo Last Commit
           </DropdownMenu.Item>
         </DropdownMenu.Content>

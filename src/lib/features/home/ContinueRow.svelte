@@ -3,7 +3,8 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { sessionBrand, type HarnessIconSource } from '$lib/features/sessions/harnesses/catalog'
   import HarnessIcon from '$lib/features/sessions/harnesses/HarnessIcon.svelte'
-  import { MoreHorizontalIcon, Play, TerminalIcon } from '$lib/icons/lucideExports'
+  import { MoreHorizontalIcon, PlayIcon, TerminalIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { WorkbenchInfo } from '$lib/types/backend'
   import { cn } from '$lib/utils/cn'
   import { timeAgo } from '$lib/utils/date'
@@ -89,7 +90,7 @@
           {#if chip.icon}
             <HarnessIcon icon={chip.icon} size={12} />
           {:else if chip.task}
-            <Play size={10} class="text-subtle" />
+            <Icon icon={PlayIcon} size={10} class="text-subtle" />
           {/if}
           <span class={cn(chip.task && 'font-mono')}>{chip.label}</span>
           {#if chip.count > 1}
@@ -150,7 +151,7 @@
         disabled={closing}
         class={iconButtonVariants({ size: 'md' })}
       >
-        <MoreHorizontalIcon size={14} />
+        <Icon icon={MoreHorizontalIcon} size={14} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" sideOffset={4}>
         <DropdownMenu.Item destructive onSelect={onClose}>Close Workbench…</DropdownMenu.Item>

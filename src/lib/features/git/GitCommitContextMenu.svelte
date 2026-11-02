@@ -14,13 +14,14 @@
     CopyIcon,
     FolderOpenIcon,
     GitBranchIcon,
-    GitCommitIcon,
+    GitCommitHorizontalIcon,
     GitCompareIcon,
-    RotateCcwIcon,
-    TagIcon,
-    Trash2,
-    Undo2Icon
-  } from '$lib/icons/lucideExports'
+    UndoIcon,
+    Tag01Icon,
+    Delete02Icon,
+    Undo02Icon
+  } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import type { GitRef, GraphCommit } from '$lib/types/backend'
   import { copyToClipboard } from '$lib/utils/clipboard'
 
@@ -62,25 +63,25 @@
   </ContextMenu.Trigger>
   <ContextMenu.Content>
     <ContextMenu.Item onSelect={() => void openCommitDiff(folderPath, commit.hash, commit.short_hash, commit.message)}>
-      <GitCommitIcon size={14} />
+      <Icon icon={GitCommitHorizontalIcon} size={14} />
       <span>Open Changes</span>
     </ContextMenu.Item>
     <ContextMenu.Separator />
     {#if checkoutRefs.length > 0}
       <ContextMenu.Sub>
         <ContextMenu.SubTrigger disabled={paused}>
-          <GitBranchIcon size={14} />
+          <Icon icon={GitBranchIcon} size={14} />
           <span>Checkout</span>
         </ContextMenu.SubTrigger>
         <ContextMenu.SubContent>
           {#each checkoutRefs as ref (`${ref.kind}:${ref.name}`)}
             <ContextMenu.Item disabled={paused} onSelect={() => checkout(ref)}>
               {#if ref.kind === 'branch'}
-                <GitBranchIcon size={14} />
+                <Icon icon={GitBranchIcon} size={14} />
               {:else if ref.kind === 'remote_branch'}
-                <CloudIcon size={14} />
+                <Icon icon={CloudIcon} size={14} />
               {:else}
-                <TagIcon size={14} />
+                <Icon icon={Tag01Icon} size={14} />
               {/if}
               <span>{ref.name}</span>
             </ContextMenu.Item>
@@ -92,16 +93,16 @@
       disabled={paused}
       onSelect={() => void checkoutRef(folderPath, { kind: 'detached', rev: commit.hash, label: commit.short_hash })}
     >
-      <GitCommitIcon size={14} />
+      <Icon icon={GitCommitHorizontalIcon} size={14} />
       <span>Checkout (Detached)</span>
     </ContextMenu.Item>
     <ContextMenu.Separator />
     <ContextMenu.Item onSelect={() => openGitDialog({ kind: 'create_branch', folderPath, base: commit.short_hash })}>
-      <GitBranchIcon size={14} />
+      <Icon icon={GitBranchIcon} size={14} />
       <span>Create Branch…</span>
     </ContextMenu.Item>
     <ContextMenu.Item onSelect={() => void createTag(folderPath, commit.hash, commit.short_hash)}>
-      <TagIcon size={14} />
+      <Icon icon={Tag01Icon} size={14} />
       <span>Create Tag…</span>
     </ContextMenu.Item>
     <ContextMenu.Item
@@ -112,21 +113,21 @@
           checkout: { kind: 'new_branch', name: '', base: commit.hash }
         })}
     >
-      <FolderOpenIcon size={14} />
+      <Icon icon={FolderOpenIcon} size={14} />
       <span>Create Worktree…</span>
     </ContextMenu.Item>
     <ContextMenu.Separator />
     <ContextMenu.Item disabled={paused} onSelect={() => void cherryPickCommit(folderPath, commit.hash)}>
-      <CherryIcon size={14} />
+      <Icon icon={CherryIcon} size={14} />
       <span>Cherry Pick</span>
     </ContextMenu.Item>
     <ContextMenu.Item disabled={paused} onSelect={() => void revertCommit(folderPath, commit.hash)}>
-      <Undo2Icon size={14} />
+      <Icon icon={Undo02Icon} size={14} />
       <span>Revert</span>
     </ContextMenu.Item>
     <ContextMenu.Sub>
       <ContextMenu.SubTrigger disabled={paused}>
-        <RotateCcwIcon size={14} />
+        <Icon icon={UndoIcon} size={14} />
         <span>Reset HEAD to Here</span>
       </ContextMenu.SubTrigger>
       <ContextMenu.SubContent>
@@ -156,25 +157,25 @@
       onSelect={() =>
         void openRangeDiff(folderPath, { rev: commit.hash, label: commit.short_hash }, { rev: 'HEAD', label: 'HEAD' })}
     >
-      <GitCompareIcon size={14} />
+      <Icon icon={GitCompareIcon} size={14} />
       <span>Compare with HEAD</span>
     </ContextMenu.Item>
     <ContextMenu.Item
       onSelect={() => void openRangeDiff(folderPath, { rev: commit.hash, label: commit.short_hash }, null)}
     >
-      <GitCompareIcon size={14} />
+      <Icon icon={GitCompareIcon} size={14} />
       <span>Compare with Working Tree</span>
     </ContextMenu.Item>
     {#if tagRefs.length > 0}
       <ContextMenu.Sub>
         <ContextMenu.SubTrigger>
-          <Trash2 size={14} />
+          <Icon icon={Delete02Icon} size={14} />
           <span>Delete Tag</span>
         </ContextMenu.SubTrigger>
         <ContextMenu.SubContent>
           {#each tagRefs as ref (ref.name)}
             <ContextMenu.Item destructive onSelect={() => void deleteTag(folderPath, ref.name)}>
-              <TagIcon size={14} />
+              <Icon icon={Tag01Icon} size={14} />
               <span>{ref.name}</span>
             </ContextMenu.Item>
           {/each}
@@ -183,11 +184,11 @@
     {/if}
     <ContextMenu.Separator />
     <ContextMenu.Item onSelect={() => void copyToClipboard(commit.hash, 'Copy commit hash failed')}>
-      <CopyIcon size={14} />
+      <Icon icon={CopyIcon} size={14} />
       <span>Copy Commit Hash</span>
     </ContextMenu.Item>
     <ContextMenu.Item onSelect={() => void copyCommitMessage()}>
-      <CopyIcon size={14} />
+      <Icon icon={CopyIcon} size={14} />
       <span>Copy Commit Message</span>
     </ContextMenu.Item>
   </ContextMenu.Content>

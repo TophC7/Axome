@@ -1,7 +1,8 @@
 <script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
   import { cn, type WithoutChild } from '$lib/utils/cn'
-  import { ChevronRight } from '$lib/icons/lucideExports'
+  import { ChevronRightIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { menuItemClass } from '../menu-recipe'
 
   let {
@@ -23,5 +24,5 @@
   {...rest}
 >
   {#if children}{@render children()}{/if}
-  <ChevronRight size={14} class="ms-auto" />
+  <Icon icon={ChevronRightIcon} size={14} class="ms-auto" />
 </DropdownMenuPrimitive.SubTrigger>

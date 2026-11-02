@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
-  import { Eye, EyeOff } from '$lib/icons/lucideExports'
+  import { EyeIcon, EyeOffIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { buildFileTree, type FileTreeNode } from '$lib/utils/fileTree'
   import { buildTreeFilter } from '$lib/utils/fileTreeFilter'
   import FileTreeItems from '$lib/components/file-tree/FileTreeItems.svelte'
@@ -575,9 +576,9 @@
       onclick={() => setShowHidden(folderPath, !tree.showHidden)}
     >
       {#if tree.showHidden}
-        <EyeOff size={12} />
+        <Icon icon={EyeOffIcon} size={12} />
       {:else}
-        <Eye size={12} />
+        <Icon icon={EyeIcon} size={12} />
       {/if}
     </IconButton>
   {/snippet}

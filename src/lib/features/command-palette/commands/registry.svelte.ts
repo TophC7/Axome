@@ -1,4 +1,4 @@
-import type { Component } from 'svelte'
+import type { IconData } from '$lib/icons/Icon.svelte'
 import type { Command, CommandGroup } from './types'
 import { getGitCommandDefinitions } from './git.svelte'
 import { getTextEditorActions } from '$lib/features/editor/renderers/monaco/text/actions.svelte'
@@ -69,21 +69,21 @@ import {
   MessagesSquareIcon,
   PaintbrushIcon,
   PanelLeftIcon,
-  Play,
-  Plus,
+  PlayIcon,
+  PlusIcon,
   RefreshCwIcon,
-  RotateCcwIcon,
-  RotateCw,
-  SearchIcon,
-  SettingsIcon,
-  SquareArrowOutUpRight,
+  UndoIcon,
+  RefreshIcon,
+  Search01Icon,
+  Settings01Icon,
+  SquareArrowOutUpRightIcon,
   TerminalIcon,
   ServerIcon,
-  Undo2Icon,
-  X,
+  Undo02Icon,
+  XIcon,
   ZoomInIcon,
   ZoomOutIcon
-} from '$lib/icons/lucideExports'
+} from '@hugeicons/core-free-icons'
 
 export type ShortcutCommandSource = 'app' | 'editor'
 export type TerminalPolicy = 'skip-shell' | 'skip-shell-keeps-modals'
@@ -95,7 +95,7 @@ export interface AppCommandDefinition {
   label: Dynamic<string>
   group: string
   keywords: Dynamic<string[]>
-  icon?: Component
+  icon?: IconData
   iconSrc?: string
   defaultKeybindings?: string[]
   dangerous?: boolean
@@ -209,7 +209,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: `workbench-remove-from-window-${group.server}`,
       label: `Remove ${group.server} Workbench from Window`,
       group: 'Workbenches',
-      icon: X,
+      icon: XIcon,
       keywords: ['remove', 'window', 'workbench', group.server],
       visible: () => group.state !== 'active',
       run: () => removeServerWorkbenchFromWindow(group.server)
@@ -272,7 +272,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
             id: 'close-workbench',
             label: 'Close Workbench',
             group: 'File',
-            icon: X,
+            icon: XIcon,
             keywords: ['close', 'workbench', 'stop'],
             dangerous: true,
             run: closeCurrentWorkbench
@@ -302,7 +302,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'settings',
       label: 'Settings',
       group: 'General',
-      icon: SettingsIcon,
+      icon: Settings01Icon,
       keywords: ['preferences', 'config', 'options'],
       defaultKeybindings: ['Ctrl+,'],
       terminalPolicy: 'skip-shell',
@@ -312,7 +312,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'open-global-settings',
       label: 'Open Global Settings',
       group: 'General',
-      icon: SettingsIcon,
+      icon: Settings01Icon,
       keywords: ['settings', 'preferences', 'jsonc', 'global', 'user'],
       native: true,
       run: openGlobalSettingsFile
@@ -321,7 +321,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'open-folder-settings',
       label: 'Open Folder Settings',
       group: 'General',
-      icon: SettingsIcon,
+      icon: Settings01Icon,
       keywords: ['settings', 'preferences', 'jsonc', 'folder', 'axome'],
       visible: activeFolderVisible,
       run: openFolderSettingsFile
@@ -348,7 +348,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'reveal-in-file-manager',
       label: 'Reveal in File Manager',
       group: 'File',
-      icon: SquareArrowOutUpRight,
+      icon: SquareArrowOutUpRightIcon,
       keywords: ['open', 'folder', 'explorer', 'finder', 'nautilus', 'files'],
       native: true,
       visible: () => activeFolderVisible() && !splitRemotePath(getActiveFolderPath() ?? ''),
@@ -377,7 +377,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'new-session',
       label: 'New Session',
       group: 'Sessions',
-      icon: Plus,
+      icon: PlusIcon,
       keywords: ['new', 'session', 'agent', 'default', 'preset'],
       visible: activeFolderVisible,
       run: newDefaultSession
@@ -399,7 +399,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'files.show',
       label: 'Go to File',
       group: 'File',
-      icon: SearchIcon,
+      icon: Search01Icon,
       keywords: ['files', 'file', 'search', 'open', 'goto', 'quick', '/'],
       defaultKeybindings: ['Ctrl+P'],
       terminalPolicy: 'skip-shell-keeps-modals',
@@ -434,7 +434,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'tasks.show',
       label: 'Show Tasks',
       group: 'Tasks',
-      icon: Play,
+      icon: PlayIcon,
       keywords: ['tasks', 'task', 'run', '!'],
       visible: activeFolderVisible,
       run: showTasks
@@ -443,7 +443,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'tasks.rerun-last',
       label: 'Re-run Last Task',
       group: 'Tasks',
-      icon: RotateCw,
+      icon: RefreshIcon,
       keywords: () => {
         const label = lastTaskLabel()
         return ['tasks', 'rerun', 'repeat', 'last', label ?? '']
@@ -465,7 +465,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'close-tab',
       label: 'Close Tab',
       group: 'View',
-      icon: X,
+      icon: XIcon,
       keywords: ['close', 'tab', 'dismiss'],
       defaultKeybindings: platform.native ? ['Ctrl+W'] : [],
       visible: activeFolderVisible,
@@ -475,7 +475,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'reopen-closed-tab',
       label: 'Reopen Closed Tab',
       group: 'View',
-      icon: Undo2Icon,
+      icon: Undo02Icon,
       keywords: ['reopen', 'undo', 'restore', 'tab'],
       defaultKeybindings: platform.native ? ['Ctrl+Shift+T'] : [],
       visible: hasClosedTabs,
@@ -525,7 +525,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'zoom-reset',
       label: 'Reset Zoom',
       group: 'View',
-      icon: RotateCcwIcon,
+      icon: UndoIcon,
       keywords: ['zoom', 'reset', 'default', '100%'],
       native: true,
       defaultKeybindings: ['Ctrl+0'],
@@ -545,7 +545,7 @@ export function getAppCommandDefinitions(): AppCommandDefinition[] {
       id: 'dismiss-notifications',
       label: 'Dismiss Notifications',
       group: 'Notifications',
-      icon: X,
+      icon: XIcon,
       keywords: ['notification', 'notifications', 'toast', 'alerts', 'dismiss', 'clear', 'remove'],
       visible: () => getNotifications().length > 0,
       run: clearAllNotifications

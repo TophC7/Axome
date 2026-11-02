@@ -1,7 +1,8 @@
 <script lang="ts">
   import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
   import { cn, type WithoutChild } from '$lib/utils/cn'
-  import { Circle } from '$lib/icons/lucideExports'
+  import { CircleIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { menuIndicatorClass, menuIndicatorItemClass } from '../menu-recipe'
 
   let {
@@ -20,7 +21,7 @@
 >
   {#snippet children({ checked })}
     <span class={menuIndicatorClass}>
-      {#if checked}<Circle class="size-2 fill-current text-current" />{/if}
+      {#if checked}<Icon icon={CircleIcon} class="size-2 fill-current text-current" />{/if}
     </span>
     {@render label?.({ checked })}
   {/snippet}

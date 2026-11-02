@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ChevronRight } from '$lib/icons/lucideExports'
+  import { ChevronRightIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { cn } from '$lib/utils/cn'
   import type { HTMLLiAttributes } from 'svelte/elements'
 
@@ -12,5 +13,5 @@
 </script>
 
 <li role="presentation" aria-hidden="true" class={cn('inline-flex items-center text-subtle', className)} {...rest}>
-  <ChevronRight size={12} />
+  <Icon icon={ChevronRightIcon} size={12} />
 </li>

@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { BlurFade } from '$lib/components/ui/blur-fade'
-  import { ChevronRight } from '$lib/icons/lucideExports'
+  import { ChevronRightIcon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { cn } from '$lib/utils/cn'
   import { getPathColor } from '$lib/utils/pathColor'
   import { basename, splitRemotePath } from '$lib/utils/paths'
@@ -15,7 +16,8 @@
   <header class={cn('flex max-w-full flex-col items-center gap-1 text-center', className)}>
     <!-- The chevron hangs left of the name so the name alone is centered. -->
     <h2 class="relative max-w-full text-3xl text-bright">
-      <ChevronRight
+      <Icon
+        icon={ChevronRightIcon}
         size={28}
         class="absolute top-1/2 right-full -translate-y-1/2"
         style="color: {getPathColor(folderPath)}"

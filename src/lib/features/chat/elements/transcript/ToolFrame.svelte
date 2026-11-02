@@ -6,14 +6,15 @@
   import {
     CircleXIcon,
     FileCodeIcon,
-    FileDiff,
+    FileDiffIcon,
     FilePlusCornerIcon,
     FolderOpenIcon,
-    MessageSquare,
+    MessageSquareIcon,
     PackageIcon,
-    SearchIcon,
+    Search01Icon,
     TerminalIcon
-  } from '$lib/icons/lucideExports'
+  } from '@hugeicons/core-free-icons'
+  import Icon, { type IconData } from '$lib/icons/Icon.svelte'
   import FileIcon from '$lib/icons/FileIcon.svelte'
   import { cn } from '$lib/utils/cn'
   import type { ToolHeader } from '../tool/toolHeader'
@@ -35,17 +36,16 @@
     children?: Snippet
   } = $props()
 
-  const tools: Record<string, { icon: typeof TerminalIcon; label: string }> = {
+  const tools: Record<string, { icon: IconData; label: string }> = {
     bash: { icon: TerminalIcon, label: 'Bash' },
     read: { icon: FileCodeIcon, label: 'Read' },
-    edit: { icon: FileDiff, label: 'Edit' },
+    edit: { icon: FileDiffIcon, label: 'Edit' },
     write: { icon: FilePlusCornerIcon, label: 'Write' },
-    grep: { icon: SearchIcon, label: 'Grep' },
+    grep: { icon: Search01Icon, label: 'Grep' },
     find: { icon: FolderOpenIcon, label: 'Find' },
-    ask: { icon: MessageSquare, label: 'Ask' }
+    ask: { icon: MessageSquareIcon, label: 'Ask' }
   }
   const tool = $derived(tools[header.name] ?? { icon: PackageIcon, label: header.name })
-  const ToolIcon = $derived(tool.icon)
   const failed = $derived(header.tone === 'danger')
   const running = $derived(header.tone === 'working')
 
@@ -82,7 +82,8 @@
   <div class="flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1">
     <!-- The batch header already names the tool; nested calls keep the toggle for keyboard users only. -->
     {#if !nested}
-      <ToolIcon
+      <Icon
+        icon={tool.icon}
         size={14}
         class={cn('mt-px shrink-0', failed ? 'text-danger' : running ? 'text-accent' : 'text-muted')}
         aria-hidden="true"
@@ -130,7 +131,7 @@
             header.status.tone === 'danger' ? 'text-danger-bright' : 'text-accent'
           )}
         >
-          {#if header.status.tone === 'danger'}<CircleXIcon size={12} aria-hidden="true" />{/if}
+          {#if header.status.tone === 'danger'}<Icon icon={CircleXIcon} size={12} aria-hidden="true" />{/if}
           {header.status.label}
         </span>
       {/if}

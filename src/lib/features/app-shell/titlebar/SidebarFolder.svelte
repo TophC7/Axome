@@ -7,7 +7,8 @@
 
 <script lang="ts">
   import { isBrowserOpen, toggleBrowser } from '$lib/features/browser/state.svelte'
-  import { ChevronsLeftRightEllipsisIcon, FolderIcon } from '$lib/icons/lucideExports'
+  import { ChevronsLeftRightEllipsisIcon, Folder01Icon } from '@hugeicons/core-free-icons'
+  import Icon from '$lib/icons/Icon.svelte'
   import { basename, parentPath, splitRemotePath } from '$lib/utils/paths'
 
   let { folderPath }: { folderPath: string } = $props()
@@ -32,8 +33,8 @@
     {#if remote}<span class="text-muted">{remote.server}:</span>{/if}{parent}
   </span>
   {#if remote}
-    <ChevronsLeftRightEllipsisIcon size={12} class="ml-auto shrink-0 text-subtle group-hover:text-fg" />
+    <Icon icon={ChevronsLeftRightEllipsisIcon} size={12} class="ml-auto shrink-0 text-subtle group-hover:text-fg" />
   {:else}
-    <FolderIcon size={12} class="ml-auto shrink-0 text-subtle group-hover:text-fg" />
+    <Icon icon={Folder01Icon} size={12} class="ml-auto shrink-0 text-subtle group-hover:text-fg" />
   {/if}
 </button>
